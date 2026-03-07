@@ -158,17 +158,17 @@
 
 ### Tests for Integration
 
-- [ ] T091 [US1] Create `tests/integration/test_enhanced_analysis.py` with end-to-end tests
-- [ ] T092 [US1] Add tests for full report structure (5-10 recommendations, great projects, field exploration) in `tests/integration/test_enhanced_analysis.py`
-- [ ] T093 [US1] Verify integration tests fail (features not integrated)
+- [x] T091 [US1] Create `tests/integration/test_enhanced_analysis.py` with end-to-end tests
+- [x] T092 [US1] Add tests for full report structure (5-10 recommendations, great projects, field exploration) in `tests/integration/test_enhanced_analysis.py`
+- [x] T093 [US1] Verify integration tests fail (features not integrated)
 
 ### Implementation for Integration
 
-- [ ] T094 [US1] Update `analysis` command to use new `analyzer.py` service in `src/oss_navi/cli.py`
-- [ ] T095 [US1] Update Claude Code prompt template for enhanced report structure in `src/oss_navi/services/analyzer.py`
-- [ ] T096 [US1] Integrate issue status checking before recommendations in `src/oss_navi/cli.py`
-- [ ] T097 [US1] Add field exploration advice to report generation in `src/oss_navi/services/analyzer.py`
-- [ ] T098 [US1] Verify integration tests pass
+- [x] T094 [US1] Update `analysis` command to use new `analyzer.py` service in `src/oss_navi/cli.py`
+- [x] T095 [US1] Update Claude Code prompt template for enhanced report structure in `src/oss_navi/services/analyzer.py`
+- [x] T096 [US1] Integrate issue status checking before recommendations in `src/oss_navi/cli.py`
+- [x] T097 [US1] Add field exploration advice to report generation in `src/oss_navi/services/analyzer.py`
+- [x] T098 [US1] Verify integration tests pass
 
 **Checkpoint**: Full enhanced analysis should produce comprehensive report
 
