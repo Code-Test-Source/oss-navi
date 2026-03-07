@@ -25,17 +25,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T001 [P] [PERF] Create `tests/unit/test_services/test_scraper_performance.py` with timing assertions for async fetch
-- [ ] T002 [PERF] Verify performance tests fail (current sync > 60s)
+- [x] T001 [P] [PERF] Create `tests/unit/test_services/test_scraper_performance.py` with timing assertions for async fetch
+- [x] T002 [PERF] Verify performance tests fail (current sync > 60s)
 
 ### Implementation for Performance
 
 - [x] T003 [PERF] Add async httpx client support in `src/oss_navi/services/scraper.py` for parallel YAML fetches
 - [x] T004 [PERF] Implement `fetch_upforgrabs_tasks_async()` with concurrent YAML file fetching (max 10 parallel)
-- [ ] T005 [PERF] Optimize `select_diverse_tasks()` with pre-indexed language/source lookup in `src/oss_navi/services/scraper.py`
+- [x] T005 [PERF] Optimize `select_diverse_tasks()` with pre-indexed language/source lookup in `src/oss_navi/services/scraper.py`
 - [ ] T006 [PERF] Add streaming JSON parsing for large goodfirstissues response in `src/oss_navi/services/scraper.py`
 - [x] T007 [PERF] Update `fetch_and_cache_tasks()` to use async fetchers in `src/oss_navi/services/scraper.py`
-- [ ] T008 [PERF] Verify performance tests pass (sync < 30s)
+- [x] T008 [PERF] Verify performance tests pass (sync < 30s)
 
 **Checkpoint**: Task sync should now complete in under 30 seconds
 
@@ -119,9 +119,9 @@
 - [x] T035 Run full test suite: `uv run pytest tests/ -q --tb=short --cov=oss_navi --cov-report=term-missing`
 - [x] T036 Verify 80%+ test coverage maintained
 - [x] T037 Run ruff linting: `uv run ruff check src/`
-- [ ] T038 Manual test: `uv run oss-navi sync --tasks` completes in < 30s
+- [x] T038 Manual test: `uv run oss-navi sync --tasks` completes in < 30s
 - [x] T039 Manual test: `uv run oss-navi sync` with proxy works correctly (proxy auto-detected from env)
-- [ ] T040 Update CHANGELOG or release notes if applicable
+- [x] T040 Update CHANGELOG or release notes if applicable
 
 ---
 
@@ -169,6 +169,7 @@ Phase 4 documentation tasks can run in parallel.
 - Stop at any checkpoint to validate independently
 - Proxy support should respect environment variables (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
 - **All commands require `uv run` prefix when using uv installation**
+- **Proxy settings are centralized in `config.py`** - see `specs/001-oss-discovery/ARCHITECTURE.md`
 
 ---
 

@@ -5,6 +5,7 @@
 ```
 src/oss_navi/
 ├── cli.py              # Click CLI commands (sync, config, analysis, publish)
+├── config.py           # Configuration management (proxy settings, token handling)
 ├── models/             # Pydantic data models
 │   ├── config.py       # Config model
 │   ├── task.py         # Task, Repository models
@@ -22,7 +23,7 @@ src/oss_navi/
 
 ### HTTP Client Pattern
 
-Both `github.py` and `scraper.py` create httpx clients with proxy support:
+`config.py` provides centralized proxy and SSL settings used by both `github.py` and `scraper.py`:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -33,27 +34,29 @@ Both `github.py` and `scraper.py` create httpx clients with proxy support:
 │  - HTTPS_PROXY / https_proxy                                     │
 │  - OSS_NAVI_VERIFY_SSL (default: true)                          │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌─────────────────┐     ┌─────────────────────┐               │
-│  │   github.py     │     │    scraper.py       │               │
-│  │ GitHubClient    │     │ create_http_client  │               │
-│  │ ._create_client │     │ create_async_client │               │
-│  └────────┬────────┘     └──────────┬──────────┘               │
-│           │                         │                           │
-│           └──────────┬──────────────┘                           │
-│                      ▼                                          │
+│                      ▲                                          │
+│                      │                                          │
 │           ┌─────────────────────────┐                          │
-│           │  httpx.Client/AsyncClient │                         │
-│           │  with mounts for proxies  │                         │
-│           │  verify=should_verify_ssl()│                        │
-│           └─────────────────────────┘                          │
+│           │      config.py          │                          │
+│           │  get_proxy_settings()   │                          │
+│           │  should_verify_ssl()    │                          │
+│           └───────────┬─────────────┘                          │
+│                       │                                          │
+│           ┌───────────┴───────────┐                             │
+│           │                       │                              │
+│  ┌────────┴────────┐     ┌────────┴─────────┐                   │
+│  │   github.py     │     │    scraper.py    │                   │
+│  │ GitHubClient    │     │ create_http_     │                   │
+│  │ ._create_client │     │ client()         │                   │
+│  └─────────────────┘     │ create_async_    │                   │
+│                          │ http_client()    │                   │
+│                          └──────────────────┘                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**IMPORTANT**: When updating proxy handling, update ALL THREE functions:
-1. `github.py`: `GitHubClient._create_client()`
-2. `scraper.py`: `create_http_client()`
-3. `scraper.py`: `create_async_http_client()`
+**IMPORTANT**: Proxy settings are centralized in `config.py`. When updating proxy handling:
+1. Update `config.py`: `get_proxy_settings()` and `should_verify_ssl()`
+2. Both `github.py` and `scraper.py` import from `config.py`
 
 ### Source Names
 
@@ -142,7 +145,7 @@ return httpx.AsyncClient(
 
 ## Checklist Before Editing
 
-- [ ] If touching proxy code, update ALL client creation functions
+- [ ] If touching proxy code, update `config.py` first (centralized source)
 - [ ] If adding new source name, update both cli.py and scraper.py
 - [ ] If adding new cache type, update paths.py constants
 - [ ] Run tests: `pytest --cov=oss_navi`
