@@ -403,13 +403,14 @@ def fetch_goodfirstissue_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
     return tasks
 
 
-def fetch_goodfirstissues_tasks(timeout: float = DEFAULT_TIMEOUT, max_issues: int = DEFAULT_MAX_ISSUES) -> list[Task]:
+def fetch_goodfirstissues_tasks(timeout: float = 60.0, max_issues: int = DEFAULT_MAX_ISSUES) -> list[Task]:
     """Fetch tasks from Good First Issues (goodfirstissues.com).
 
     This source provides individual issue URLs via a JSON API.
+    Note: The JSON file is ~1.1MB, so a longer timeout is needed.
 
     Args:
-        timeout: Request timeout in seconds
+        timeout: Request timeout in seconds (default: 60.0 for large file)
         max_issues: Maximum number of issues to fetch
 
     Returns:
