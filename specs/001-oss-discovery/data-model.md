@@ -114,7 +114,7 @@ Open source contribution opportunity from scraped sources.
 | title | string | Yes | Issue title |
 | description | string | No | Issue description (truncated to 500 chars) |
 | url | string | Yes | Issue URL |
-| source | string | Yes | Source (upforgrabs, goodfirstissue) |
+| source | string | Yes | Source (upforgrabs, goodfirstissues) |
 | repository | Repository | Yes | Parent repository info |
 | labels | string[] | Yes | Issue labels |
 | created_at | datetime | Yes | Issue creation timestamp |
@@ -240,7 +240,7 @@ Record of a previous project recommendation.
 ├── cache/
 │   ├── github_profile.json   # UserProfile cache
 │   ├── upforgrabs_tasks.json # Task[] from Up For Grabs
-│   ├── goodfirstissue_tasks.json # Task[] from Good First Issue
+│   ├── goodfirstissues_tasks.json # Task[] from Good First Issues
 │   └── metadata.json         # Cache timestamps
 ├── state/
 │   ├── config.json           # Configuration
@@ -268,7 +268,7 @@ Record of a previous project recommendation.
       "count": 150,
       "is_valid": true
     },
-    "goodfirstissue_tasks": {
+    "goodfirstissues_tasks": {
       "fetched_at": "2026-03-07T10:00:00Z",
       "expires_at": "2026-03-08T10:00:00Z",
       "count": 200,

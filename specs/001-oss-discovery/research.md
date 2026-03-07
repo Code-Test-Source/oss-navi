@@ -1,6 +1,6 @@
 # Research: OSS-Navi CLI Tool
 
-**Date**: 2026-03-07
+**Date**: 2026-03-07 (Updated)
 **Feature**: 001-oss-discovery
 
 ## Technology Decisions
@@ -47,6 +47,7 @@
 - Better API than requests for both modes
 - Excellent timeout and retry support
 - Good for GitHub API and web scraping
+- **Supports async for parallel requests** (added for performance)
 
 **Alternatives Considered**:
 - **requests**: Battle-tested but synchronous only, older API design
@@ -60,7 +61,7 @@
 - Industry standard for Python web scraping
 - Forgiving parser handles imperfect HTML
 - lxml backend is fast and robust
-- Easy to extract data from Good First Issue website
+- Easy to extract data from static pages
 
 **Alternatives Considered**:
 - **Scrapy**: Overkill for simple scraping of 1-2 websites
@@ -117,26 +118,56 @@
 
 ### Up For Grabs Integration
 
-**Source**: https://up-for-grabs.net/data.json
+**Source**: https://up-for-grabs.net
 
-**Approach**: Direct JSON fetch (no scraping needed)
+**Approach**: YAML files via GitHub API (updated 2024-2025)
 
 **Data Structure**:
-- Array of projects with labels for "up-for-grabs"
-- Each project has name, url, description, tags
-- Link to GitHub issues with specific labels
+- Individual YAML files in `_data/projects/` directory
+- Each project has name, site (GitHub URL), tags, upforgrabs label
+- Issue counts and last-updated timestamps
 
-### Good First Issue Integration
+**Performance Optimization**:
+- Use async httpx for parallel YAML fetches
+- Limit to 50 projects to avoid rate limits
+- Cache results with 24-hour expiration
 
-**Source**: https://goodfirstissue.dev/
+### Good First Issues Integration
 
-**Approach**: Web scraping (static site generation)
+**Source**: https://goodfirstissues.com
 
-**Scraping Strategy**:
-- Fetch HTML via httpx
-- Parse with BeautifulSoup4
-- Extract issue data from page content
-- Handle pagination if present
+**Approach**: JSON API (discovered 2026-03-07)
+
+**API**: `https://raw.githubusercontent.com/iedr/goodfirstissues/master/backend/data.json`
+
+**Data Structure**:
+- Array of issues with:
+  - `Issue.issue_url` - GitHub issue URL
+  - `Issue.issue_title` - Issue title
+  - `Issue.issue_createdAt` - Creation timestamp
+  - `Issue.issue_repo.repo_name` - Repository name
+  - `Issue.issue_repo.repo_stars` - Star count
+  - `Issue.issue_repo.repo_langs.Nodes[].repo_prog_language` - Languages
+  - `Issue.issue_labels.Nodes[].label_name` - Labels
+
+**Performance Notes**:
+- JSON file is ~1.1MB
+- Use 60-second timeout
+- Randomize order for variety
+
+### ~~Good First Issue Integration~~ (REMOVED)
+
+**Source**: https://goodfirstissue.dev
+
+**Status**: NOT WORKING - Client-side Nuxt.js rendering
+
+**Issue**: The site uses Nuxt.js with client-side JavaScript rendering. The HTML response contains no actual issue data - content is loaded dynamically via JavaScript. BeautifulSoup cannot extract data from client-rendered content.
+
+**Alternatives Considered**:
+- **Playwright/Selenium**: Would work but adds browser dependency, slow, overkill
+- **API reverse-engineering**: No public API available
+
+**Decision**: Remove this source. Use goodfirstissues.com instead which provides a working JSON API.
 
 ### Claude Code Integration
 
@@ -169,7 +200,7 @@ claude --print "prompt text here"
 ├── cache/
 │   ├── github_profile.json      # User profile data
 │   ├── upforgrabs_tasks.json    # Up For Grabs tasks
-│   ├── goodfirstissue_tasks.json # Good First Issue tasks
+│   ├── goodfirstissues_tasks.json # Good First Issues tasks (renamed)
 │   └── metadata.json            # Cache timestamps and version
 ├── state/
 │   ├── config.json              # User configuration
@@ -223,12 +254,21 @@ claude --print "prompt text here"
 - Use field filtering (`?fields=...`) to reduce response size
 - Cache aggressively with 24-hour expiration
 - Implement conditional requests for GitHub API
+- **Use async httpx for parallel YAML fetches** (new)
+
+### Search Algorithm Optimization
+
+- Pre-index tasks by language for fast filtering
+- Use sets for O(1) tag lookups
+- Limit result sets early in pipeline
+- Random sampling with `random.sample()` is O(n) - acceptable for our scale
 
 ### Scraping Efficiency
 
 - Single fetch per source per sync
 - Parse in-memory, no intermediate files
 - Handle large responses with streaming if needed
+- **Parallel fetch for Up For Grabs YAML files** (new)
 
 ### Claude Code Timeout
 
@@ -264,9 +304,15 @@ claude --print "prompt text here"
 | GitHub API auth failure | Clear cached token, prompt reconfig |
 | Network timeout | Retry with exponential backoff (3 attempts) |
 | Claude Code not found | Clear error message with install link |
-| Good First Issue unavailable | Fall back to Up For Grabs only |
+| Good First Issues unavailable | Fall back to Up For Grabs only |
 | Git push failure | Archive locally, warn user |
 
 ## Open Questions Resolved
 
 All technical questions resolved through research. No NEEDS CLARIFICATION items remain.
+
+## Changelog
+
+- **2026-03-07**: Added performance optimization research
+- **2026-03-07**: Removed goodfirstissue.dev (client-side rendering issue)
+- **2026-03-07**: Renamed cache file to `goodfirstissues_tasks.json`

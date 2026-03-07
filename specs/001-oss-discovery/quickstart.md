@@ -89,7 +89,7 @@ oss-navi sync
 ```
 ✓ GitHub profile cached (245 repos, 12 languages)
 ✓ Up For Grabs: 156 tasks
-✓ Good First Issue: 203 tasks
+✓ Good First Issues: 203 tasks
 ✓ Cache expires: 2026-03-08 10:00:00
 ```
 
@@ -162,6 +162,32 @@ oss-navi config --min-stars 500 --max-age 30
 oss-navi sync --tasks --force
 ```
 
+### Proxy Configuration
+
+If you're behind a corporate firewall or need to use a proxy:
+
+```bash
+# Configure HTTP proxy
+oss-navi config --http-proxy http://proxy.example.com:8080
+
+# Configure HTTPS proxy
+oss-navi config --https-proxy http://proxy.example.com:8080
+
+# Configure hosts to bypass proxy (comma-separated)
+oss-navi config --no-proxy "localhost,127.0.0.1,.internal.example.com"
+```
+
+Alternatively, use environment variables (takes precedence):
+
+```bash
+export HTTP_PROXY=http://proxy.example.com:8080
+export HTTPS_PROXY=http://proxy.example.com:8080
+export NO_PROXY=localhost,127.0.0.1
+
+# Run oss-navi commands
+oss-navi sync
+```
+
 ## Directory Structure
 
 OSS-Navi stores all data under `~/.oss-navi/`:
@@ -172,7 +198,7 @@ OSS-Navi stores all data under `~/.oss-navi/`:
 ├── cache/              # Cached data (24h expiration)
 │   ├── github_profile.json
 │   ├── upforgrabs_tasks.json
-│   └── goodfirstissue_tasks.json
+│   └── goodfirstissues_tasks.json
 ├── state/              # Persistent data
 │   ├── config.json     # Your settings
 │   ├── memory.json     # Long-term memory
@@ -209,7 +235,7 @@ Install Claude Code:
 
 Wait 1 hour for rate limit reset, or use cached data (valid for 24 hours).
 
-### "Good First Issue unavailable"
+### "Good First Issues unavailable"
 
 OSS-Navi falls back to Up For Grabs data. Check your internet connection.
 

@@ -28,6 +28,19 @@ class GitHubRateLimitError(Exception):
     pass
 
 
+def get_proxy_settings() -> dict[str, str]:
+    """Get proxy settings from environment variables.
+
+    Returns:
+        Dict with 'http_proxy', 'https_proxy', and 'no_proxy' keys
+    """
+    return {
+        "http_proxy": os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy"),
+        "https_proxy": os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy"),
+        "no_proxy": os.environ.get("NO_PROXY") or os.environ.get("no_proxy"),
+    }
+
+
 class GitHubClient:
     """GitHub API client for fetching user profile data."""
 
@@ -40,6 +53,16 @@ class GitHubClient:
         """
         self.token = token or os.environ.get("GITHUB_TOKEN")
         self.timeout = timeout
+        self._proxy_settings = get_proxy_settings()
+
+    def _get_proxies(self) -> Optional[dict[str, str]]:
+        """Get proxy configuration for httpx."""
+        proxies = {}
+        if self._proxy_settings["http_proxy"]:
+            proxies["http://"] = self._proxy_settings["http_proxy"]
+        if self._proxy_settings["https_proxy"]:
+            proxies["https://"] = self._proxy_settings["https_proxy"]
+        return proxies if proxies else None
 
     def _get_headers(self) -> dict[str, str]:
         """Get headers for GitHub API requests."""
@@ -88,7 +111,7 @@ class GitHubClient:
         now = datetime.now(timezone.utc)
         expires = now + timedelta(hours=24)
 
-        with httpx.Client(timeout=self.timeout) as client:
+        with httpx.Client(timeout=self.timeout, proxies=self._get_proxies()) as client:
             # Fetch user info
             user_response = client.get(
                 f"{GITHUB_API_BASE}/users/{username}",

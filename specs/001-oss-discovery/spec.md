@@ -45,7 +45,7 @@ A developer wants to refresh their GitHub profile data and fetch the latest open
 **Acceptance Scenarios**:
 
 1. **Given** a user has configured their GitHub credentials, **When** they run the sync command, **Then** their GitHub profile data (commits, languages, activity) is fetched and cached locally
-2. **Given** the sync command runs, **When** task scraping completes, **Then** tasks from Up For Grabs and Good First Issue are stored in the local cache
+2. **Given** the sync command runs, **When** task scraping completes, **Then** tasks from Up For Grabs and Good First Issues are stored in the local cache
 3. **Given** tasks are scraped, **When** filtering is applied, **Then** tasks are ranked by a "hotness" score based on stars and recency
 4. **Given** the sync completes, **When** the user checks the cache directory, **Then** data is persisted under `~/.oss-navi/cache/`
 
@@ -87,7 +87,7 @@ A developer wants to share their OSS contribution journey. They run the publish 
 ### Edge Cases
 
 - What happens when GitHub API rate limits are reached? Display informative error and use cached data if available
-- What happens when Good First Issue website is unavailable or structure changes? Gracefully fall back to Up For Grabs data only
+- What happens when Good First Issues API is unavailable? Gracefully fall back to Up For Grabs data only
 - What happens when Claude Code is not installed or not in PATH? Display clear error message with installation instructions
 - What happens when no matching tasks are found for the user's criteria? Report indicates no matches and suggests broadening filters
 - What happens when the user has no public GitHub activity? Report notes limited profile data and recommendations are more generic
@@ -103,8 +103,8 @@ A developer wants to share their OSS contribution journey. They run the publish 
 - **FR-003**: The system MUST cache GitHub profile data locally with a 24-hour expiration to minimize API calls
 
 **Task Discovery**
-- **FR-004**: The system MUST scrape open source tasks from Up For Grabs (JSON source)
-- **FR-005**: The system MUST scrape open source tasks from Good First Issue (web scraping)
+- **FR-004**: The system MUST scrape open source tasks from Up For Grabs (YAML files via GitHub API)
+- **FR-005**: The system MUST scrape open source tasks from Good First Issues (JSON API from goodfirstissues.com)
 - **FR-006**: The system MUST filter tasks by minimum star count (default: 50 stars, configurable)
 - **FR-007**: The system MUST filter tasks by recency (default: issues from last 90 days, configurable)
 - **FR-008**: The system MUST compute a "hotness" score calculated as stars divided by age in days
@@ -195,7 +195,7 @@ A developer wants to share their OSS contribution journey. They run the publish 
 ### Measurable Outcomes
 
 - **SC-001**: Users receive personalized project recommendations within 60 seconds of running the analysis command
-- **SC-002**: The tool successfully fetches data from at least one task source (Up For Grabs or Good First Issue) in 95% of sync attempts
+- **SC-002**: The tool successfully fetches data from at least one task source (Up For Grabs or Good First Issues) in 95% of sync attempts
 - **SC-003**: Generated reports include actionable code reading hints for all recommended projects
 - **SC-004**: Users can configure the tool and run their first analysis within 5 minutes of installation
 - **SC-005**: Memory persistence works correctly - insights from previous analyses appear in subsequent reports
@@ -206,7 +206,7 @@ A developer wants to share their OSS contribution journey. They run the publish 
 - The user has a GitHub account with some public activity (commits, repositories)
 - The user has Claude Code installed locally and it's available in PATH
 - The user has a GitHub Personal Access Token for API authentication (required for higher rate limits)
-- Good First Issue website structure remains relatively stable; if it changes significantly, web scraping may need updates
+- Good First Issues JSON API structure remains relatively stable; if it changes significantly, data fetching may need updates
 - The user's blog repository (if configured) uses git and is accessible from the local machine
 - Default filter values (minimum stars, recency thresholds) are reasonable starting points that can be adjusted via configuration
 

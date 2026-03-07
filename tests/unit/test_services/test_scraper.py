@@ -152,19 +152,19 @@ stats:
         assert len(tasks) == 0  # Should skip non-GitHub URLs
 
     @patch("httpx.Client")
-    def test_fetch_goodfirstissue_empty(self, mock_client_class: MagicMock) -> None:
-        """Test Good First Issue with empty response."""
-        from oss_navi.services.scraper import fetch_goodfirstissue_tasks
+    def test_fetch_goodfirstissues_empty(self, mock_client_class: MagicMock) -> None:
+        """Test Good First Issues with empty response."""
+        from oss_navi.services.scraper import fetch_goodfirstissues_tasks
 
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client
 
         mock_client.get.return_value = MagicMock(
             status_code=200,
-            text="<html><body></body></html>",
+            json=lambda: [],
         )
 
-        tasks = fetch_goodfirstissue_tasks()
+        tasks = fetch_goodfirstissues_tasks()
         assert len(tasks) == 0
 
     @patch("httpx.Client")
@@ -192,47 +192,70 @@ stats:
   fork-count: 100
 """
 
+        # Mock Good First Issues JSON response
+        gfi_data = [
+            {
+                "Issue": {
+                    "issue_url": "https://github.com/owner/repo2/issues/1",
+                    "issue_title": "Test Issue 2",
+                    "issue_createdAt": "2026-03-01T00:00:00Z",
+                    "issue_repo": {
+                        "repo_name": "repo2",
+                        "repo_stars": 50,
+                        "repo_langs": {"Nodes": []},
+                        "Owner": {"repo_owner": "owner"}
+                    },
+                    "issue_labels": {"Nodes": []}
+                }
+            }
+        ]
+
         responses = [
             MagicMock(status_code=200, json=lambda: project_files),
             MagicMock(status_code=200, text=yaml_content),
-            MagicMock(status_code=503, text=""),  # GFI unavailable
+            MagicMock(status_code=200, json=lambda: gfi_data),
         ]
         mock_client.get.side_effect = responses
 
         with patch("oss_navi.utils.paths.UPFORGRABS_TASKS_CACHE", tmp_path / "ufg.json"):
-            with patch("oss_navi.utils.paths.GOODFIRSTISSUE_TASKS_CACHE", tmp_path / "gfi.json"):
+            with patch("oss_navi.utils.paths.GOODFIRSTISSUES_TASKS_CACHE", tmp_path / "gfi.json"):
                 with patch("oss_navi.utils.paths.CACHE_METADATA_FILE", tmp_path / "meta.json"):
-                    tasks = fetch_and_cache_tasks(sources=["upforgrabs", "goodfirstissue"])
-                    assert len(tasks) == 1
+                    tasks = fetch_and_cache_tasks(sources=["upforgrabs", "goodfirstissues"])
+                    assert len(tasks) == 2  # 1 from upforgrabs + 1 from goodfirstissues
 
     @patch("httpx.Client")
-    def test_fetch_goodfirstissue_with_content(self, mock_client_class: MagicMock) -> None:
-        """Test Good First Issue with actual HTML content."""
-        from oss_navi.services.scraper import fetch_goodfirstissue_tasks
+    def test_fetch_goodfirstissues_with_content(self, mock_client_class: MagicMock) -> None:
+        """Test Good First Issues with valid JSON data."""
+        from oss_navi.services.scraper import fetch_goodfirstissues_tasks
 
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client
 
-        html = """
-        <html>
-        <body>
-            <article class="issue">
-                <a class="issue-link" href="https://github.com/owner/repo/issues/1">Fix bug</a>
-                <span class="stars">100</span>
-                <span class="language">Python</span>
-            </article>
-        </body>
-        </html>
-        """
+        mock_data = [
+            {
+                "Issue": {
+                    "issue_url": "https://github.com/owner/repo/issues/1",
+                    "issue_title": "Fix bug",
+                    "issue_createdAt": "2026-03-01T00:00:00Z",
+                    "issue_repo": {
+                        "repo_name": "repo",
+                        "repo_stars": 100,
+                        "repo_langs": {"Nodes": [{"repo_prog_language": "Python"}]},
+                        "Owner": {"repo_owner": "owner"}
+                    },
+                    "issue_labels": {"Nodes": []}
+                }
+            }
+        ]
 
         mock_client.get.return_value = MagicMock(
             status_code=200,
-            text=html,
+            json=lambda: mock_data,
         )
 
-        tasks = fetch_goodfirstissue_tasks()
-        # May or may not parse successfully depending on HTML structure
-        assert isinstance(tasks, list)
+        tasks = fetch_goodfirstissues_tasks()
+        assert len(tasks) == 1
+        assert tasks[0].title == "Fix bug"
 
     @patch("httpx.Client")
     def test_fetch_upforgrabs_empty_projects(self, mock_client_class: MagicMock) -> None:
@@ -448,7 +471,7 @@ class TestSearchFunctions:
                 id="test:2",
                 title="JavaScript task",
                 url="https://github.com/owner/repo2/issues/1",
-                source="goodfirstissue",
+                source="goodfirstissues",
                 repository=Repository(
                     name="owner/repo2",
                     url="https://github.com/owner/repo2",
@@ -565,7 +588,7 @@ class TestSearchFunctions:
                 id="test:2",
                 title="Old task",
                 url="https://github.com/owner/repo2/issues/1",
-                source="goodfirstissue",
+                source="goodfirstissues",
                 repository=Repository(
                     name="owner/repo2",
                     url="https://github.com/owner/repo2",
@@ -601,7 +624,7 @@ class TestSearchFunctions:
                 id=f"test:{i}",
                 title=f"Task {i}",
                 url=f"https://github.com/owner/repo{i}/issues/{i}",
-                source="upforgrabs" if i % 2 == 0 else "goodfirstissue",
+                source="upforgrabs" if i % 2 == 0 else "goodfirstissues",
                 repository=Repository(
                     name=f"owner/repo{i}",
                     url=f"https://github.com/owner/repo{i}",

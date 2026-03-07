@@ -144,3 +144,34 @@ def reset_config() -> None:
     write_json(CONFIG_FILE, {})
     if TOKEN_FILE.exists():
         TOKEN_FILE.unlink()
+
+
+def get_proxy_settings() -> dict[str, Optional[str]]:
+    """Get proxy settings with environment variable fallback.
+
+    Priority:
+    1. Config file settings
+    2. Environment variables (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
+
+    Returns:
+        Dict with 'http_proxy', 'https_proxy', and 'no_proxy' keys
+    """
+    config = load_config()
+
+    return {
+        "http_proxy": (
+            config.http_proxy
+            if config and config.http_proxy
+            else os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+        ),
+        "https_proxy": (
+            config.https_proxy
+            if config and config.https_proxy
+            else os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+        ),
+        "no_proxy": (
+            config.no_proxy
+            if config and config.no_proxy
+            else os.environ.get("NO_PROXY") or os.environ.get("no_proxy")
+        ),
+    }
