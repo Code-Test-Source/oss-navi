@@ -16,21 +16,24 @@ OSS-Navi analyzes your GitHub profile, scrapes beginner-friendly issues from mul
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.11+ or [uv](https://docs.astral.sh/uv/) package manager
 - GitHub Personal Access Token (optional, for profile sync)
 - Claude Code installed locally (for analysis command)
 
 ## Installation
 
+**One-line setup (Linux/macOS/Windows):**
+
 ```bash
-git clone https://github.com/Code-Test-Source/oss-navi.git
-cd oss-navi
+# Clone and install as global CLI tool
+git clone https://github.com/Code-Test-Source/oss-navi.git && cd oss-navi && uv tool install -e .
+```
 
-# Using pip (recommended)
-pip install -e ".[dev]"
+After installation, `oss-navi` is available globally:
 
-# Or using uv
-uv sync --all-extras
+```bash
+oss-navi --version
+oss-navi --help
 ```
 
 ## Quick Start
@@ -172,7 +175,7 @@ export NO_PROXY=localhost,127.0.0.1
 
 | Issue | Solution |
 |-------|----------|
-| `command not found` | Install with `pip install -e ".[dev]"` or use `uv run oss-navi` |
+| `command not found` | Run `uv tool install -e .` to install as global CLI |
 | `Configuration incomplete` | Run `oss-navi config --github-username <user>` |
 | `No cached data` | Run `oss-navi sync` |
 | `Claude Code not found` | Install from https://claude.ai/code |
