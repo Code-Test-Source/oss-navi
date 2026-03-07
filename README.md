@@ -162,11 +162,104 @@ Before recommending, OSS-Navi checks if issues are:
 Archive and publish analysis reports:
 
 ```bash
-oss-navi publish                      # Archive current report
-oss-navi publish --push               # Archive and push to blog
+oss-navi publish                      # Archive current report locally
+oss-navi publish --push               # Archive and push to configured blog repo
 oss-navi publish --push -m "message"  # With custom commit message
 oss-navi publish --list               # List archived reports
 ```
+
+## Publishing Reports Online
+
+### Recommended Approach: Static Site + Git
+
+OSS-Navi uses a **git-based publishing workflow** instead of direct blog platform APIs. This approach is recommended because:
+
+| Benefit | Description |
+|---------|-------------|
+| **Free Hosting** | GitHub Pages, Vercel, Netlify all offer free static hosting |
+| **No API Limits** | Unlike Dev.to/Medium APIs, git has no rate limits |
+| **Version Control** | Full history of all your reports |
+| **Markdown Native** | No conversion needed - platforms render Markdown |
+| **Custom Domains** | Use your own domain for free |
+| **Zero Maintenance** | No API tokens to manage, no platform changes to handle |
+
+### Setup: GitHub Pages (Recommended)
+
+**Step 1: Create a reports repository**
+
+```bash
+# Create a new GitHub repository for your reports
+gh repo create my-oss-journey --public
+
+# Clone it locally
+git clone https://github.com/YOUR_USERNAME/my-oss-journey.git
+cd my-oss-journey
+
+# Enable GitHub Pages (Settings → Pages → Source: main branch)
+```
+
+**Step 2: Configure OSS-Navi**
+
+```bash
+# Tell OSS-Navi where your blog repo is
+oss-navi config --blog-repo /path/to/my-oss-journey
+```
+
+**Step 3: Generate and publish**
+
+```bash
+# Generate analysis
+oss-navi analysis --learn python
+
+# Archive and push to GitHub
+oss-navi publish --push -m "Weekly OSS analysis - Python focus"
+```
+
+Your report is now live at: `https://YOUR_USERNAME.github.io/my-oss-journey/oss-navi/`
+
+### Setup: Vercel/Netlify
+
+Both platforms auto-deploy from GitHub:
+
+1. Create a GitHub repository (same as Step 1 above)
+2. Connect to [Vercel](https://vercel.com) or [Netlify](https://netlify.com)
+3. They auto-detect Markdown and render it
+4. Use `oss-navi publish --push` to update
+
+### Alternative: Direct Blog Platform APIs
+
+If you prefer direct integration with Dev.to, Medium, or Hashnode:
+
+> **Note**: Direct API integration is complex because each platform uses different authentication, content formats (HTML vs Markdown vs "blocks"), and has rate limits. We recommend the git-based approach above for simplicity.
+
+| Platform | Content Format | Draft API | Complexity |
+|----------|----------------|-----------|------------|
+| **Dev.to** | Markdown + frontmatter | ✅ Yes | Low |
+| **Hashnode** | Markdown + GraphQL | ✅ Yes | Medium |
+| **Medium** | HTML only | ❌ No | High |
+| **Notion** | Block objects | ✅ Yes | Very High |
+
+For Dev.to integration, you would need to:
+1. Get an API key from dev.to/settings/extensions
+2. Convert reports to their frontmatter format
+3. Handle their rate limits (10 requests/30 seconds)
+
+### Why Not Direct Blog APIs?
+
+```
+OSS-Navi Report (Markdown)
+         │
+         ├─→ Dev.to: Needs frontmatter, rate limits
+         ├─→ Medium: Requires HTML conversion, no drafts
+         ├─→ Hashnode: GraphQL complexity, publication workflow
+         ├─→ Notion: Block-by-block API calls (50+ per report)
+         │
+         └─→ Git Repo: Just copy the file ✓
+              │
+              └─→ GitHub Pages/Vercel/Netlify auto-renders
+```
+
+The git-based approach is simpler, more reliable, and works everywhere.
 
 ### Global Options
 
