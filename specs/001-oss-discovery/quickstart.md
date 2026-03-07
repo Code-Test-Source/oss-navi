@@ -104,12 +104,15 @@ oss-navi analysis --learn python --explore -n 5
 
 # Non-interactive mode for automation
 oss-navi analysis --no-interactive --learn rust
+
+# Skip issue status checks (faster, no API rate limit concerns)
+oss-navi analysis --skip-status
 ```
 
 **Expected output**:
 ```
 ✓ Analyzing profile... (12 languages, 245 repos)
-✓ Filtering tasks... (47 matches from 359 total)
+✓ Filtering tasks... (1625 matches)
 
 📚 Suggested fields to explore:
   1. web development
@@ -141,6 +144,13 @@ oss-navi analysis --no-interactive --learn rust
 | `--explore` | Show adjacent field suggestions |
 | `-n, --recommendations <N>` | Number of recommendations (5-10) |
 | `--no-interactive` | Skip interactive prompts |
+| `--skip-status` | Skip issue status checks (avoids API rate limits) |
+
+**Rate Limit Protection:**
+
+OSS-Navi is optimized to avoid GitHub API rate limits:
+- Only checks issue status for top candidates (~14 API calls max)
+- Use `--skip-status` to disable status checking entirely (0 API calls)
 
 ### Step 4: View Your Report
 

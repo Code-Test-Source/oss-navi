@@ -107,6 +107,7 @@ oss-navi analysis --learn python          # Focus on a technology
 oss-navi analysis -n 5                    # Get 5 recommendations (default: 7)
 oss-navi analysis --explore               # Show field exploration suggestions
 oss-navi analysis --no-interactive        # Skip interactive prompts
+oss-navi analysis --skip-status           # Skip issue status checks (faster)
 oss-navi analysis --output report.md      # Save to custom location
 oss-navi analysis --no-cache              # Require fresh data
 oss-navi analysis --open                  # Open report after generation
@@ -115,7 +116,7 @@ oss-navi analysis --open                  # Open report after generation
 **Enhanced Analysis Output:**
 ```
 ✓ Analyzing profile... (12 languages, 245 repos)
-✓ Filtering tasks... (47 matches from 359 total)
+✓ Filtering tasks... (1625 matches)
 
 📚 Suggested fields to explore:
   1. web development
@@ -152,10 +153,23 @@ oss-navi analysis --open                  # Open report after generation
 
 **Issue Status Checking:**
 
-Before recommending, OSS-Navi checks if issues are:
-- ✅ Available (unassigned, open, no linked PR)
-- ⚠️ Partially available (has "in progress" labels)
-- ❌ Unavailable (assigned, closed, or has PR)
+OSS-Navi validates issue availability to avoid recommending taken issues:
+
+- ✅ **Available**: Unassigned, open, no linked PR
+- ⚠️ **Partial**: Has "in progress" labels
+- ❌ **Unavailable**: Assigned, closed, or has PR
+
+**Rate Limit Protection:**
+
+To avoid GitHub API rate limits, OSS-Navi:
+1. Scores all tasks without API calls
+2. Checks status only for top candidates (~14 API calls max)
+3. Skips unavailable issues from final recommendations
+
+Use `--skip-status` to disable checking entirely (0 API calls, faster):
+```bash
+oss-navi analysis --skip-status  # No status checks, instant results
+```
 
 ### `oss-navi publish`
 
@@ -336,9 +350,10 @@ OSS_NAVI_VERIFY_SSL=false oss-navi sync --force
 | `Configuration incomplete` | Run `oss-navi config --github-username <user>` |
 | `No cached data` | Run `oss-navi sync` |
 | `Claude Code not found` | Install from https://claude.ai/code |
-| `Rate limit exceeded` | Wait 1 hour or use cached data |
+| `Rate limit exceeded` | Use `--skip-status` flag or wait 1 hour |
 | `No matching tasks found` | Lower `--min-stars` or increase `--max-age` |
 | `All issues unavailable` | Issues may be assigned; wait for new tasks or try `--learn` for different projects |
+| `Slow analysis` | Use `--skip-status` to skip API calls |
 
 ## Development
 
