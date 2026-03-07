@@ -1,15 +1,42 @@
 """CLI entry point for OSS-Navi."""
 
+import logging
+
 import click
 
 from oss_navi import __version__
 
 
+# Configure logging
+def configure_logging(verbose: bool, quiet: bool) -> None:
+    """Configure logging level based on verbose/quiet flags."""
+    if quiet:
+        level = logging.WARNING
+    elif verbose:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+
+    logging.basicConfig(
+        level=level,
+        format="%(levelname)s: %(message)s",
+    )
+
+
 @click.group()
 @click.version_option(version=__version__, prog_name="oss-navi")
-def main() -> None:
+@click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
+@click.option("-q", "--quiet", is_flag=True, help="Suppress non-essential output")
+@click.pass_context
+def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     """OSS-Navi - Discover and contribute to open source projects."""
-    pass
+    # Store flags in context for subcommands
+    ctx.ensure_object(dict)
+    ctx.obj["verbose"] = verbose
+    ctx.obj["quiet"] = quiet
+
+    # Configure logging
+    configure_logging(verbose, quiet)
 
 
 @main.command()

@@ -23,6 +23,20 @@ class TestCLI:
         assert result.exit_code == 0
         assert "oss-navi" in result.output
 
+    def test_verbose_flag(self, runner: CliRunner) -> None:
+        """Test --verbose/-v flag."""
+        from oss_navi.cli import main
+
+        result = runner.invoke(main, ["--verbose", "--help"])
+        assert result.exit_code == 0
+
+    def test_quiet_flag(self, runner: CliRunner) -> None:
+        """Test --quiet/-q flag."""
+        from oss_navi.cli import main
+
+        result = runner.invoke(main, ["--quiet", "--help"])
+        assert result.exit_code == 0
+
     def test_help_option(self, runner: CliRunner) -> None:
         """Test --help option."""
         from oss_navi.cli import main
@@ -30,6 +44,8 @@ class TestCLI:
         result = runner.invoke(main, ["--help"])
         assert result.exit_code == 0
         assert "OSS-Navi" in result.output
+        assert "--verbose" in result.output
+        assert "--quiet" in result.output
 
     def test_analysis_no_cache(self, runner: CliRunner) -> None:
         """Test analysis command with no cached data."""
