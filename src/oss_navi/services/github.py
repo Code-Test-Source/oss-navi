@@ -16,6 +16,13 @@ from oss_navi.utils.paths import GITHUB_PROFILE_CACHE
 GITHUB_API_BASE = "https://api.github.com"
 DEFAULT_TIMEOUT = 30.0
 
+# The timeline endpoint requires the mockingbird preview to include cross-reference events.
+# We keep both the standard v3 Accept and the preview type so other consumers of this
+# header value are not affected.
+TIMELINE_ACCEPT_HEADER = (
+    "application/vnd.github.v3+json, application/vnd.github.mockingbird-preview+json"
+)
+
 # Labels that indicate an issue is being worked on
 IN_PROGRESS_LABELS = {"in progress", "wip", "work in progress", "assigned", "taken"}
 
@@ -297,9 +304,15 @@ class GitHubClient:
             try:
                 timeline_response = client.get(
                     f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/timeline",
-                    headers={**self._get_headers(), "Accept": "application/vnd.github.mockingbird-preview+json"},
+                    headers={**self._get_headers(), "Accept": TIMELINE_ACCEPT_HEADER},
                 )
-                if timeline_response.status_code == 200:
+                if timeline_response.status_code == 403:
+                    if timeline_response.headers.get("X-RateLimit-Remaining") == "0":
+                        raise GitHubRateLimitError(
+                            "GitHub API rate limit exceeded while fetching issue timeline"
+                        )
+                    # Other 403s (e.g. private repo) — fall back to no linked PR
+                elif timeline_response.status_code == 200:
                     for event in timeline_response.json():
                         if event.get("event") != "cross-referenced":
                             continue
@@ -308,8 +321,10 @@ class GitHubClient:
                         if "pull_request" in source_issue:
                             has_linked_pr = True
                             break
+            except GitHubRateLimitError:
+                raise
             except Exception:
-                # If the timeline API call fails for any reason, fall back to assuming no linked PR
+                # Network errors or unexpected failures — fall back to no linked PR
                 has_linked_pr = False
 
             return IssueStatus(

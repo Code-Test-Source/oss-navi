@@ -807,6 +807,10 @@ def find_great_projects(
     Returns:
         List of GreatProject objects with architecture analysis
     """
+    # Guard against empty language data (must come before cache to avoid caching empty results)
+    if not user_languages:
+        return []
+
     # Check cache first
     cache_data = read_json(TEMP_DIR / "great_projects_cache.json")
     cache_key = f"{','.join(sorted(user_languages.keys()))}_{learning_focus}"
@@ -818,10 +822,6 @@ def find_great_projects(
             cached_time = datetime.fromisoformat(cached.get("cached_at", "2000-01-01"))
             if datetime.now(UTC) - cached_time < timedelta(hours=24):
                 return [GreatProject(**p) for p in cached.get("projects", [])[:count]]
-
-    # Guard against empty language data
-    if not user_languages:
-        return []
 
     # Determine primary language to search
     primary_lang = max(user_languages.keys(), key=lambda k: user_languages[k])
