@@ -116,7 +116,7 @@ stats:
         mock_client.get.side_effect = responses
 
         tasks = fetch_upforgrabs_tasks()
-        assert len(tasks) == 2  # 2 issues from issue-count
+        assert len(tasks) == 1  # one task per project regardless of issue-count
         assert "Test Project" in tasks[0].title
 
     @patch("httpx.Client")

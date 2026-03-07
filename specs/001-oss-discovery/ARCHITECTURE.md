@@ -120,8 +120,10 @@ def create_client(timeout: float) -> httpx.Client:
 **SSL Verification**: `should_verify_ssl()` reads `OSS_NAVI_VERIFY_SSL` from the environment.
 Setting `OSS_NAVI_VERIFY_SSL=false` disables certificate validation — use this only as a
 last resort. For corporate proxies with self-signed certificates, the preferred approach is
-to configure a trusted CA bundle via `REQUESTS_CA_BUNDLE` or `SSL_CERT_FILE` environment
-variables, which keeps certificate validation active.
+to configure a trusted CA bundle using standard TLS environment variables such as
+`SSL_CERT_FILE` (single bundle file) or `SSL_CERT_DIR` (directory of certificates), or by
+passing a CA bundle path to `verify=` when constructing the `httpx` client. This keeps
+certificate validation active.
 
 ### Async Client Pattern
 

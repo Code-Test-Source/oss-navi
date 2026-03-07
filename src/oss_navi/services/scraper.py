@@ -319,7 +319,6 @@ def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
 
                 # Get stats
                 stats = project_data.get("stats", {})
-                issue_count = stats.get("issue-count", 0) or 0
                 fork_count = stats.get("fork-count", 0) or 0
                 last_updated = stats.get("last-updated", "")
 
@@ -344,24 +343,24 @@ def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
                     topics=tags,
                 )
 
-                # Create a task for each issue (simulated based on issue_count)
-                # Since we don't have individual issues, we create project-level tasks
-                for i in range(min(issue_count, 3)):  # Limit to 3 tasks per project
-                    hotness = calculate_hotness_score(fork_count, max(1, (now - updated_at).days))
+                # Create a single task per project, linking to the label search page.
+                # Up For Grabs only provides a label URL (not individual issue links),
+                # so one task entry per project is the correct granularity.
+                hotness = calculate_hotness_score(fork_count, max(1, (now - updated_at).days))
 
-                    task = Task(
-                        id=f"upforgrabs:{repo_name.replace('/', '-')}:{i}",
-                        title=f"{project_data.get('name', repo_name)} - {label_name}",
-                        url=label_url,
-                        source="upforgrabs",
-                        repository=repo,
-                        labels=[label_name],
-                        created_at=updated_at,
-                        updated_at=updated_at,
-                        hotness_score=hotness,
-                        fetched_at=now,
-                    )
-                    tasks.append(task)
+                task = Task(
+                    id=f"upforgrabs:{repo_name.replace('/', '-')}",
+                    title=f"{project_data.get('name', repo_name)} - {label_name}",
+                    url=label_url,
+                    source="upforgrabs",
+                    repository=repo,
+                    labels=[label_name],
+                    created_at=updated_at,
+                    updated_at=updated_at,
+                    hotness_score=hotness,
+                    fetched_at=now,
+                )
+                tasks.append(task)
 
             except Exception:
                 # Skip malformed projects

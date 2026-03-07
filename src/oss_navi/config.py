@@ -174,7 +174,7 @@ def should_verify_ssl() -> bool:
 
     Set OSS_NAVI_VERIFY_SSL=false to disable SSL verification (useful for
     proxies with self-signed certificates). For better security, prefer
-    configuring a custom CA bundle via the REQUESTS_CA_BUNDLE or SSL_CERT_FILE
+    configuring a custom CA bundle via the SSL_CERT_FILE or SSL_CERT_DIR
     environment variables rather than disabling verification entirely.
 
     Returns:
