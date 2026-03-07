@@ -25,7 +25,7 @@
 **Purpose**: Project initialization and basic structure
 
 - [ ] T001 Create project directory structure per plan.md (src/oss_navi/, tests/, etc.)
-- [ ] T002 Create pyproject.toml with Python 3.11+ and dependencies (click, httpx, beautifulsoup4, pydantic, pytest, pytest-cov, ruff)
+- [ ] T002 Create pyproject.toml with Python 3.11+ and pinned dependencies (click, httpx, beautifulsoup4, pydantic, pytest, pytest-cov, ruff, pip-audit)
 - [ ] T003 [P] Create src/oss_navi/__init__.py with version and package metadata
 - [ ] T004 [P] Create tests/conftest.py with pytest fixtures and test configuration
 - [ ] T005 [P] Create README.md with project description and installation instructions
@@ -88,7 +88,7 @@
 
 ### Implementation for User Story 1
 
-- [ ] T024 [P] [US1] Create src/oss_navi/services/analyzer.py with Claude Code subprocess invocation and prompt building
+- [ ] T024 [P] [US1] Create src/oss_navi/services/analyzer.py with Claude Code subprocess invocation, 60-second timeout (FR-039), and validated prompt building (FR-040)
 - [ ] T025 [P] [US1] Create src/oss_navi/cli.py with analysis command implementation (click command)
 - [ ] T026 [US1] Implement task filtering by stars and recency in src/oss_navi/services/analyzer.py
 - [ ] T027 [US1] Implement hotness score calculation in src/oss_navi/services/analyzer.py
@@ -132,7 +132,11 @@
 - [ ] T047 [US2] Add error handling for GitHub API rate limits in src/oss_navi/services/github.py
 - [ ] T048 [US2] Add error handling for Good First Issue unavailable in src/oss_navi/services/scraper.py
 - [ ] T049 [US2] Create cache metadata.json with timestamps in src/oss_navi/utils/cache.py
-- [ ] T050 [US2] Verify tests pass (GREEN phase) after implementation
+- [ ] T050 [US2] Add GitHub API response validation (FR-036) in src/oss_navi/services/github.py
+- [ ] T051 [US2] Add HTML sanitization for scraped content (FR-037) in src/oss_navi/services/scraper.py
+- [ ] T052 [US2] Add URL validation for scraped task data (FR-038) in src/oss_navi/services/scraper.py
+- [ ] T053 [US2] Add graceful authentication failure handling (FR-042) in src/oss_navi/services/github.py
+- [ ] T054 [US2] Verify tests pass (GREEN phase) after implementation
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -148,24 +152,26 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T051 [P] [US3] Create tests/unit/test_models/test_config.py with Config and Filters model tests
-- [ ] T052 [P] [US3] Create tests/unit/test_utils/test_paths.py with path utility tests
-- [ ] T053 [US3] Verify tests fail (RED phase) before proceeding to implementation
+- [ ] T055 [P] [US3] Create tests/unit/test_models/test_config.py with Config and Filters model tests
+- [ ] T056 [P] [US3] Create tests/unit/test_utils/test_paths.py with path utility tests
+- [ ] T057 [US3] Verify tests fail (RED phase) before proceeding to implementation
 
 ### Implementation for User Story 3
 
-- [ ] T054 [US3] Create src/oss_navi/config.py with configuration loading and saving functions
-- [ ] T055 [US3] Implement secure token storage with 0600 permissions in src/oss_navi/config.py
-- [ ] T056 [US3] Add config command to src/oss_navi/cli.py with --github-username option
-- [ ] T057 [US3] Add --github-token option to config command in src/oss_navi/cli.py
-- [ ] T058 [US3] Add --blog-repo option to config command in src/oss_navi/cli.py
-- [ ] T059 [US3] Add --min-stars and --max-age filter options to config command in src/oss_navi/cli.py
-- [ ] T060 [US3] Add --list option to display current configuration in src/oss_navi/cli.py
-- [ ] T061 [US3] Add --reset option to clear configuration in src/oss_navi/cli.py
-- [ ] T062 [US3] Implement directory structure creation (~/.oss-navi/ with cache/, state/, temp/) in src/oss_navi/config.py
-- [ ] T063 [US3] Add input validation for GitHub username in src/oss_navi/config.py
-- [ ] T064 [US3] Add input validation for GitHub token format in src/oss_navi/config.py
-- [ ] T065 [US3] Verify tests pass (GREEN phase) after implementation
+- [ ] T058 [US3] Create src/oss_navi/config.py with configuration loading and saving functions
+- [ ] T059 [US3] Implement secure token storage with 0600 permissions in src/oss_navi/config.py
+- [ ] T060 [US3] Add config command to src/oss_navi/cli.py with --github-username option
+- [ ] T061 [US3] Add --github-token option to config command with token validation via test API call (FR-032) in src/oss_navi/cli.py
+- [ ] T062 [US3] Add --blog-repo option to config command in src/oss_navi/cli.py
+- [ ] T063 [US3] Add --min-stars and --max-age filter options to config command in src/oss_navi/cli.py
+- [ ] T064 [US3] Add --list option to display current configuration in src/oss_navi/cli.py
+- [ ] T065 [US3] Add --reset option to clear configuration in src/oss_navi/cli.py
+- [ ] T066 [US3] Implement directory structure creation (~/.oss-navi/ with cache/, state/, temp/) in src/oss_navi/config.py
+- [ ] T067 [US3] Add input validation for GitHub username in src/oss_navi/config.py
+- [ ] T068 [US3] Add input validation for GitHub token format in src/oss_navi/config.py
+- [ ] T069 [US3] Add descriptive error messages for invalid config values (FR-035) in src/oss_navi/config.py
+- [ ] T070 [US3] Ensure tokens are never logged or displayed in error messages (FR-034) across src/oss_navi/
+- [ ] T071 [US3] Verify tests pass (GREEN phase) after implementation
 
 **Checkpoint**: At this point, all three core user stories should work independently
 
@@ -181,21 +187,21 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T066 [P] [US4] Create tests/unit/test_models/test_memory.py with LongTermMemory model tests
-- [ ] T067 [P] [US4] Create tests/unit/test_services/test_publisher.py with mocked git operations
-- [ ] T068 [US4] Verify tests fail (RED phase) before proceeding to implementation
+- [ ] T072 [P] [US4] Create tests/unit/test_models/test_memory.py with LongTermMemory model tests
+- [ ] T073 [P] [US4] Create tests/unit/test_services/test_publisher.py with mocked git operations
+- [ ] T074 [US4] Verify tests fail (RED phase) before proceeding to implementation
 
 ### Implementation for User Story 4
 
-- [ ] T069 [US4] Create src/oss_navi/services/publisher.py with report archiving function
-- [ ] T070 [US4] Implement report archiving with timestamp naming in src/oss_navi/services/publisher.py
-- [ ] T071 [US4] Implement git operations (add, commit, push) in src/oss_navi/services/publisher.py
-- [ ] T072 [US4] Add publish command to src/oss_navi/cli.py with --push flag
-- [ ] T073 [US4] Add --message/-m option for commit message in src/oss_navi/cli.py
-- [ ] T074 [US4] Add --list option to show archived reports in src/oss_navi/cli.py
-- [ ] T075 [US4] Add error handling for missing blog repo configuration in src/oss_navi/cli.py
-- [ ] T076 [US4] Add error handling for git operation failures in src/oss_navi/services/publisher.py
-- [ ] T077 [US4] Verify tests pass (GREEN phase) after implementation
+- [ ] T075 [US4] Create src/oss_navi/services/publisher.py with report archiving function
+- [ ] T076 [US4] Implement report archiving with timestamp naming in src/oss_navi/services/publisher.py
+- [ ] T077 [US4] Implement git operations (add, commit, push) in src/oss_navi/services/publisher.py
+- [ ] T078 [US4] Add publish command to src/oss_navi/cli.py with --push flag
+- [ ] T079 [US4] Add --message/-m option for commit message in src/oss_navi/cli.py
+- [ ] T080 [US4] Add --list option to show archived reports in src/oss_navi/cli.py
+- [ ] T081 [US4] Add error handling for missing blog repo configuration in src/oss_navi/cli.py
+- [ ] T082 [US4] Add error handling for git operation failures in src/oss_navi/services/publisher.py
+- [ ] T083 [US4] Verify tests pass (GREEN phase) after implementation
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -205,13 +211,14 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T078 [P] Add global --verbose/-v flag to CLI in src/oss_navi/cli.py
-- [ ] T079 [P] Add global --quiet/-q flag to CLI in src/oss_navi/cli.py
-- [ ] T080 [P] Add --version flag to CLI in src/oss_navi/cli.py
-- [ ] T081 Add consistent error output formatting (✓, ✗, ⚠ symbols) across all commands in src/oss_navi/cli.py
-- [ ] T082 [P] Update README.md with complete usage examples and installation steps
-- [ ] T083 Add long-term memory update parsing from Claude Code output in src/oss_navi/services/analyzer.py
-- [ ] T084 Verify 80%+ test coverage with pytest --cov
+- [ ] T084 [P] Add global --verbose/-v flag to CLI in src/oss_navi/cli.py
+- [ ] T085 [P] Add global --quiet/-q flag to CLI in src/oss_navi/cli.py
+- [ ] T086 [P] Add --version flag to CLI in src/oss_navi/cli.py
+- [ ] T087 Add consistent error output formatting (✓, ✗, ⚠ symbols) with no sensitive info leakage (FR-041) in src/oss_navi/cli.py
+- [ ] T088 [P] Update README.md with complete usage examples and installation steps
+- [ ] T089 Add long-term memory update parsing from Claude Code output in src/oss_navi/services/analyzer.py
+- [ ] T090 Verify 80%+ test coverage with pytest --cov
+- [ ] T091 Run pip-audit for dependency vulnerability scanning (FR-044)
 
 ---
 
@@ -293,13 +300,13 @@
 
 | Metric | Count |
 |--------|-------|
-| **Total Tasks** | 84 |
+| **Total Tasks** | 91 |
 | **Setup Phase** | 5 tasks |
 | **Foundational Phase** | 15 tasks |
 | **US1 (Analysis)** | 13 tasks (3 test + 10 implementation) |
-| **US2 (Sync)** | 17 tasks (5 test + 12 implementation) |
-| **US3 (Config)** | 15 tasks (3 test + 12 implementation) |
+| **US2 (Sync)** | 21 tasks (5 test + 16 implementation) |
+| **US3 (Config)** | 17 tasks (3 test + 14 implementation) |
 | **US4 (Publish)** | 12 tasks (3 test + 9 implementation) |
-| **Polish Phase** | 7 tasks |
+| **Polish Phase** | 8 tasks |
 | **Test Tasks** | 17 tasks |
-| **Parallel Opportunities** | 28 tasks (marked [P]) |
+| **Parallel Opportunities** | 30 tasks (marked [P]) |

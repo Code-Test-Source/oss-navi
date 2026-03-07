@@ -149,6 +149,33 @@ A developer wants to share their OSS contribution journey. They run the publish 
 - **FR-030**: The system MUST achieve minimum 80% test coverage as verified by pytest-cov
 - **FR-031**: All tests MUST be written before implementation code (TDD Red-Green-Refactor cycle)
 
+### Security Requirements
+
+**Token & Credentials**
+- **FR-032**: The system MUST validate GitHub tokens at configuration time by making a test API call
+- **FR-033**: The system MUST display a clear error message (without revealing the token) when authentication fails due to invalid or expired tokens
+- **FR-034**: The system MUST NEVER log, display, or include GitHub tokens in error messages, debug output, or reports
+
+**Input Validation**
+- **FR-035**: The system MUST reject invalid configuration values with a descriptive error message explaining the expected format
+- **FR-036**: The system MUST validate GitHub API response structure before processing (handle malformed JSON gracefully)
+
+**External Data Handling**
+- **FR-037**: The system MUST sanitize HTML entities from scraped content to prevent injection issues in reports
+- **FR-038**: The system MUST validate URLs from scraped task data to ensure they are well-formed GitHub URLs
+
+**Subprocess Security**
+- **FR-039**: The system MUST enforce a 60-second timeout for Claude Code subprocess invocation
+- **FR-040**: The system MUST only pass validated, structured data to Claude Code subprocess (no arbitrary user input directly to CLI)
+
+**Error Handling**
+- **FR-041**: The system MUST ensure error messages do not reveal sensitive information (tokens, file paths with usernames, etc.)
+- **FR-042**: The system MUST handle authentication failures gracefully with actionable error messages
+
+**Dependencies**
+- **FR-043**: The system MUST pin all dependency versions in requirements.txt or pyproject.toml
+- **FR-044**: The system MUST support dependency vulnerability scanning via pip-audit or similar tool
+
 ### Key Entities
 
 - **UserProfile**: Represents the user's GitHub profile with commit history, language statistics, and activity metrics. Used to assess skills and match with projects.
