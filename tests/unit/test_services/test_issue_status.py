@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from oss_navi.models.task import IssueStatus
-from oss_navi.services.github import GitHubClient
+from oss_navi.services.github import GitHubClient, GitHubRateLimitError
 
 
 class TestCheckIssueStatus:
@@ -150,11 +150,21 @@ class TestCheckMultipleIssues:
             "assignees": [{"login": "dev"}],
         }
 
+        mock_timeline_empty = MagicMock()
+        mock_timeline_empty.status_code = 200
+        mock_timeline_empty.json.return_value = []
+
         with patch.object(mock_client, "_create_client") as mock_create:
             mock_http_client = MagicMock()
             mock_http_client.__enter__ = MagicMock(return_value=mock_http_client)
             mock_http_client.__exit__ = MagicMock(return_value=False)
-            mock_http_client.get.side_effect = [mock_response_open, mock_response_assigned]
+            # Each check_issue_status call makes 2 GET requests: issue + timeline
+            mock_http_client.get.side_effect = [
+                mock_response_open,
+                mock_timeline_empty,
+                mock_response_assigned,
+                mock_timeline_empty,
+            ]
             mock_create.return_value = mock_http_client
 
             statuses = mock_client.check_multiple_issues(issue_urls)
@@ -211,7 +221,24 @@ class TestRateLimitHandling:
             mock_http_client.get.return_value = mock_response
             mock_create.return_value = mock_http_client
 
-            # Should return a status indicating unavailable due to rate limit
+            # Should raise GitHubRateLimitError when rate limit is exhausted
+            with pytest.raises(GitHubRateLimitError):
+                mock_client.check_issue_status("owner", "repo", 42)
+
+    def test_403_non_rate_limit(self, mock_client: GitHubClient) -> None:
+        """Test handling of 403 that is not a rate limit error (e.g. private repo)."""
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        mock_response.headers = {"X-RateLimit-Remaining": "59"}
+
+        with patch.object(mock_client, "_create_client") as mock_create:
+            mock_http_client = MagicMock()
+            mock_http_client.__enter__ = MagicMock(return_value=mock_http_client)
+            mock_http_client.__exit__ = MagicMock(return_value=False)
+            mock_http_client.get.return_value = mock_response
+            mock_create.return_value = mock_http_client
+
+            # Should return a status indicating unavailable (e.g. access denied)
             status = mock_client.check_issue_status("owner", "repo", 42)
 
         assert status.is_available is False
@@ -233,3 +260,102 @@ class TestRateLimitHandling:
 
         assert status.is_available is False
         assert status.is_closed is True
+
+
+class TestLinkedPRDetection:
+    """Tests for timeline-based linked PR detection."""
+
+    @pytest.fixture
+    def mock_client(self) -> GitHubClient:
+        """Create a GitHubClient with mocked token."""
+        return GitHubClient(token="ghp_test_token_12345")
+
+    def test_linked_pr_detected_via_timeline(self, mock_client: GitHubClient) -> None:
+        """Test that a linked PR is detected via the timeline cross-reference."""
+        mock_issue_response = MagicMock()
+        mock_issue_response.status_code = 200
+        mock_issue_response.json.return_value = {
+            "number": 10,
+            "state": "open",
+            "assignee": None,
+            "assignees": [],
+        }
+
+        mock_timeline_response = MagicMock()
+        mock_timeline_response.status_code = 200
+        mock_timeline_response.json.return_value = [
+            {
+                "event": "cross-referenced",
+                "source": {
+                    "issue": {
+                        "number": 99,
+                        "pull_request": {"url": "https://api.github.com/repos/owner/repo/pulls/99"},
+                    }
+                },
+            }
+        ]
+
+        with patch.object(mock_client, "_create_client") as mock_create:
+            mock_http_client = MagicMock()
+            mock_http_client.__enter__ = MagicMock(return_value=mock_http_client)
+            mock_http_client.__exit__ = MagicMock(return_value=False)
+            mock_http_client.get.side_effect = [mock_issue_response, mock_timeline_response]
+            mock_create.return_value = mock_http_client
+
+            status = mock_client.check_issue_status("owner", "repo", 10)
+
+        assert status.has_linked_pr is True
+        assert status.is_available is False
+
+    def test_no_linked_pr_when_timeline_empty(self, mock_client: GitHubClient) -> None:
+        """Test that has_linked_pr is False when timeline has no cross-references."""
+        mock_issue_response = MagicMock()
+        mock_issue_response.status_code = 200
+        mock_issue_response.json.return_value = {
+            "number": 10,
+            "state": "open",
+            "assignee": None,
+            "assignees": [],
+        }
+
+        mock_timeline_response = MagicMock()
+        mock_timeline_response.status_code = 200
+        mock_timeline_response.json.return_value = []
+
+        with patch.object(mock_client, "_create_client") as mock_create:
+            mock_http_client = MagicMock()
+            mock_http_client.__enter__ = MagicMock(return_value=mock_http_client)
+            mock_http_client.__exit__ = MagicMock(return_value=False)
+            mock_http_client.get.side_effect = [mock_issue_response, mock_timeline_response]
+            mock_create.return_value = mock_http_client
+
+            status = mock_client.check_issue_status("owner", "repo", 10)
+
+        assert status.has_linked_pr is False
+        assert status.is_available is True
+
+    def test_linked_pr_defaults_false_on_timeline_failure(self, mock_client: GitHubClient) -> None:
+        """Test that has_linked_pr falls back to False when timeline API fails."""
+        mock_issue_response = MagicMock()
+        mock_issue_response.status_code = 200
+        mock_issue_response.json.return_value = {
+            "number": 10,
+            "state": "open",
+            "assignee": None,
+            "assignees": [],
+        }
+
+        mock_timeline_response = MagicMock()
+        mock_timeline_response.status_code = 404
+
+        with patch.object(mock_client, "_create_client") as mock_create:
+            mock_http_client = MagicMock()
+            mock_http_client.__enter__ = MagicMock(return_value=mock_http_client)
+            mock_http_client.__exit__ = MagicMock(return_value=False)
+            mock_http_client.get.side_effect = [mock_issue_response, mock_timeline_response]
+            mock_create.return_value = mock_http_client
+
+            status = mock_client.check_issue_status("owner", "repo", 10)
+
+        assert status.has_linked_pr is False
+        assert status.is_available is True

@@ -3,7 +3,6 @@
 import os
 import re
 from datetime import UTC, datetime, timedelta
-from urllib.parse import urlparse
 
 import httpx
 
@@ -242,12 +241,16 @@ class GitHubClient:
                 headers=self._get_headers(),
             )
 
-            # Handle rate limit
+            # Handle 403: raise rate limit error if rate-limited, otherwise treat as unavailable
             if response.status_code == 403:
+                if response.headers.get("X-RateLimit-Remaining") == "0":
+                    raise GitHubRateLimitError(
+                        "GitHub API rate limit exceeded while checking issue status"
+                    )
                 return IssueStatus(
                     issue_url=issue_url,
                     is_assigned=False,
-                    is_closed=True,  # Treat as unavailable
+                    is_closed=True,  # Treat as unavailable (e.g. private repo)
                     has_linked_pr=False,
                     checked_at=now,
                 )
@@ -289,8 +292,25 @@ class GitHubClient:
                 if label.get("name", "").lower() in IN_PROGRESS_LABELS
             ]
 
-            # Check for linked PR (if issue is a PR)
-            has_linked_pr = "pull_request" in data
+            # Check for linked PRs by inspecting the issue timeline for cross-referenced PRs
+            has_linked_pr = False
+            try:
+                timeline_response = client.get(
+                    f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/timeline",
+                    headers={**self._get_headers(), "Accept": "application/vnd.github.mockingbird-preview+json"},
+                )
+                if timeline_response.status_code == 200:
+                    for event in timeline_response.json():
+                        if event.get("event") != "cross-referenced":
+                            continue
+                        source_issue = event.get("source", {}).get("issue") or {}
+                        # A source issue that has a "pull_request" key is itself a PR
+                        if "pull_request" in source_issue:
+                            has_linked_pr = True
+                            break
+            except Exception:
+                # If the timeline API call fails for any reason, fall back to assuming no linked PR
+                has_linked_pr = False
 
             return IssueStatus(
                 issue_url=issue_url,

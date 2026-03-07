@@ -594,8 +594,6 @@ def generate_recommendations(
     Returns:
         List of scored recommendations sorted by rating
     """
-    import re
-
     count = max(5, min(10, count))  # Ensure 5-10 range
     recommendations = []
 
@@ -619,7 +617,7 @@ def generate_recommendations(
     candidates_count = min(count * 2, len(scored_tasks))  # Check 2x the needed count
 
     # Step 4: Check issue status only for top candidates
-    for task, breakdown in scored_tasks[:candidates_count]:
+    for task, _breakdown in scored_tasks[:candidates_count]:
         if len(recommendations) >= count:
             break
 
@@ -660,7 +658,7 @@ def generate_recommendations(
 
         recommendation = Recommendation(
             task=task,
-            rating=final_breakdown.weighted_total,
+            rating=max(1.0, final_breakdown.weighted_total),
             rating_breakdown=final_breakdown,
             reason=reason,
             code_analysis=f"This {task.repository.language or 'project'} project has {task.repository.stars} stars and focuses on {', '.join(task.repository.topics[:3]) or 'open source contributions'}.",
@@ -820,6 +818,10 @@ def find_great_projects(
             cached_time = datetime.fromisoformat(cached.get("cached_at", "2000-01-01"))
             if datetime.now(UTC) - cached_time < timedelta(hours=24):
                 return [GreatProject(**p) for p in cached.get("projects", [])[:count]]
+
+    # Guard against empty language data
+    if not user_languages:
+        return []
 
     # Determine primary language to search
     primary_lang = max(user_languages.keys(), key=lambda k: user_languages[k])

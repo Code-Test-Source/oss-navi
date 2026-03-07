@@ -5,7 +5,6 @@ Auto-generated from all feature plans. Last updated: 2026-03-07
 ## Active Technologies
 - Python 3.11+ + Click (CLI), httpx (HTTP client), httpx[socks] (SOCKS proxy), Pydantic v2 (data models), PyYAML (001-oss-discovery)
 - JSON files in `~/.oss-navi/` (cache/, state/, temp/) (001-oss-discovery)
-- Python 3.11+ + Click (CLI), httpx (HTTP client), Pydantic v2 (data models), PyYAML (001-oss-discovery)
 
 ## Project Structure
 
