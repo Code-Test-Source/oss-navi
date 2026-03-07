@@ -332,3 +332,224 @@ New learning goal.
             assert "New learning goal." in result.learning_goals
             assert "python" in result.learning_goals
             assert len(result.past_recommendations) == 1  # Original preserved
+
+
+class TestCalculateRatingBreakdown:
+    """Tests for calculate_rating_breakdown function."""
+
+    @pytest.fixture
+    def sample_task(self) -> Task:
+        """Create a sample task for testing."""
+        now = datetime.now(timezone.utc)
+        return Task(
+            id="test:1",
+            title="Fix bug in authentication",
+            url="https://github.com/owner/repo/issues/1",
+            source="upforgrabs",
+            repository=Repository(
+                name="owner/repo",
+                url="https://github.com/owner/repo",
+                stars=1000,
+                language="Python",
+                topics=["web", "authentication"],
+            ),
+            labels=["good first issue", "bug"],
+            created_at=now,
+            updated_at=now,
+            hotness_score=50.0,
+            fetched_at=now,
+        )
+
+    def test_calculate_rating_breakdown_language_match(self, sample_task: Task) -> None:
+        """Test rating breakdown with language match."""
+        from oss_navi.models.task import IssueStatus
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        user_languages = {"Python": 0.8, "JavaScript": 0.2}
+        learning_focus = "Python"
+        issue_status = IssueStatus(
+            issue_url=sample_task.url,
+            is_assigned=False,
+            is_closed=False,
+            has_linked_pr=False,
+            checked_at=datetime.now(timezone.utc),
+        )
+
+        breakdown = calculate_rating_breakdown(
+            task=sample_task,
+            user_languages=user_languages,
+            learning_focus=learning_focus,
+            issue_status=issue_status,
+        )
+
+        # Language match should be high (Python matches)
+        assert breakdown.language_match >= 8.0
+        # Issue availability should be 10 (available)
+        assert breakdown.issue_availability == 10.0
+
+    def test_calculate_rating_breakdown_no_match(self, sample_task: Task) -> None:
+        """Test rating breakdown with no language match."""
+        from oss_navi.models.task import IssueStatus
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        user_languages = {"Rust": 0.6, "Go": 0.4}
+        learning_focus = "Rust"
+        issue_status = IssueStatus(
+            issue_url=sample_task.url,
+            is_assigned=False,
+            is_closed=False,
+            has_linked_pr=False,
+            checked_at=datetime.now(timezone.utc),
+        )
+
+        breakdown = calculate_rating_breakdown(
+            task=sample_task,
+            user_languages=user_languages,
+            learning_focus=learning_focus,
+            issue_status=issue_status,
+        )
+
+        # Language match should be low (no Python in user languages)
+        assert breakdown.language_match < 5.0
+
+    def test_calculate_rating_breakdown_assigned_issue(self, sample_task: Task) -> None:
+        """Test rating breakdown for assigned issue."""
+        from oss_navi.models.task import IssueStatus
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        user_languages = {"Python": 0.8}
+        learning_focus = "Python"
+        issue_status = IssueStatus(
+            issue_url=sample_task.url,
+            is_assigned=True,
+            assignee="other_dev",
+            is_closed=False,
+            has_linked_pr=False,
+            checked_at=datetime.now(timezone.utc),
+        )
+
+        breakdown = calculate_rating_breakdown(
+            task=sample_task,
+            user_languages=user_languages,
+            learning_focus=learning_focus,
+            issue_status=issue_status,
+        )
+
+        # Availability should be 0 (assigned)
+        assert breakdown.issue_availability == 0.0
+
+
+class TestGenerateRecommendations:
+    """Tests for generate_recommendations function."""
+
+    @pytest.fixture
+    def sample_tasks(self) -> list[Task]:
+        """Create sample tasks for testing."""
+        now = datetime.now(timezone.utc)
+        tasks = []
+        for i in range(15):
+            task = Task(
+                id=f"test:{i}",
+                title=f"Issue {i}",
+                url=f"https://github.com/owner/repo{i}/issues/{i}",
+                source="upforgrabs",
+                repository=Repository(
+                    name=f"owner/repo{i}",
+                    url=f"https://github.com/owner/repo{i}",
+                    stars=100 * (i + 1),
+                    language="Python" if i % 2 == 0 else "JavaScript",
+                ),
+                labels=["good first issue"],
+                created_at=now,
+                updated_at=now,
+                hotness_score=10.0 * (i + 1),
+                fetched_at=now,
+            )
+            tasks.append(task)
+        return tasks
+
+    def test_generate_recommendations_count(self, sample_tasks: list[Task]) -> None:
+        """Test that generate_recommendations returns correct count."""
+        from oss_navi.services.analyzer import generate_recommendations
+
+        user_languages = {"Python": 0.6, "JavaScript": 0.4}
+        learning_focus = "Python"
+
+        with patch(
+            "oss_navi.services.analyzer.check_issue_status"
+        ) as mock_check:
+            from oss_navi.models.task import IssueStatus
+            mock_check.return_value = IssueStatus(
+                issue_url="https://github.com/owner/repo/issues/1",
+                is_assigned=False,
+                is_closed=False,
+                has_linked_pr=False,
+                checked_at=datetime.now(timezone.utc),
+            )
+
+            recommendations = generate_recommendations(
+                tasks=sample_tasks,
+                user_languages=user_languages,
+                learning_focus=learning_focus,
+                count=7,
+            )
+
+        assert 5 <= len(recommendations) <= 10
+
+    def test_generate_recommendations_sorted_by_rating(
+        self, sample_tasks: list[Task]
+    ) -> None:
+        """Test that recommendations are sorted by rating descending."""
+        from oss_navi.services.analyzer import generate_recommendations
+
+        user_languages = {"Python": 0.6, "JavaScript": 0.4}
+        learning_focus = "Python"
+
+        with patch(
+            "oss_navi.services.analyzer.check_issue_status"
+        ) as mock_check:
+            from oss_navi.models.task import IssueStatus
+            mock_check.return_value = IssueStatus(
+                issue_url="https://github.com/owner/repo/issues/1",
+                is_assigned=False,
+                is_closed=False,
+                has_linked_pr=False,
+                checked_at=datetime.now(timezone.utc),
+            )
+
+            recommendations = generate_recommendations(
+                tasks=sample_tasks,
+                user_languages=user_languages,
+                learning_focus=learning_focus,
+                count=5,
+            )
+
+        # Check sorted by rating descending
+        ratings = [r.rating for r in recommendations]
+        assert ratings == sorted(ratings, reverse=True)
+
+
+class TestSuggestAdjacentFields:
+    """Tests for suggest_adjacent_fields function."""
+
+    def test_suggest_from_python(self) -> None:
+        """Test field suggestions from Python background."""
+        from oss_navi.services.analyzer import suggest_adjacent_fields
+
+        suggestions = suggest_adjacent_fields(
+            current_interest="Python",
+            user_languages={"Python": 0.7, "JavaScript": 0.3},
+        )
+
+        assert len(suggestions) >= 2
+
+    def test_suggest_count(self) -> None:
+        """Test that suggestions return reasonable count."""
+        from oss_navi.services.analyzer import suggest_adjacent_fields
+
+        suggestions = suggest_adjacent_fields(
+            current_interest="TypeScript",
+            user_languages={"TypeScript": 0.6, "Python": 0.4},
+        )
+
+        assert 2 <= len(suggestions) <= 5

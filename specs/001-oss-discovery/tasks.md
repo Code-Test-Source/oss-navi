@@ -74,18 +74,18 @@
 
 ### Tests for Recommendation Engine
 
-- [ ] T058 [US1] Create `tests/unit/test_services/test_analyzer.py` with recommendation scoring tests
-- [ ] T059 [US1] Add tests for `calculate_rating_breakdown()` scoring weights
-- [ ] T060 [US1] Add tests for `generate_recommendations()` returning 5-10 items
-- [ ] T061 [US1] Verify analyzer tests fail (module not implemented)
+- [x] T058 [US1] Create `tests/unit/test_services/test_analyzer.py` with recommendation scoring tests
+- [x] T059 [US1] Add tests for `calculate_rating_breakdown()` scoring weights
+- [x] T060 [US1] Add tests for `generate_recommendations()` returning 5-10 items
+- [x] T061 [US1] Verify analyzer tests fail (module not implemented)
 
 ### Implementation for Recommendation Engine
 
-- [ ] T062 [US1] Create `src/oss_navi/services/analyzer.py` module
-- [ ] T063 [US1] Implement `calculate_rating_breakdown()` with weighted scoring in `src/oss_navi/services/analyzer.py`
-- [ ] T064 [US1] Implement `generate_recommendations()` that returns 5-10 scored recommendations in `src/oss_navi/services/analyzer.py`
-- [ ] T065 [US1] Implement `generate_recommendation_reason()` for personalized explanations in `src/oss_navi/services/analyzer.py`
-- [ ] T066 [US1] Verify analyzer tests pass
+- [x] T062 [US1] Create `src/oss_navi/services/analyzer.py` module
+- [x] T063 [US1] Implement `calculate_rating_breakdown()` with weighted scoring in `src/oss_navi/services/analyzer.py`
+- [x] T064 [US1] Implement `generate_recommendations()` that returns 5-10 scored recommendations in `src/oss_navi/services/analyzer.py`
+- [x] T065 [US1] Implement `generate_recommendation_reason()` for personalized explanations in `src/oss_navi/services/analyzer.py`
+- [x] T066 [US1] Verify analyzer tests pass
 
 **Checkpoint**: Recommendation engine should produce scored recommendations with reasons
 

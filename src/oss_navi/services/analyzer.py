@@ -8,13 +8,32 @@ from typing import Optional
 
 from oss_navi.models.memory import LongTermMemory, PastRecommendation, SkillSnapshot
 from oss_navi.models.report import AnalysisReport
-from oss_navi.models.task import Task, calculate_hotness_score
+from oss_navi.models.task import (
+    IssueStatus,
+    RatingBreakdown,
+    Recommendation,
+    Task,
+    calculate_hotness_score,
+)
+from oss_navi.services.github import GitHubClient
 from oss_navi.utils.paths import MEMORY_FILE, TEMP_DIR
 
 
 # Constants
 CLAUDE_CODE_COMMAND = "claude"
 DEFAULT_TIMEOUT_SECONDS = 60
+
+# Field adjacency mapping for suggestions
+ADJACENT_FIELDS = {
+    "Python": ["web development", "data science", "automation", "DevOps", "machine learning"],
+    "JavaScript": ["web development", "frontend development", "Node.js", "React", "Vue.js"],
+    "TypeScript": ["web development", "frontend development", "Node.js", "Angular", "React"],
+    "Rust": ["systems programming", "web assembly", "embedded systems", "CLI tools"],
+    "Go": ["systems programming", "cloud infrastructure", "microservices", "DevOps"],
+    "Java": ["enterprise development", "Android", "microservices", "Spring"],
+    "C++": ["systems programming", "game development", "embedded systems", "performance optimization"],
+    "C": ["systems programming", "embedded systems", "operating systems", "compilers"],
+}
 
 
 class ClaudeCodeError(Exception):
@@ -441,3 +460,271 @@ def run_analysis_with_memory_update(
     update_memory_from_report(report.content, learning_focus)
 
     return report
+
+
+def calculate_rating_breakdown(
+    task: Task,
+    user_languages: dict[str, float],
+    learning_focus: Optional[str] = None,
+    issue_status: Optional[IssueStatus] = None,
+) -> RatingBreakdown:
+    """Calculate rating breakdown for a task recommendation.
+
+    Weights: language_match (30%), hotness (20%), availability (15%),
+    learning (15%), skill (10%), topic (10%)
+
+    Args:
+        task: The task to rate
+        user_languages: User's language distribution (e.g., {"Python": 0.7})
+        learning_focus: What the user wants to learn
+        issue_status: Current status of the issue
+
+    Returns:
+        RatingBreakdown with detailed scores
+    """
+    # Language match (0-10)
+    task_language = task.repository.language or ""
+    language_match = 0.0
+    for lang, pct in user_languages.items():
+        if lang.lower() == task_language.lower():
+            language_match = pct * 10  # Scale percentage to 0-10
+            break
+    # Partial match for related languages
+    if language_match == 0:
+        # Check for partial matches (e.g., JS/TS)
+        related = {"javascript": ["typescript"], "typescript": ["javascript"]}
+        for lang in user_languages:
+            if lang.lower() in related.get(task_language.lower(), []):
+                language_match = 3.0
+                break
+
+    # Hotness score (0-10) - normalize from raw score
+    # Most hotness scores are 0-100, normalize to 0-10
+    raw_hotness = min(task.hotness_score, 100)  # Cap at 100
+    hotness_score = raw_hotness / 10.0
+
+    # Issue availability (0-10)
+    issue_availability = 10.0  # Default to available
+    if issue_status:
+        if issue_status.is_assigned or issue_status.is_closed or issue_status.has_linked_pr:
+            issue_availability = 0.0
+        elif issue_status.in_progress_labels:
+            issue_availability = 5.0  # Partially available
+
+    # Learning alignment (0-10)
+    learning_alignment = 5.0  # Default neutral
+    if learning_focus:
+        focus_lower = learning_focus.lower()
+        if task_language.lower() in focus_lower or focus_lower in task_language.lower():
+            learning_alignment = 10.0
+        elif any(topic.lower() in focus_lower for topic in task.repository.topics):
+            learning_alignment = 8.0
+        # Check labels for learning hints
+        for label in task.labels:
+            if focus_lower in label.lower():
+                learning_alignment = max(learning_alignment, 7.0)
+
+    # Skill level fit (0-10) - based on labels and user experience
+    skill_level_fit = 7.0  # Default good fit
+    beginner_labels = {"good first issue", "beginner", "help wanted", "starter"}
+    if any(label.lower() in beginner_labels for label in task.labels):
+        skill_level_fit = 9.0  # Good for beginners
+
+    # Topic relevance (0-10)
+    topic_relevance = 5.0
+    if task.repository.topics:
+        # Check if topics align with user languages
+        for topic in task.repository.topics:
+            for lang in user_languages:
+                if lang.lower() in topic.lower():
+                    topic_relevance = max(topic_relevance, 8.0)
+
+    return RatingBreakdown(
+        language_match=language_match,
+        hotness_score=hotness_score,
+        issue_availability=issue_availability,
+        learning_alignment=learning_alignment,
+        skill_level_fit=skill_level_fit,
+        topic_relevance=topic_relevance,
+    )
+
+
+def check_issue_status(owner: str, repo: str, issue_number: int, token: Optional[str] = None) -> IssueStatus:
+    """Check status of an issue using GitHub API.
+
+    Args:
+        owner: Repository owner
+        repo: Repository name
+        issue_number: Issue number
+        token: Optional GitHub token
+
+    Returns:
+        IssueStatus with availability info
+    """
+    client = GitHubClient(token=token)
+    return client.check_issue_status(owner, repo, issue_number)
+
+
+def generate_recommendations(
+    tasks: list[Task],
+    user_languages: dict[str, float],
+    learning_focus: Optional[str] = None,
+    count: int = 7,
+    token: Optional[str] = None,
+) -> list[Recommendation]:
+    """Generate scored recommendations from tasks.
+
+    Args:
+        tasks: List of available tasks
+        user_languages: User's language distribution
+        learning_focus: What the user wants to learn
+        count: Number of recommendations (5-10)
+        token: Optional GitHub token for status checks
+
+    Returns:
+        List of scored recommendations sorted by rating
+    """
+    count = max(5, min(10, count))  # Ensure 5-10 range
+    recommendations = []
+
+    # Score all tasks
+    scored_tasks = []
+    for task in tasks:
+        # Check issue status
+        import re
+        match = re.match(r"https://github\.com/([^/]+)/([^/]+)/issues/(\d+)", task.url)
+        issue_status = None
+        if match:
+            owner, repo, issue_num = match.groups()
+            issue_status = check_issue_status(owner, repo, int(issue_num), token)
+
+        breakdown = calculate_rating_breakdown(
+            task=task,
+            user_languages=user_languages,
+            learning_focus=learning_focus,
+            issue_status=issue_status,
+        )
+
+        scored_tasks.append((task, breakdown, issue_status))
+
+    # Sort by weighted total (descending)
+    scored_tasks.sort(key=lambda x: x[1].weighted_total, reverse=True)
+
+    # Take top 'count' tasks
+    for task, breakdown, issue_status in scored_tasks[:count]:
+        if issue_status is None:
+            issue_status = IssueStatus(
+                issue_url=task.url,
+                is_assigned=False,
+                is_closed=False,
+                has_linked_pr=False,
+                checked_at=datetime.now(timezone.utc),
+            )
+
+        reason = generate_recommendation_reason(
+            task=task,
+            user_languages=user_languages,
+            learning_focus=learning_focus,
+        )
+
+        recommendation = Recommendation(
+            task=task,
+            rating=breakdown.weighted_total,
+            rating_breakdown=breakdown,
+            reason=reason,
+            code_analysis=f"This {task.repository.language or 'project'} project has {task.repository.stars} stars and focuses on {', '.join(task.repository.topics[:3]) or 'open source contributions'}.",
+            status=issue_status,
+        )
+        recommendations.append(recommendation)
+
+    return recommendations
+
+
+def generate_recommendation_reason(
+    task: Task,
+    user_languages: dict[str, float],
+    learning_focus: Optional[str] = None,
+) -> str:
+    """Generate a personalized reason for recommending this task.
+
+    Args:
+        task: The recommended task
+        user_languages: User's language distribution
+        learning_focus: What the user wants to learn
+
+    Returns:
+        Human-readable reason string
+    """
+    reasons = []
+
+    # Language match
+    task_lang = task.repository.language
+    if task_lang:
+        for lang in user_languages:
+            if lang.lower() == task_lang.lower():
+                reasons.append(f"matches your {lang} expertise")
+                break
+
+    # Learning focus
+    if learning_focus:
+        if task_lang and learning_focus.lower() in task_lang.lower():
+            reasons.append(f"aligns with your learning goal of {learning_focus}")
+        for topic in task.repository.topics:
+            if learning_focus.lower() in topic.lower():
+                reasons.append(f"involves {topic} which relates to {learning_focus}")
+                break
+
+    # Project popularity
+    if task.repository.stars >= 1000:
+        reasons.append("popular and well-maintained project")
+    elif task.repository.stars >= 100:
+        reasons.append("active community project")
+
+    # Beginner friendly
+    beginner_labels = {"good first issue", "beginner", "starter", "help wanted"}
+    if any(label.lower() in beginner_labels for label in task.labels):
+        reasons.append("beginner-friendly with clear scope")
+
+    if not reasons:
+        reasons.append("good opportunity for open source contribution")
+
+    return f"This issue {' and '.join(reasons[:3])}."
+
+
+def suggest_adjacent_fields(
+    current_interest: str,
+    user_languages: dict[str, float],
+) -> list[str]:
+    """Suggest adjacent fields to explore based on user's interests.
+
+    Args:
+        current_interest: What the user is currently learning
+        user_languages: User's language distribution
+
+    Returns:
+        List of suggested fields to explore
+    """
+    suggestions = []
+
+    # Look up suggestions for known languages
+    interest_lower = current_interest.lower()
+    for lang, fields in ADJACENT_FIELDS.items():
+        if lang.lower() == interest_lower or interest_lower in lang.lower():
+            suggestions.extend(fields[:3])
+            break
+
+    # If no exact match, suggest based on user languages
+    if not suggestions:
+        for lang in user_languages:
+            if lang in ADJACENT_FIELDS:
+                suggestions.extend(ADJACENT_FIELDS[lang][:2])
+
+    # Deduplicate and limit
+    seen = set()
+    unique = []
+    for s in suggestions:
+        if s not in seen:
+            seen.add(s)
+            unique.append(s)
+
+    return unique[:4]  # Return 2-4 suggestions
