@@ -1,15 +1,14 @@
 """GitHub API client for fetching user profile and repository data."""
 
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from oss_navi.config import get_proxy_settings, should_verify_ssl
 from oss_navi.models.user_profile import Activity, Repository, UserProfile
 from oss_navi.utils.cache import read_json, update_cache_metadata, write_json
 from oss_navi.utils.paths import GITHUB_PROFILE_CACHE
-
 
 # Constants
 GITHUB_API_BASE = "https://api.github.com"
@@ -28,36 +27,10 @@ class GitHubRateLimitError(Exception):
     pass
 
 
-def get_proxy_settings() -> dict[str, str]:
-    """Get proxy settings from environment variables.
-
-    Returns:
-        Dict with 'http_proxy', 'https_proxy', and 'no_proxy' keys
-    """
-    return {
-        "http_proxy": os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy"),
-        "https_proxy": os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy"),
-        "no_proxy": os.environ.get("NO_PROXY") or os.environ.get("no_proxy"),
-    }
-
-
-def should_verify_ssl() -> bool:
-    """Check if SSL verification should be enabled.
-
-    Set OSS_NAVI_VERIFY_SSL=false to disable SSL verification (useful for proxies
-    with self-signed certificates).
-
-    Returns:
-        True if SSL verification should be enabled, False otherwise
-    """
-    verify_ssl = os.environ.get("OSS_NAVI_VERIFY_SSL", "true").lower()
-    return verify_ssl not in ("false", "0", "no")
-
-
 class GitHubClient:
     """GitHub API client for fetching user profile data."""
 
-    def __init__(self, token: Optional[str] = None, timeout: float = DEFAULT_TIMEOUT):
+    def __init__(self, token: str | None = None, timeout: float = DEFAULT_TIMEOUT):
         """Initialize GitHub client.
 
         Args:
@@ -129,7 +102,7 @@ class GitHubClient:
                     "GitHub API rate limit exceeded. Wait and try again later."
                 )
 
-    def fetch_user_profile(self, username: str) -> Optional[UserProfile]:
+    def fetch_user_profile(self, username: str) -> UserProfile | None:
         """Fetch user profile from GitHub API.
 
         Args:
@@ -142,7 +115,7 @@ class GitHubClient:
             GitHubAuthError: For authentication failures
             GitHubRateLimitError: For rate limit exceeded
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = now + timedelta(hours=24)
 
         with self._create_client() as client:
@@ -242,7 +215,7 @@ class GitHubClient:
             )
 
 
-def fetch_and_cache_profile(username: str, token: Optional[str] = None) -> Optional[UserProfile]:
+def fetch_and_cache_profile(username: str, token: str | None = None) -> UserProfile | None:
     """Fetch user profile and cache it locally.
 
     Args:
@@ -263,7 +236,7 @@ def fetch_and_cache_profile(username: str, token: Optional[str] = None) -> Optio
     return profile
 
 
-def load_cached_profile() -> Optional[dict]:
+def load_cached_profile() -> dict | None:
     """Load cached profile from disk.
 
     Returns:

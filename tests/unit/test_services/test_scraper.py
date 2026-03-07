@@ -1,7 +1,7 @@
 """Additional unit tests for scraper service."""
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -178,9 +178,10 @@ stats:
         mock_sync_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_sync_client
 
-        # Mock async client for Up For Grabs
-        mock_async_client = MagicMock()
-        mock_async_client_class.return_value.__aenter__.return_value = mock_async_client
+        # Mock async client for Up For Grabs using AsyncMock so __aenter__ is awaitable
+        mock_async_client = AsyncMock()
+        mock_async_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_async_client)
+        mock_async_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
         # Mock Up For Grabs response (new YAML structure)
         project_files = [

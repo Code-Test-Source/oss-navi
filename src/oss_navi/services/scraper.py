@@ -1,20 +1,19 @@
 """Task scraper for fetching open source contribution opportunities."""
 
 import asyncio
-import os
+import hashlib
 import random
 import re
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
 import httpx
 import yaml
 
+from oss_navi.config import get_proxy_settings, should_verify_ssl
 from oss_navi.models.task import Repository, Task, calculate_hotness_score
 from oss_navi.utils.cache import read_json, update_cache_metadata, write_json
 from oss_navi.utils.paths import GOODFIRSTISSUES_TASKS_CACHE, UPFORGRABS_TASKS_CACHE
-
 
 # Constants
 UPFORGRABS_PROJECTS_API = "https://api.github.com/repos/up-for-grabs/up-for-grabs.net/contents/_data/projects"
@@ -35,32 +34,6 @@ class GoodFirstIssueUnavailableError(Exception):
     """Error when Good First Issue is unavailable."""
 
     pass
-
-
-def get_proxy_settings() -> dict[str, str]:
-    """Get proxy settings from environment variables.
-
-    Returns:
-        Dict with 'http_proxy', 'https_proxy', and 'no_proxy' keys
-    """
-    return {
-        "http_proxy": os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy"),
-        "https_proxy": os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy"),
-        "no_proxy": os.environ.get("NO_PROXY") or os.environ.get("no_proxy"),
-    }
-
-
-def should_verify_ssl() -> bool:
-    """Check if SSL verification should be enabled.
-
-    Set OSS_NAVI_VERIFY_SSL=false to disable SSL verification (useful for proxies
-    with self-signed certificates).
-
-    Returns:
-        True if SSL verification should be enabled, False otherwise
-    """
-    verify_ssl = os.environ.get("OSS_NAVI_VERIFY_SSL", "true").lower()
-    return verify_ssl not in ("false", "0", "no")
 
 
 def create_http_client(timeout: float = DEFAULT_TIMEOUT) -> httpx.Client:
@@ -133,7 +106,7 @@ def create_async_http_client(timeout: float = DEFAULT_TIMEOUT) -> httpx.AsyncCli
     elif http_proxy:
         return httpx.AsyncClient(timeout=timeout, verify=should_verify_ssl(), proxy=http_proxy)
     else:
-        return httpx.AsyncClient(timeout=timeout)
+        return httpx.AsyncClient(timeout=timeout, verify=should_verify_ssl())
 
 
 def validate_github_url(url: str) -> bool:
@@ -240,7 +213,7 @@ def validate_github_repo_url(url: str) -> bool:
         return False
 
 
-def sanitize_text(text: Optional[str]) -> str:
+def sanitize_text(text: str | None) -> str:
     """Sanitize text by removing HTML tags and extra whitespace.
 
     Args:
@@ -279,7 +252,7 @@ def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
         UpForGrabsUnavailableError: If Up For Grabs is unavailable
     """
     tasks: list[Task] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     with create_http_client(timeout=timeout) as client:
         # Step 1: Fetch list of project YAML files
@@ -399,7 +372,7 @@ def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
 
 async def _fetch_single_project_yaml(
     client: httpx.AsyncClient, filename: str
-) -> Optional[dict]:
+) -> dict | None:
     """Fetch and parse a single project YAML file.
 
     Args:
@@ -460,7 +433,6 @@ def _parse_project_to_tasks(project_data: dict, now: datetime) -> list[Task]:
 
         # Get stats
         stats = project_data.get("stats", {})
-        issue_count = stats.get("issue-count", 0) or 0
         fork_count = stats.get("fork-count", 0) or 0
         last_updated = stats.get("last-updated", "")
 
@@ -485,23 +457,24 @@ def _parse_project_to_tasks(project_data: dict, now: datetime) -> list[Task]:
             topics=tags,
         )
 
-        # Create a task for each issue (simulated based on issue_count)
-        for i in range(min(issue_count, 3)):  # Limit to 3 tasks per project
-            hotness = calculate_hotness_score(fork_count, max(1, (now - updated_at).days))
+        # Create a single task per project, linking to the label search page.
+        # Up For Grabs only provides a label URL (not individual issue links),
+        # so one task entry per project is the correct granularity.
+        hotness = calculate_hotness_score(fork_count, max(1, (now - updated_at).days))
 
-            task = Task(
-                id=f"upforgrabs:{repo_name.replace('/', '-')}:{i}",
-                title=f"{project_data.get('name', repo_name)} - {label_name}",
-                url=label_url,
-                source="upforgrabs",
-                repository=repo,
-                labels=[label_name],
-                created_at=updated_at,
-                updated_at=updated_at,
-                hotness_score=hotness,
-                fetched_at=now,
-            )
-            tasks.append(task)
+        task = Task(
+            id=f"upforgrabs:{repo_name.replace('/', '-')}",
+            title=f"{project_data.get('name', repo_name)} - {label_name}",
+            url=label_url,
+            source="upforgrabs",
+            repository=repo,
+            labels=[label_name],
+            created_at=updated_at,
+            updated_at=updated_at,
+            hotness_score=hotness,
+            fetched_at=now,
+        )
+        tasks.append(task)
 
     except Exception:
         pass
@@ -527,7 +500,7 @@ async def fetch_upforgrabs_tasks_async(
     Raises:
         UpForGrabsUnavailableError: If Up For Grabs is unavailable
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     async with create_async_http_client(timeout=timeout) as client:
         # Step 1: Fetch list of project YAML files
@@ -550,7 +523,7 @@ async def fetch_upforgrabs_tasks_async(
         # Step 2: Fetch YAML files in parallel with semaphore for rate limiting
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
-        async def fetch_with_semaphore(filename: str) -> Optional[dict]:
+        async def fetch_with_semaphore(filename: str) -> dict | None:
             async with semaphore:
                 return await _fetch_single_project_yaml(client, filename)
 
@@ -575,7 +548,9 @@ async def fetch_upforgrabs_tasks_async(
     return tasks
 
 
-def fetch_goodfirstissues_tasks(timeout: float = 60.0) -> list[Task]:
+def fetch_goodfirstissues_tasks(
+    timeout: float = 60.0, max_issues: int | None = None
+) -> list[Task]:
     """Fetch tasks from Good First Issues (goodfirstissues.com).
 
     This source provides individual issue URLs via a JSON API.
@@ -584,6 +559,8 @@ def fetch_goodfirstissues_tasks(timeout: float = 60.0) -> list[Task]:
 
     Args:
         timeout: Request timeout in seconds (default: 60.0 for large file)
+        max_issues: Optional cap on the number of issues returned. When None,
+            all available issues are returned.
 
     Returns:
         List of Task objects
@@ -592,7 +569,7 @@ def fetch_goodfirstissues_tasks(timeout: float = 60.0) -> list[Task]:
         GoodFirstIssueUnavailableError: If Good First Issues is unavailable
     """
     tasks: list[Task] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     with create_http_client(timeout=timeout) as client:
         try:
@@ -680,7 +657,7 @@ def fetch_goodfirstissues_tasks(timeout: float = 60.0) -> list[Task]:
                 hotness = calculate_hotness_score(stars, age_days)
 
                 task = Task(
-                    id=f"goodfirstissues:{hash(issue_url)}",
+                    id=f"goodfirstissues:{hashlib.sha256(issue_url.encode()).hexdigest()[:32]}",
                     title=title,
                     url=issue_url,
                     source="goodfirstissues",
@@ -696,6 +673,9 @@ def fetch_goodfirstissues_tasks(timeout: float = 60.0) -> list[Task]:
             except Exception:
                 # Skip malformed issues
                 continue
+
+    if max_issues is not None:
+        tasks = tasks[:max_issues]
 
     return tasks
 
@@ -799,7 +779,7 @@ def select_diverse_tasks(tasks: list[Task], count: int = 20, strategy: str = "ra
 
 def search_tasks(
     tasks: list[Task],
-    preferred_languages: Optional[list[str]] = None,
+    preferred_languages: list[str] | None = None,
     min_stars: int = 0,
     max_age_days: int = 90,
     limit: int = 20,
@@ -818,13 +798,13 @@ def search_tasks(
     Returns:
         Filtered and selected tasks
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Filter by stars
     filtered = [t for t in tasks if t.repository.stars >= min_stars]
 
     # Filter by age
-    cutoff = now - __import__("datetime").timedelta(days=max_age_days)
+    cutoff = now - timedelta(days=max_age_days)
     filtered = [t for t in filtered if t.created_at >= cutoff]
 
     # Filter by languages if specified
@@ -836,7 +816,7 @@ def search_tasks(
 
 
 def fetch_and_cache_tasks(
-    sources: Optional[list[str]] = None, timeout: float = DEFAULT_TIMEOUT
+    sources: list[str] | None = None, timeout: float = DEFAULT_TIMEOUT
 ) -> list[Task]:
     """Fetch tasks from all sources and cache them.
 

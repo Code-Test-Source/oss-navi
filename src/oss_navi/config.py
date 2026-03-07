@@ -147,31 +147,38 @@ def reset_config() -> None:
 
 
 def get_proxy_settings() -> dict[str, Optional[str]]:
-    """Get proxy settings with environment variable fallback.
+    """Get proxy settings with environment variable precedence.
 
     Priority:
-    1. Config file settings
-    2. Environment variables (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
+    1. Environment variables (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
+    2. Config file settings
 
     Returns:
         Dict with 'http_proxy', 'https_proxy', and 'no_proxy' keys
     """
     config = load_config()
 
+    http_env = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+    https_env = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+    no_proxy_env = os.environ.get("NO_PROXY") or os.environ.get("no_proxy")
+
     return {
-        "http_proxy": (
-            config.http_proxy
-            if config and config.http_proxy
-            else os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
-        ),
-        "https_proxy": (
-            config.https_proxy
-            if config and config.https_proxy
-            else os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
-        ),
-        "no_proxy": (
-            config.no_proxy
-            if config and config.no_proxy
-            else os.environ.get("NO_PROXY") or os.environ.get("no_proxy")
-        ),
+        "http_proxy": http_env or (config.http_proxy if config and config.http_proxy else None),
+        "https_proxy": https_env or (config.https_proxy if config and config.https_proxy else None),
+        "no_proxy": no_proxy_env or (config.no_proxy if config and config.no_proxy else None),
     }
+
+
+def should_verify_ssl() -> bool:
+    """Check if SSL verification should be enabled.
+
+    Set OSS_NAVI_VERIFY_SSL=false to disable SSL verification (useful for
+    proxies with self-signed certificates). For better security, prefer
+    configuring a custom CA bundle via the REQUESTS_CA_BUNDLE or SSL_CERT_FILE
+    environment variables rather than disabling verification entirely.
+
+    Returns:
+        True if SSL verification should be enabled, False otherwise
+    """
+    verify_ssl = os.environ.get("OSS_NAVI_VERIFY_SSL", "true").lower()
+    return verify_ssl not in ("false", "0", "no")
