@@ -287,9 +287,13 @@ def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
         except httpx.RequestError as e:
             raise UpForGrabsUnavailableError(f"Failed to fetch Up For Grabs: {e}")
 
-        # Step 2: Fetch and parse each project YAML file (limit to avoid rate limits)
-        max_projects = 50  # Limit to avoid GitHub API rate limits
-        for project_file in project_files[:max_projects]:
+        # Step 2: Fetch and parse each project YAML file (sorted alphabetically)
+        # Sort project files by name for consistent ordering
+        sorted_project_files = sorted(
+            project_files,
+            key=lambda pf: pf.get("name", "")
+        )
+        for project_file in sorted_project_files:
             try:
                 filename = project_file.get("name", "")
                 if not filename.endswith(".yml"):
@@ -494,16 +498,16 @@ def _parse_project_to_tasks(project_data: dict, now: datetime) -> list[Task]:
 
 
 async def fetch_upforgrabs_tasks_async(
-    timeout: float = DEFAULT_TIMEOUT, max_projects: int = 50
+    timeout: float = DEFAULT_TIMEOUT
 ) -> list[Task]:
     """Fetch tasks from Up For Grabs using async parallel requests.
 
     This is significantly faster than the sync version when fetching
-    multiple project YAML files in parallel.
+    multiple project YAML files in parallel. Fetches ALL projects
+    in alphabetical order by filename.
 
     Args:
         timeout: Request timeout in seconds
-        max_projects: Maximum number of projects to fetch
 
     Returns:
         List of Task objects (project-level, linking to label pages)
@@ -538,11 +542,12 @@ async def fetch_upforgrabs_tasks_async(
             async with semaphore:
                 return await _fetch_single_project_yaml(client, filename)
 
-        yaml_filenames = [
+        # Get all YAML filenames and sort alphabetically
+        yaml_filenames = sorted([
             pf.get("name", "")
-            for pf in project_files[:max_projects]
+            for pf in project_files
             if pf.get("name", "").endswith(".yml")
-        ]
+        ])
 
         # Fetch all YAML files in parallel
         project_data_list = await asyncio.gather(
@@ -558,15 +563,15 @@ async def fetch_upforgrabs_tasks_async(
     return tasks
 
 
-def fetch_goodfirstissues_tasks(timeout: float = 60.0, max_issues: int = DEFAULT_MAX_ISSUES) -> list[Task]:
+def fetch_goodfirstissues_tasks(timeout: float = 60.0) -> list[Task]:
     """Fetch tasks from Good First Issues (goodfirstissues.com).
 
     This source provides individual issue URLs via a JSON API.
     Note: The JSON file is ~1.1MB, so a longer timeout is needed.
+    Fetches ALL issues, sorted alphabetically by repository name.
 
     Args:
         timeout: Request timeout in seconds (default: 60.0 for large file)
-        max_issues: Maximum number of issues to fetch
 
     Returns:
         List of Task objects
@@ -596,10 +601,16 @@ def fetch_goodfirstissues_tasks(timeout: float = 60.0, max_issues: int = DEFAULT
         except httpx.RequestError as e:
             raise GoodFirstIssueUnavailableError(f"Failed to fetch Good First Issues: {e}")
 
-        # Randomize the order for variety
-        random.shuffle(data)
+        # Sort by repo name alphabetically for consistent ordering
+        def get_repo_name(issue_data: dict) -> str:
+            repo_data = issue_data.get("Issue", {}).get("issue_repo", {})
+            owner = repo_data.get("Owner", {}).get("repo_owner", "")
+            name = repo_data.get("repo_name", "")
+            return f"{owner}/{name}" if owner and name else ""
 
-        for issue_data in data[:max_issues]:
+        sorted_data = sorted(data, key=get_repo_name)
+
+        for issue_data in sorted_data:
             try:
                 issue = issue_data.get("Issue", {})
                 issue_url = issue.get("issue_url", "")
@@ -818,6 +829,7 @@ def fetch_and_cache_tasks(
     """Fetch tasks from all sources and cache them.
 
     Uses async parallel fetching for Up For Grabs for better performance.
+    Fetches ALL data from both sources in alphabetical order.
 
     Args:
         sources: List of sources to fetch ("upforgrabs", "goodfirstissues")
@@ -826,10 +838,23 @@ def fetch_and_cache_tasks(
     Returns:
         Combined list of Task objects
     """
-    sources = sources or ["goodfirstissues", "upforgrabs"]
+    sources = sources or ["upforgrabs", "goodfirstissues"]
     all_tasks: list[Task] = []
 
-    # Fetch Good First Issues first (simpler single JSON fetch)
+    # Fetch Up For Grabs first (async parallel fetching of all YAML files)
+    if "upforgrabs" in sources:
+        try:
+            tasks = asyncio.run(fetch_upforgrabs_tasks_async(timeout))
+            all_tasks.extend(tasks)
+
+            # Cache Up For Grabs tasks
+            tasks_data = [t.model_dump() for t in tasks]
+            write_json(UPFORGRABS_TASKS_CACHE, tasks_data)
+            update_cache_metadata("upforgrabs_tasks", count=len(tasks))
+        except UpForGrabsUnavailableError:
+            pass
+
+    # Then fetch Good First Issues (single JSON fetch)
     if "goodfirstissues" in sources:
         try:
             tasks = fetch_goodfirstissues_tasks(timeout)
@@ -840,20 +865,6 @@ def fetch_and_cache_tasks(
             write_json(GOODFIRSTISSUES_TASKS_CACHE, tasks_data)
             update_cache_metadata("goodfirstissues_tasks", count=len(tasks))
         except GoodFirstIssueUnavailableError:
-            pass
-
-    # Then fetch Up For Grabs (async parallel fetching of many YAML files)
-    if "upforgrabs" in sources:
-        try:
-            # Use async version for parallel fetching (much faster)
-            tasks = asyncio.run(fetch_upforgrabs_tasks_async(timeout))
-            all_tasks.extend(tasks)
-
-            # Cache Up For Grabs tasks
-            tasks_data = [t.model_dump() for t in tasks]
-            write_json(UPFORGRABS_TASKS_CACHE, tasks_data)
-            update_cache_metadata("upforgrabs_tasks", count=len(tasks))
-        except UpForGrabsUnavailableError:
             pass
 
     return all_tasks
