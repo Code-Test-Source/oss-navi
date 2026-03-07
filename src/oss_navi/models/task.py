@@ -54,7 +54,7 @@ class Task(BaseModel):
     @classmethod
     def validate_source(cls, v: str) -> str:
         """Validate that source is one of the allowed values."""
-        allowed = {"upforgrabs", "goodfirstissue"}
+        allowed = {"upforgrabs", "goodfirstissue", "goodfirstissues"}
         if v not in allowed:
             raise ValueError(f"Source must be one of: {', '.join(allowed)}")
         return v
