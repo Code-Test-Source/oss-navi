@@ -195,12 +195,14 @@ def analysis(
         )
         click.echo(f"\n✓ Report saved: {report.file_path}")
 
-        # Update long-term memory if learning focus was provided
-        if learn:
-            from oss_navi.services.analyzer import update_memory_from_report
-            updated_memory = update_memory_from_report(report.content, learn)
-            if updated_memory:
-                click.echo("✓ Long-term memory updated")
+        # Update long-term memory ALWAYS (not just when --learn is provided)
+        from oss_navi.services.analyzer import update_memory_from_report_with_profile
+
+        updated_memory = update_memory_from_report_with_profile(
+            report.content, profile, learning_focus
+        )
+        if updated_memory:
+            click.echo("✓ Long-term memory updated")
 
         # Show top recommendations
         if report.recommended_projects:

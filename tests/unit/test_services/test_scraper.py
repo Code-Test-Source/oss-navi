@@ -1,6 +1,6 @@
 """Additional unit tests for scraper service."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -171,8 +171,8 @@ stats:
     @patch("httpx.Client")
     def test_fetch_and_cache_tasks(self, mock_client_class: MagicMock, mock_async_client_class: MagicMock, tmp_path) -> None:
         """Test fetch_and_cache_tasks function."""
+
         from oss_navi.services.scraper import fetch_and_cache_tasks
-        from pathlib import Path
 
         # Mock sync client for Good First Issues
         mock_sync_client = MagicMock()
@@ -393,7 +393,10 @@ class TestGoodFirstIssuesFetcher:
     @patch("httpx.Client")
     def test_fetch_goodfirstissues_unavailable(self, mock_client_class: MagicMock) -> None:
         """Test handling when goodfirstissues.com is unavailable."""
-        from oss_navi.services.scraper import GoodFirstIssueUnavailableError, fetch_goodfirstissues_tasks
+        from oss_navi.services.scraper import (
+            GoodFirstIssueUnavailableError,
+            fetch_goodfirstissues_tasks,
+        )
 
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client
@@ -464,11 +467,10 @@ class TestSearchFunctions:
 
     def test_filter_tasks_by_tags(self) -> None:
         """Test filtering tasks by tags."""
-        from oss_navi.services.scraper import filter_tasks_by_tags
         from oss_navi.models.task import Repository, Task
-        from datetime import datetime, timezone
+        from oss_navi.services.scraper import filter_tasks_by_tags
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         tasks = [
             Task(
                 id="test:1",
@@ -518,11 +520,10 @@ class TestSearchFunctions:
 
     def test_select_diverse_tasks_random(self) -> None:
         """Test random task selection."""
-        from oss_navi.services.scraper import select_diverse_tasks
         from oss_navi.models.task import Repository, Task
-        from datetime import datetime, timezone
+        from oss_navi.services.scraper import select_diverse_tasks
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         tasks = [
             Task(
                 id=f"test:{i}",
@@ -548,11 +549,10 @@ class TestSearchFunctions:
 
     def test_select_diverse_tasks_top(self) -> None:
         """Test top task selection by hotness."""
-        from oss_navi.services.scraper import select_diverse_tasks
         from oss_navi.models.task import Repository, Task
-        from datetime import datetime, timezone
+        from oss_navi.services.scraper import select_diverse_tasks
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         tasks = [
             Task(
                 id=f"test:{i}",
@@ -580,11 +580,12 @@ class TestSearchFunctions:
 
     def test_search_tasks(self) -> None:
         """Test combined search function."""
-        from oss_navi.services.scraper import search_tasks
-        from oss_navi.models.task import Repository, Task
-        from datetime import datetime, timezone, timedelta
+        from datetime import timedelta
 
-        now = datetime.now(timezone.utc)
+        from oss_navi.models.task import Repository, Task
+        from oss_navi.services.scraper import search_tasks
+
+        now = datetime.now(UTC)
         old_date = now - timedelta(days=100)
 
         tasks = [
@@ -635,11 +636,10 @@ class TestSearchFunctions:
 
     def test_select_diverse_tasks_diverse_strategy(self) -> None:
         """Test diverse task selection strategy."""
-        from oss_navi.services.scraper import select_diverse_tasks
         from oss_navi.models.task import Repository, Task
-        from datetime import datetime, timezone
+        from oss_navi.services.scraper import select_diverse_tasks
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         tasks = [
             Task(
                 id=f"test:{i}",

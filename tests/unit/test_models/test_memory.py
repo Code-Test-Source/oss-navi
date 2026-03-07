@@ -1,10 +1,15 @@
 """Unit tests for LongTermMemory model."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from oss_navi.models.memory import LongTermMemory, PastRecommendation, SkillSnapshot
+from oss_navi.models.memory import (
+    GitHubProfileSummary,
+    LongTermMemory,
+    PastRecommendation,
+    SkillSnapshot,
+)
 
 
 class TestPastRecommendation:
@@ -15,7 +20,7 @@ class TestPastRecommendation:
         rec = PastRecommendation(
             project="python/cpython",
             issue_url="https://github.com/python/cpython/issues/123",
-            date=datetime(2026, 3, 7, tzinfo=timezone.utc),
+            date=datetime(2026, 3, 7, tzinfo=UTC),
         )
         assert rec.project == "python/cpython"
         assert rec.issue_url == "https://github.com/python/cpython/issues/123"
@@ -25,7 +30,7 @@ class TestPastRecommendation:
         rec = PastRecommendation(
             project="pallets/click",
             issue_url="https://github.com/pallets/click/issues/456",
-            date=datetime(2026, 3, 7, tzinfo=timezone.utc),
+            date=datetime(2026, 3, 7, tzinfo=UTC),
             reason="CLI library",
             status="viewed",
         )
@@ -39,7 +44,7 @@ class TestSkillSnapshot:
     def test_create_skill_snapshot(self) -> None:
         """Test creating a SkillSnapshot."""
         snapshot = SkillSnapshot(
-            date=datetime(2026, 3, 7, tzinfo=timezone.utc),
+            date=datetime(2026, 3, 7, tzinfo=UTC),
             languages={"Python": 0.6, "TypeScript": 0.3},
             top_repos=["owner/repo1", "owner/repo2"],
             focus_areas=["web", "cli"],
@@ -50,7 +55,7 @@ class TestSkillSnapshot:
 
     def test_skill_snapshot_defaults(self) -> None:
         """Test SkillSnapshot with default values."""
-        snapshot = SkillSnapshot(date=datetime(2026, 3, 7, tzinfo=timezone.utc))
+        snapshot = SkillSnapshot(date=datetime(2026, 3, 7, tzinfo=UTC))
         assert snapshot.languages == {}
         assert snapshot.top_repos == []
         assert snapshot.focus_areas == []
@@ -66,13 +71,13 @@ class TestLongTermMemory:
             PastRecommendation(
                 project="python/cpython",
                 issue_url="https://github.com/python/cpython/issues/1",
-                date=datetime(2026, 3, 1, tzinfo=timezone.utc),
+                date=datetime(2026, 3, 1, tzinfo=UTC),
                 reason="Learn Python internals",
             ),
             PastRecommendation(
                 project="pallets/click",
                 issue_url="https://github.com/pallets/click/issues/2",
-                date=datetime(2026, 3, 5, tzinfo=timezone.utc),
+                date=datetime(2026, 3, 5, tzinfo=UTC),
                 reason="CLI library",
             ),
         ]
@@ -81,7 +86,7 @@ class TestLongTermMemory:
     def sample_skill_snapshot(self) -> SkillSnapshot:
         """Create a sample skill snapshot."""
         return SkillSnapshot(
-            date=datetime(2026, 3, 7, tzinfo=timezone.utc),
+            date=datetime(2026, 3, 7, tzinfo=UTC),
             languages={"Python": 0.8},
             top_repos=["owner/repo1"],
             focus_areas=["web"],
@@ -120,7 +125,7 @@ class TestLongTermMemory:
         rec = PastRecommendation(
             project="test/repo",
             issue_url="https://github.com/test/repo/issues/1",
-            date=datetime(2026, 3, 7, tzinfo=timezone.utc),
+            date=datetime(2026, 3, 7, tzinfo=UTC),
         )
         memory.add_recommendation(rec)
         assert len(memory.past_recommendations) == 1
@@ -128,7 +133,7 @@ class TestLongTermMemory:
     def test_add_skill_snapshot(self) -> None:
         """Test adding a skill snapshot."""
         memory = LongTermMemory()
-        snapshot = SkillSnapshot(date=datetime(2026, 3, 7, tzinfo=timezone.utc))
+        snapshot = SkillSnapshot(date=datetime(2026, 3, 7, tzinfo=UTC))
         memory.add_skill_snapshot(snapshot)
         assert len(memory.skill_history) == 1
 
@@ -141,3 +146,90 @@ class TestLongTermMemory:
         # Should not add duplicate
         memory.add_learning_goal("Learn Rust")
         assert len(memory.learning_goals) == 1
+
+
+class TestGitHubProfileSummary:
+    """Tests for GitHubProfileSummary model (T120)."""
+
+    def test_create_github_profile_summary(self) -> None:
+        """Test creating a GitHubProfileSummary."""
+        summary = GitHubProfileSummary(
+            username="testuser",
+            primary_languages={"Python": 0.6, "TypeScript": 0.4},
+            total_repos=42,
+            last_fetched=datetime(2026, 3, 7, tzinfo=UTC),
+        )
+        assert summary.username == "testuser"
+        assert summary.primary_languages["Python"] == 0.6
+        assert summary.total_repos == 42
+
+    def test_github_profile_summary_languages(self) -> None:
+        """Test GitHubProfileSummary language distribution."""
+        summary = GitHubProfileSummary(
+            username="developer",
+            primary_languages={"Rust": 0.5, "Go": 0.3, "Python": 0.2},
+            total_repos=10,
+            last_fetched=datetime.now(UTC),
+        )
+        assert len(summary.primary_languages) == 3
+        assert summary.primary_languages["Rust"] == 0.5
+
+
+class TestLongTermMemoryNewFields:
+    """Tests for new LongTermMemory fields (T121, T122)."""
+
+    def test_long_term_memory_github_profile_field(self) -> None:
+        """Test LongTermMemory with github_profile field."""
+        profile_summary = GitHubProfileSummary(
+            username="testuser",
+            primary_languages={"Python": 0.7},
+            total_repos=25,
+            last_fetched=datetime.now(UTC),
+        )
+        memory = LongTermMemory(github_profile=profile_summary)
+        assert memory.github_profile is not None
+        assert memory.github_profile.username == "testuser"
+        assert memory.github_profile.total_repos == 25
+
+    def test_long_term_memory_analysis_count_field(self) -> None:
+        """Test LongTermMemory with analysis_count field."""
+        memory = LongTermMemory()
+        assert memory.analysis_count == 0
+
+        # Simulate incrementing analysis count
+        memory.analysis_count = 1
+        assert memory.analysis_count == 1
+
+    def test_long_term_memory_last_analysis_date_field(self) -> None:
+        """Test LongTermMemory with last_analysis_date field."""
+        memory = LongTermMemory()
+        assert memory.last_analysis_date is None
+
+        now = datetime.now(UTC)
+        memory.last_analysis_date = now
+        assert memory.last_analysis_date == now
+
+    def test_long_term_memory_version_3(self) -> None:
+        """Test LongTermMemory version is 3."""
+        memory = LongTermMemory()
+        assert memory.version == 3
+
+    def test_long_term_memory_full_serialization(self) -> None:
+        """Test LongTermMemory serialization with all new fields."""
+        profile_summary = GitHubProfileSummary(
+            username="testuser",
+            primary_languages={"Python": 0.8},
+            total_repos=50,
+            last_fetched=datetime(2026, 3, 7, tzinfo=UTC),
+        )
+        memory = LongTermMemory(
+            github_profile=profile_summary,
+            last_analysis_date=datetime(2026, 3, 8, tzinfo=UTC),
+            analysis_count=5,
+        )
+        data = memory.model_dump()
+
+        assert data["version"] == 3
+        assert data["github_profile"]["username"] == "testuser"
+        assert data["analysis_count"] == 5
+        assert data["last_analysis_date"] is not None

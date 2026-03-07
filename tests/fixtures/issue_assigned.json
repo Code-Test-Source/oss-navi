@@ -1,0 +1,35 @@
+{
+  "url": "https://api.github.com/repos/microsoft/vscode/issues/200000",
+  "html_url": "https://github.com/microsoft/vscode/issues/200000",
+  "id": 1855555666,
+  "number": 200000,
+  "title": "Fix terminal cursor blinking issue",
+  "user": {
+    "login": "developer123",
+    "id": 12345,
+    "type": "User"
+  },
+  "labels": [
+    {"name": "bug", "color": "d73a4a"},
+    {"name": "terminal", "color": "0e8a16"}
+  ],
+  "state": "open",
+  "assignee": {
+    "login": "maintainer456",
+    "id": 67890,
+    "type": "User",
+    "avatar_url": "https://avatars.githubusercontent.com/u/67890?v=4"
+  },
+  "assignees": [
+    {
+      "login": "maintainer456",
+      "id": 67890,
+      "type": "User"
+    }
+  ],
+  "created_at": "2024-01-15T09:30:00Z",
+  "updated_at": "2024-02-20T14:15:00Z",
+  "body": "The cursor in the integrated terminal sometimes stops blinking unexpectedly.",
+  "comments": 3,
+  "pull_request": null
+}

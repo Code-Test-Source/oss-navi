@@ -1,0 +1,68 @@
+[
+  {
+    "id": "goodfirstissues:110982",
+    "title": "Improve error message for missing type annotations",
+    "description": "When a type annotation is missing, the error message could be more helpful.",
+    "url": "https://github.com/python/cpython/issues/110982",
+    "source": "goodfirstissues",
+    "repository": {
+      "name": "python/cpython",
+      "url": "https://github.com/python/cpython",
+      "stars": 58000,
+      "language": "Python",
+      "description": "The Python programming language",
+      "topics": ["python", "programming-language", "interpreter"],
+      "is_archived": false,
+      "last_updated": "2024-02-20T10:00:00Z"
+    },
+    "labels": ["good first issue", "type-bug", "help wanted"],
+    "created_at": "2023-09-28T12:34:56Z",
+    "updated_at": "2023-10-15T08:22:11Z",
+    "hotness_score": 125.5,
+    "fetched_at": "2024-02-20T15:00:00Z"
+  },
+  {
+    "id": "upforgrabs:vscode-200000",
+    "title": "Fix terminal cursor blinking issue",
+    "description": "The cursor in the integrated terminal sometimes stops blinking unexpectedly.",
+    "url": "https://github.com/microsoft/vscode/issues/200000",
+    "source": "upforgrabs",
+    "repository": {
+      "name": "microsoft/vscode",
+      "url": "https://github.com/microsoft/vscode",
+      "stars": 155000,
+      "language": "TypeScript",
+      "description": "Visual Studio Code",
+      "topics": ["editor", "ide", "typescript"],
+      "is_archived": false,
+      "last_updated": "2024-02-19T14:00:00Z"
+    },
+    "labels": ["good first issue", "bug", "terminal"],
+    "created_at": "2024-01-15T09:30:00Z",
+    "updated_at": "2024-02-20T11:00:00Z",
+    "hotness_score": 775.0,
+    "fetched_at": "2024-02-20T15:00:00Z"
+  },
+  {
+    "id": "goodfirstissues:rust-50000",
+    "title": "Improve async closure documentation",
+    "description": "Add more examples for async closures in the documentation.",
+    "url": "https://github.com/rust-lang/rust/issues/50000",
+    "source": "goodfirstissues",
+    "repository": {
+      "name": "rust-lang/rust",
+      "url": "https://github.com/rust-lang/rust",
+      "stars": 89000,
+      "language": "Rust",
+      "description": "The Rust programming language",
+      "topics": ["rust", "programming-language", "compiler"],
+      "is_archived": false,
+      "last_updated": "2024-02-18T09:00:00Z"
+    },
+    "labels": ["good first issue", "documentation", "A-async"],
+    "created_at": "2023-06-10T11:00:00Z",
+    "updated_at": "2024-02-15T16:00:00Z",
+    "hotness_score": 222.5,
+    "fetched_at": "2024-02-20T15:00:00Z"
+  }
+]

@@ -3,8 +3,15 @@
 import re
 import subprocess
 from datetime import UTC, datetime
+from pathlib import Path
 
-from oss_navi.models.memory import LongTermMemory, PastRecommendation, SkillSnapshot
+from oss_navi.models.memory import (
+    GitHubProfileSummary,
+    GreatProjectSummary,
+    LongTermMemory,
+    PastRecommendation,
+    SkillSnapshot,
+)
 from oss_navi.models.report import AnalysisReport
 from oss_navi.models.task import (
     GreatProject,
@@ -20,6 +27,22 @@ from oss_navi.utils.paths import MEMORY_FILE, TEMP_DIR
 # Constants
 CLAUDE_CODE_COMMAND = "claude"
 DEFAULT_TIMEOUT_SECONDS = 60
+
+
+def load_or_create_memory(memory_file: Path | None = None) -> LongTermMemory:
+    """Load existing memory or create new one if missing.
+
+    Args:
+        memory_file: Optional path to memory file (uses MEMORY_FILE if not provided)
+
+    Returns:
+        LongTermMemory object (existing or new)
+    """
+    file_path = memory_file or MEMORY_FILE
+    memory_data = read_json(file_path)
+    if memory_data:
+        return LongTermMemory(**memory_data)
+    return LongTermMemory()
 
 # Field adjacency mapping for suggestions
 ADJACENT_FIELDS = {
@@ -134,13 +157,77 @@ def build_prompt(
         ])
 
     if memory:
-        prompt_parts.extend([
-            "## Past Recommendations",
-            "The user has previously been recommended these projects:",
-            "",
-        ])
-        for rec in memory.get("past_recommendations", [])[:5]:
-            prompt_parts.append(f"- {rec.get('project', 'unknown')}")
+        # Include skill history
+        skill_history = memory.get("skill_history", [])
+        if skill_history:
+            prompt_parts.extend([
+                "",
+                "## Skill History",
+                "The user's skill progression over time:",
+                "",
+            ])
+            for snapshot in skill_history[-3:]:  # Last 3 snapshots
+                date_val = snapshot.get("date", "unknown")
+                # Handle both datetime objects and strings
+                if hasattr(date_val, "strftime"):
+                    date_str = date_val.strftime("%Y-%m-%d")
+                elif isinstance(date_val, str) and len(date_val) >= 10:
+                    date_str = date_val[:10]
+                else:
+                    date_str = str(date_val)
+                langs = snapshot.get("languages", {})
+                focus = snapshot.get("focus_areas", [])
+                prompt_parts.append(f"- **{date_str}**: {', '.join(f'{k} ({v:.0%})' for k, v in langs.items())}")
+                if focus:
+                    prompt_parts.append(f"  Focus: {', '.join(focus)}")
+
+        # Include past recommendations
+        past_recs = memory.get("past_recommendations", [])
+        if past_recs:
+            prompt_parts.extend([
+                "",
+                "## Past Recommendations",
+                "The user has previously been recommended these projects:",
+                "",
+            ])
+            for rec in past_recs[-5:]:  # Last 5 recommendations
+                prompt_parts.append(f"- {rec.get('project', 'unknown')}")
+
+        # Include great projects discovered
+        great_projects = memory.get("great_projects_discovered", [])
+        if great_projects:
+            prompt_parts.extend([
+                "",
+                "## Great Projects Discovered",
+                "High-quality projects shown to the user:",
+                "",
+            ])
+            for proj in great_projects[-3:]:
+                prompt_parts.append(f"- **{proj.get('name', 'unknown')}**: {proj.get('reason', '')}")
+
+        # Include field exploration history
+        field_history = memory.get("field_exploration_history", [])
+        if field_history:
+            prompt_parts.extend([
+                "",
+                "## Field Exploration History",
+                "Fields the user has been encouraged to explore:",
+                "",
+            ])
+            for exploration in field_history[-2:]:
+                prompt_parts.append(f"- From {exploration.get('current_interest', 'unknown')}: {', '.join(exploration.get('suggested_fields', []))}")
+
+        # Include learning goals
+        learning_goals = memory.get("learning_goals", [])
+        if learning_goals:
+            prompt_parts.extend([
+                "",
+                "## Learning Goals",
+                "The user has expressed interest in learning:",
+                "",
+            ])
+            for goal in learning_goals[-5:]:
+                prompt_parts.append(f"- {goal}")
 
     prompt_parts.extend([
         "",
@@ -272,8 +359,11 @@ def parse_recommendations_from_report(content: str) -> list[PastRecommendation]:
     now = datetime.now(UTC)
 
     # Pattern to match GitHub URLs in recommendation sections
-    # Look for project mentions in "Top 1-2 Recommendations" section
-    rec_section_pattern = r"###\s*3\.\s*Top\s+\d+-\d+\s+Recommendations?\s*\n+(.*?)(?=\n###|\n##|\Z)"
+    # More flexible pattern to match various formats:
+    # - "### 3. Top Recommendations"
+    # - "### Top 1-2 Recommendations"
+    # - "## Recommendations"
+    rec_section_pattern = r"###?\s*(?:\d+\.\s*)?(?:Top\s+)?(?:\d+-\d+\s+)?Recommendations?\s*\n+(.*?)(?=\n#{2,3}|\Z)"
     rec_match = re.search(rec_section_pattern, content, re.IGNORECASE | re.DOTALL)
 
     if rec_match:
@@ -295,35 +385,110 @@ def parse_recommendations_from_report(content: str) -> list[PastRecommendation]:
                     status="viewed",
                 ))
 
-            if len(recommendations) >= 2:
+            if len(recommendations) >= 5:  # Allow up to 5 recommendations
+                break
+
+    # If no recommendations found in section, try to find any GitHub issue URLs in the content
+    if not recommendations:
+        url_pattern = r"https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_.-]+)/issues/(\d+)"
+        for match in re.finditer(url_pattern, content):
+            owner, repo, issue_num = match.groups()
+            project = f"{owner}/{repo}"
+            issue_url = match.group(0)
+
+            if not any(r.project == project and r.issue_url == issue_url for r in recommendations):
+                recommendations.append(PastRecommendation(
+                    date=now,
+                    project=project,
+                    issue_url=issue_url,
+                    status="viewed",
+                ))
+
+            if len(recommendations) >= 3:
                 break
 
     return recommendations
 
 
+def parse_great_projects_from_report(content: str) -> list[GreatProjectSummary]:
+    """Parse great projects from Claude Code output.
+
+    Args:
+        content: Markdown content from Claude Code
+
+    Returns:
+        List of GreatProjectSummary objects
+    """
+    projects = []
+    now = datetime.now(UTC)
+
+    # Pattern to match "Great Projects" or similar sections
+    great_section_pattern = r"###?\s*(?:\d+\.\s*)?(?:Great\s+Projects?|Projects\s+for\s+Learning)\s*\n+(.*?)(?=\n#{2,3}|\Z)"
+    great_match = re.search(great_section_pattern, content, re.IGNORECASE | re.DOTALL)
+
+    if great_match:
+        great_section = great_match.group(1)
+
+        # Find GitHub repo URLs (not issue URLs). The regex's negative
+        # lookahead ensures that issue URLs (ending with /issues...) are
+        # excluded.
+        url_pattern = r"https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_.-]+)(?!/issues)"
+        for match in re.finditer(url_pattern, great_section):
+            owner, repo = match.groups()
+
+            project_name = f"{owner}/{repo}"
+
+            # Check if we already have this project
+            if not any(p.name == project_name for p in projects):
+                # Try to extract the reason from nearby text
+                # Look for text after the URL or in the same paragraph
+                start_pos = match.end()
+                end_pos = min(start_pos + 200, len(great_section))
+                context = great_section[start_pos:end_pos]
+
+                # Extract reason - first sentence or up to next line
+                reason = "Great project for learning"
+                for line in context.split("\n"):
+                    line = line.strip()
+                    if line and not line.startswith("http") and not line.startswith("#"):
+                        reason = line[:100]  # Limit reason length
+                        break
+
+                projects.append(GreatProjectSummary(
+                    name=project_name,
+                    shown_at=now,
+                    reason=reason,
+                ))
+
+            if len(projects) >= 3:
+                break
+
+    return projects
+
+
 def update_memory_from_report(
     content: str,
     learning_focus: str | None = None,
-) -> LongTermMemory | None:
+    memory_file: Path | None = None,
+) -> LongTermMemory:
     """Update long-term memory based on Claude Code analysis output.
+
+    This function ALWAYS updates memory (not just when learning_focus is provided).
 
     Args:
         content: Markdown content from Claude Code
         learning_focus: Optional learning focus from --learn flag
+        memory_file: Optional path to memory file (uses MEMORY_FILE if not provided)
 
     Returns:
-        Updated LongTermMemory object, or None if no updates
+        Updated LongTermMemory object
     """
-    from oss_navi.utils.cache import read_json, write_json
+    file_path = memory_file or MEMORY_FILE
 
     # Load existing memory or create new
-    memory_data = read_json(MEMORY_FILE)
-    if memory_data:
-        memory = LongTermMemory(**memory_data)
-    else:
-        memory = LongTermMemory()
+    memory = load_or_create_memory(file_path)
 
-    updated = False
+    now = datetime.now(UTC)
 
     # Parse and add memory update
     memory_update = parse_memory_update(content)
@@ -331,7 +496,6 @@ def update_memory_from_report(
         # Store the update in learning_goals if it's new
         if memory_update not in memory.learning_goals:
             memory.learning_goals.append(memory_update)
-            updated = True
 
     # Parse and add recommendations
     recommendations = parse_recommendations_from_report(content)
@@ -339,32 +503,80 @@ def update_memory_from_report(
         # Only add if not already in past_recommendations
         if not any(r.issue_url == rec.issue_url for r in memory.past_recommendations):
             memory.past_recommendations.append(rec)
-            updated = True
 
-    # Add learning focus if provided
+    # Parse and add great projects discovered
+    great_projects = parse_great_projects_from_report(content)
+    for proj in great_projects:
+        # Only add if not already in great_projects_discovered
+        if not any(p.name == proj.name for p in memory.great_projects_discovered):
+            memory.great_projects_discovered.append(proj)
+
+    # Add learning focus if provided (ALWAYS, not just with --learn)
     if learning_focus and learning_focus not in memory.learning_goals:
         memory.learning_goals.append(learning_focus)
-        updated = True
 
     # Add skill snapshot (once per day max)
-    now = datetime.now(UTC)
     today = now.date()
     if not any(s.date.date() == today for s in memory.skill_history):
-        # Extract skills from the content if possible
-        # This is a simple heuristic - could be enhanced
         snapshot = SkillSnapshot(
             date=now,
             focus_areas=[learning_focus] if learning_focus else [],
         )
         memory.skill_history.append(snapshot)
-        updated = True
 
-    if updated:
-        memory.updated_at = now
-        write_json(MEMORY_FILE, memory.model_dump())
-        return memory
+    # Always update these fields
+    memory.last_analysis_date = now
+    memory.analysis_count += 1
 
-    return None
+    memory.updated_at = now
+    write_json(file_path, memory.model_dump())
+    return memory
+
+
+def update_memory_from_report_with_profile(
+    content: str,
+    profile: dict,
+    learning_focus: str | None = None,
+    memory_file: Path | None = None,
+) -> LongTermMemory:
+    """Update memory including GitHub profile summary.
+
+    Args:
+        content: Markdown content from Claude Code
+        profile: User's GitHub profile data
+        learning_focus: Optional learning focus
+        memory_file: Optional path to memory file
+
+    Returns:
+        Updated LongTermMemory object
+    """
+    file_path = memory_file or MEMORY_FILE
+    memory = update_memory_from_report(content, learning_focus, file_path)
+
+    if profile:
+        # Create/update GitHub profile summary
+        memory.github_profile = GitHubProfileSummary(
+            username=profile.get("username", ""),
+            primary_languages=profile.get("languages", {}),
+            total_repos=profile.get("public_repos", 0),
+            last_fetched=datetime.now(UTC),
+        )
+
+        # Update the latest skill snapshot with languages from profile
+        if memory.skill_history and profile.get("languages"):
+            latest_snapshot = memory.skill_history[-1]
+            latest_snapshot.languages = profile.get("languages", {})
+            # Also update top_repos if available
+            top_repos = [
+                repo.get("name", "") for repo in profile.get("top_repos", [])[:5]
+            ]
+            if top_repos:
+                latest_snapshot.top_repos = top_repos
+
+        memory.updated_at = datetime.now(UTC)
+        write_json(file_path, memory.model_dump())
+
+    return memory
 
 
 def run_analysis(

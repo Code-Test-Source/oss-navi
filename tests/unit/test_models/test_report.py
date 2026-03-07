@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-import pytest
-
 from oss_navi.models.report import AnalysisReport
 
 

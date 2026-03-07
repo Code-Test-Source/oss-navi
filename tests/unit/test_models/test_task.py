@@ -1,6 +1,6 @@
 """Unit tests for Task and Repository models."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -71,7 +71,7 @@ class TestTask:
     @pytest.fixture
     def sample_datetime(self) -> datetime:
         """Create a sample datetime for testing."""
-        return datetime(2026, 3, 7, 12, 0, 0, tzinfo=timezone.utc)
+        return datetime(2026, 3, 7, 12, 0, 0, tzinfo=UTC)
 
     def test_create_task(self, sample_repo: Repository, sample_datetime: datetime) -> None:
         """Test creating a Task with required fields."""

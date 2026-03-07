@@ -1,9 +1,7 @@
 """Integration tests for GitHub API client."""
 
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
 
 
@@ -110,7 +108,7 @@ class TestGitHubClient:
     @patch("httpx.Client")
     def test_authentication_failure(self, mock_client_class: MagicMock) -> None:
         """Test handling of authentication failure."""
-        from oss_navi.services.github import GitHubClient, GitHubAuthError
+        from oss_navi.services.github import GitHubAuthError, GitHubClient
 
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client

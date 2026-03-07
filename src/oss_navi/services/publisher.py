@@ -1,9 +1,8 @@
 """Publisher service for archiving and publishing analysis reports."""
 
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from oss_navi.utils.paths import REPORTS_DIR, TEMP_DIR, ensure_directories
 
@@ -20,7 +19,7 @@ class BlogRepoNotConfiguredError(Exception):
     pass
 
 
-def archive_report(report_path: Path, archive_name: Optional[str] = None) -> str:
+def archive_report(report_path: Path, archive_name: str | None = None) -> str:
     """Archive a report to the reports directory.
 
     Args:
@@ -40,7 +39,7 @@ def archive_report(report_path: Path, archive_name: Optional[str] = None) -> str
 
     # Generate archive name if not provided
     if not archive_name:
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         archive_name = f"report_{timestamp}.md"
 
     # Ensure .md extension
@@ -71,7 +70,7 @@ def list_archived_reports() -> list[dict]:
         reports.append({
             "name": report_file.name,
             "path": str(report_file),
-            "modified": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+            "modified": datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
             "size": stat.st_size,
         })
 
@@ -81,7 +80,7 @@ def list_archived_reports() -> list[dict]:
     return reports
 
 
-def get_current_report() -> Optional[Path]:
+def get_current_report() -> Path | None:
     """Get the path to the current (temporary) report.
 
     Returns:
@@ -96,7 +95,7 @@ def get_current_report() -> Optional[Path]:
 def push_to_blog(
     report_path: Path,
     blog_repo_path: str,
-    commit_message: Optional[str] = None,
+    commit_message: str | None = None,
 ) -> str:
     """Push a report to the configured blog repository.
 
@@ -122,7 +121,7 @@ def push_to_blog(
 
     # Default commit message
     if not commit_message:
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
         commit_message = f"Add OSS-Navi report - {timestamp}"
 
     # Determine destination path in blog repo

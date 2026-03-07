@@ -1,12 +1,9 @@
 """Tests for issue status checking functionality."""
 
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
 
-from oss_navi.models.task import IssueStatus
 from oss_navi.services.github import GitHubClient, GitHubRateLimitError
 
 

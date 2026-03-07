@@ -1,7 +1,8 @@
 """Unit tests for CLI commands."""
 
+from datetime import UTC
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
@@ -85,7 +86,6 @@ class TestCLI:
     def test_config_set_username(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test config --github-username command."""
         from oss_navi.cli import main
-        from oss_navi.models.config import Config
 
         config_file = tmp_path / "state" / "config.json"
 
@@ -121,7 +121,6 @@ class TestCLI:
     def test_config_set_filters(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test config with filter options."""
         from oss_navi.cli import main
-        from oss_navi.config import load_config
 
         config_file = tmp_path / "state" / "config.json"
 
@@ -161,7 +160,6 @@ class TestCLI:
     def test_config_list_with_config(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test config --list with existing configuration."""
         from oss_navi.cli import main
-        from oss_navi.config import save_config
         from oss_navi.models.config import Config
 
         config_file = tmp_path / "state" / "config.json"
@@ -230,13 +228,14 @@ class TestAnalysisCommand:
         self, runner: CliRunner, mock_profile: dict, mock_tasks: list[dict]
     ) -> None:
         """Test successful analysis."""
+        from datetime import datetime
+
         from oss_navi.cli import main
         from oss_navi.models.report import AnalysisReport
-        from datetime import datetime, timezone
 
         mock_report = AnalysisReport(
             id="20260307_120000",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             content="# Test Report",
             file_path="/tmp/test_report.md",
         )
@@ -259,13 +258,14 @@ class TestAnalysisCommand:
         self, runner: CliRunner, mock_profile: dict, mock_tasks: list[dict]
     ) -> None:
         """Test analysis with --learn flag."""
+        from datetime import datetime
+
         from oss_navi.cli import main
         from oss_navi.models.report import AnalysisReport
-        from datetime import datetime, timezone
 
         mock_report = AnalysisReport(
             id="20260307_120000",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             content="# Test Report",
             file_path="/tmp/test_report.md",
             learning_focus="python",
@@ -317,9 +317,10 @@ class TestInteractivePrompts:
         self, runner: CliRunner
     ) -> None:
         """Test analysis with --explore flag for field suggestions."""
+        from datetime import datetime
+
         from oss_navi.cli import main
         from oss_navi.models.report import AnalysisReport
-        from datetime import datetime, timezone
 
         mock_profile = {"username": "test", "languages": {"Python": 1.0}}
         mock_tasks = [{
@@ -337,7 +338,7 @@ class TestInteractivePrompts:
 
         mock_report = AnalysisReport(
             id="20260307_120000",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             content="# Report",
             file_path="/tmp/report.md",
         )
@@ -360,9 +361,10 @@ class TestInteractivePrompts:
         self, runner: CliRunner
     ) -> None:
         """Test analysis with -n/--recommendations option."""
+        from datetime import datetime
+
         from oss_navi.cli import main
         from oss_navi.models.report import AnalysisReport
-        from datetime import datetime, timezone
 
         mock_profile = {"username": "test", "languages": {"Python": 1.0}}
         mock_tasks = [{
@@ -380,7 +382,7 @@ class TestInteractivePrompts:
 
         mock_report = AnalysisReport(
             id="20260307_120000",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             content="# Report",
             file_path="/tmp/report.md",
         )

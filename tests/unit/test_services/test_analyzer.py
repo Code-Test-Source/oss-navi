@@ -1,7 +1,7 @@
 """Unit tests for analyzer service."""
 
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,7 +16,7 @@ class TestAnalyzer:
     @pytest.fixture
     def sample_tasks(self) -> list[Task]:
         """Create sample tasks for testing."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return [
             Task(
                 id="test:1",
@@ -30,8 +30,8 @@ class TestAnalyzer:
                     language="Python",
                 ),
                 labels=["good first issue"],
-                created_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
-                updated_at=datetime(2026, 3, 5, tzinfo=timezone.utc),
+                created_at=datetime(2026, 3, 1, tzinfo=UTC),
+                updated_at=datetime(2026, 3, 5, tzinfo=UTC),
                 hotness_score=10.0,
                 fetched_at=now,
             ),
@@ -47,8 +47,8 @@ class TestAnalyzer:
                     language="Python",
                 ),
                 labels=["help wanted"],
-                created_at=datetime(2026, 2, 15, tzinfo=timezone.utc),
-                updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+                created_at=datetime(2026, 2, 15, tzinfo=UTC),
+                updated_at=datetime(2026, 3, 1, tzinfo=UTC),
                 hotness_score=12.5,
                 fetched_at=now,
             ),
@@ -283,8 +283,7 @@ Continue learning.
 
         memory_file = tmp_path / "memory.json"
 
-        with patch("oss_navi.services.analyzer.MEMORY_FILE", memory_file):
-            content = """# Report
+        content = """# Report
 
 ### 3. Top 1-2 Recommendations
 https://github.com/python/cpython/issues/12345
@@ -292,24 +291,25 @@ https://github.com/python/cpython/issues/12345
 ### 4. Long-term Memory Update
 Focus on async programming.
 """
-            result = update_memory_from_report(content, learning_focus="rust")
-            assert result is not None
-            assert "Focus on async programming." in result.learning_goals
-            assert "rust" in result.learning_goals
-            assert len(result.past_recommendations) == 1
-            assert result.past_recommendations[0].project == "python/cpython"
+        result = update_memory_from_report(content, learning_focus="rust", memory_file=memory_file)
+        assert result is not None
+        assert "Focus on async programming." in result.learning_goals
+        assert "rust" in result.learning_goals
+        assert len(result.past_recommendations) == 1
+        assert result.past_recommendations[0].project == "python/cpython"
 
     def test_update_memory_preserves_existing(self, tmp_path: Path) -> None:
         """Test that updating memory preserves existing data."""
-        from oss_navi.services.analyzer import update_memory_from_report
+        from datetime import datetime
+
         from oss_navi.models.memory import LongTermMemory, PastRecommendation
-        from datetime import datetime, timezone
+        from oss_navi.services.analyzer import update_memory_from_report
 
         existing_memory = LongTermMemory(
             learning_goals=["existing goal"],
             past_recommendations=[
                 PastRecommendation(
-                    date=datetime.now(timezone.utc),
+                    date=datetime.now(UTC),
                     project="existing/repo",
                     issue_url="https://github.com/existing/repo/issues/1",
                 )
@@ -320,18 +320,17 @@ Focus on async programming.
         # Write existing memory to file so read_json can read it
         memory_file.write_text(existing_memory.model_dump_json())
 
-        with patch("oss_navi.services.analyzer.MEMORY_FILE", memory_file):
-            content = """# Report
+        content = """# Report
 
 ### 4. Long-term Memory Update
 New learning goal.
 """
-            result = update_memory_from_report(content, learning_focus="python")
-            assert result is not None
-            assert "existing goal" in result.learning_goals
-            assert "New learning goal." in result.learning_goals
-            assert "python" in result.learning_goals
-            assert len(result.past_recommendations) == 1  # Original preserved
+        result = update_memory_from_report(content, learning_focus="python", memory_file=memory_file)
+        assert result is not None
+        assert "existing goal" in result.learning_goals
+        assert "New learning goal." in result.learning_goals
+        assert "python" in result.learning_goals
+        assert len(result.past_recommendations) == 1  # Original preserved
 
 
 class TestCalculateRatingBreakdown:
@@ -340,7 +339,7 @@ class TestCalculateRatingBreakdown:
     @pytest.fixture
     def sample_task(self) -> Task:
         """Create a sample task for testing."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return Task(
             id="test:1",
             title="Fix bug in authentication",
@@ -372,7 +371,7 @@ class TestCalculateRatingBreakdown:
             is_assigned=False,
             is_closed=False,
             has_linked_pr=False,
-            checked_at=datetime.now(timezone.utc),
+            checked_at=datetime.now(UTC),
         )
 
         breakdown = calculate_rating_breakdown(
@@ -399,7 +398,7 @@ class TestCalculateRatingBreakdown:
             is_assigned=False,
             is_closed=False,
             has_linked_pr=False,
-            checked_at=datetime.now(timezone.utc),
+            checked_at=datetime.now(UTC),
         )
 
         breakdown = calculate_rating_breakdown(
@@ -425,7 +424,7 @@ class TestCalculateRatingBreakdown:
             assignee="other_dev",
             is_closed=False,
             has_linked_pr=False,
-            checked_at=datetime.now(timezone.utc),
+            checked_at=datetime.now(UTC),
         )
 
         breakdown = calculate_rating_breakdown(
@@ -440,11 +439,10 @@ class TestCalculateRatingBreakdown:
 
     def test_calculate_rating_breakdown_js_ts_partial_match(self) -> None:
         """Test partial language match for JS/TS related languages."""
-        from datetime import timezone
 
         from oss_navi.services.analyzer import calculate_rating_breakdown
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         task = Task(
             id="test-js",
             title="JS issue",
@@ -474,12 +472,11 @@ class TestCalculateRatingBreakdown:
 
     def test_calculate_rating_breakdown_in_progress_labels(self) -> None:
         """Test issue availability for in-progress label (partial availability)."""
-        from datetime import timezone
 
         from oss_navi.models.task import IssueStatus
         from oss_navi.services.analyzer import calculate_rating_breakdown
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         task = Task(
             id="test-wip",
             title="WIP issue",
@@ -518,11 +515,10 @@ class TestCalculateRatingBreakdown:
 
     def test_calculate_rating_breakdown_topic_learning_alignment(self) -> None:
         """Test learning alignment via topic match."""
-        from datetime import timezone
 
         from oss_navi.services.analyzer import calculate_rating_breakdown
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         task = Task(
             id="test-ml",
             title="ML issue",
@@ -553,11 +549,10 @@ class TestCalculateRatingBreakdown:
 
     def test_calculate_rating_breakdown_label_learning_alignment(self) -> None:
         """Test learning alignment via label match."""
-        from datetime import timezone
 
         from oss_navi.services.analyzer import calculate_rating_breakdown
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         task = Task(
             id="test-label",
             title="Label issue",
@@ -588,11 +583,10 @@ class TestCalculateRatingBreakdown:
 
     def test_calculate_rating_breakdown_topic_relevance_language_match(self) -> None:
         """Test topic relevance boost when topic contains user language name."""
-        from datetime import timezone
 
         from oss_navi.services.analyzer import calculate_rating_breakdown
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         task = Task(
             id="test-topic-lang",
             title="Topic lang issue",
@@ -628,7 +622,7 @@ class TestGenerateRecommendations:
     @pytest.fixture
     def sample_tasks(self) -> list[Task]:
         """Create sample tasks for testing."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         tasks = []
         for i in range(15):
             task = Task(
@@ -667,7 +661,7 @@ class TestGenerateRecommendations:
                 is_assigned=False,
                 is_closed=False,
                 has_linked_pr=False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
             )
 
             recommendations = generate_recommendations(
@@ -697,7 +691,7 @@ class TestGenerateRecommendations:
                 is_assigned=False,
                 is_closed=False,
                 has_linked_pr=False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
             )
 
             recommendations = generate_recommendations(
@@ -916,9 +910,8 @@ class TestGenerateRecommendationReason:
         topics: list | None = None,
         labels: list | None = None,
     ) -> Task:
-        from datetime import timezone
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return Task(
             id="test-id",
             title="Test issue",
@@ -979,3 +972,195 @@ class TestGenerateRecommendationReason:
         )
 
         assert len(suggestions) >= 1
+
+
+class TestMemoryModuleFixes:
+    """Tests for memory module fixes (Phase 11: T128-T133)."""
+
+    @pytest.fixture
+    def sample_task(self) -> Task:
+        """Create a sample task for testing."""
+        now = datetime.now(UTC)
+        return Task(
+            id="test:1",
+            title="Fix bug",
+            url="https://github.com/python/cpython/issues/110982",
+            source="upforgrabs",
+            repository=Repository(
+                name="python/cpython",
+                url="https://github.com/python/cpython",
+                stars=58000,
+                language="Python",
+            ),
+            labels=["good first issue"],
+            created_at=datetime(2026, 3, 1, tzinfo=UTC),
+            updated_at=datetime(2026, 3, 5, tzinfo=UTC),
+            hotness_score=125.5,
+            fetched_at=now,
+        )
+
+    @pytest.fixture
+    def sample_profile(self) -> dict:
+        """Create sample profile data for testing."""
+        return {
+            "username": "testuser",
+            "languages": {"Python": 0.6, "TypeScript": 0.3, "Go": 0.1},
+            "public_repos": 42,
+            "top_repos": [
+                {"name": "owner/repo1", "stars": 100},
+            ],
+        }
+
+    # T128: Test memory creation when missing
+    def test_load_or_create_memory_creates_new(self, tmp_path: Path) -> None:
+        """Test that load_or_create_memory creates new memory when missing."""
+        from oss_navi.services.analyzer import load_or_create_memory
+
+        memory_file = tmp_path / "memory.json"
+        # File doesn't exist yet
+
+        memory = load_or_create_memory(memory_file)
+        assert memory is not None
+        assert memory.version == 3
+        assert memory.analysis_count == 0
+        assert memory.past_recommendations == []
+
+    # T129: Test memory update after analysis (without --learn)
+    def test_update_memory_from_report_always_updates(self, tmp_path: Path) -> None:
+        """Test that update_memory_from_report works even without learning_focus."""
+        from oss_navi.services.analyzer import update_memory_from_report
+
+        memory_file = tmp_path / "memory.json"
+
+        content = """# Report
+
+### 3. Top 1-2 Recommendations
+https://github.com/python/cpython/issues/110982
+
+### 4. Long-term Memory Update
+Focus on async programming.
+"""
+        # Call without learning_focus (simulating no --learn flag)
+        result = update_memory_from_report(content, learning_focus=None, memory_file=memory_file)
+        assert result is not None
+        assert "Focus on async programming." in result.learning_goals
+        assert len(result.past_recommendations) == 1
+
+    # T130: Test memory prompt includes skill_history
+    def test_build_prompt_includes_skill_history(self, sample_profile: dict, sample_task: Task) -> None:
+        """Test that build_prompt includes skill_history from memory."""
+        from oss_navi.models.memory import LongTermMemory, SkillSnapshot
+        from oss_navi.services.analyzer import build_prompt
+
+        memory = LongTermMemory(
+            skill_history=[
+                SkillSnapshot(
+                    date=datetime.now(UTC),
+                    languages={"Python": 0.8},
+                    focus_areas=["async programming"],
+                )
+            ]
+        )
+
+        prompt = build_prompt(
+            profile=sample_profile,
+            tasks=[sample_task],
+            memory=memory.model_dump(),
+        )
+
+        # Should include skill history in prompt
+        assert "skill" in prompt.lower() or "history" in prompt.lower() or "focus" in prompt.lower()
+
+    # T131: Test memory prompt includes past_recommendations
+    def test_build_prompt_includes_past_recommendations(self, sample_profile: dict, sample_task: Task) -> None:
+        """Test that build_prompt includes past_recommendations from memory."""
+        from oss_navi.models.memory import LongTermMemory, PastRecommendation
+        from oss_navi.services.analyzer import build_prompt
+
+        memory = LongTermMemory(
+            past_recommendations=[
+                PastRecommendation(
+                    date=datetime.now(UTC),
+                    project="python/cpython",
+                    issue_url="https://github.com/python/cpython/issues/123",
+                    reason="Learn Python internals",
+                )
+            ]
+        )
+
+        prompt = build_prompt(
+            profile=sample_profile,
+            tasks=[sample_task],
+            memory=memory.model_dump(),
+        )
+
+        # Should include past recommendations in prompt
+        assert "python/cpython" in prompt
+
+    # T132: Test memory prompt includes great_projects_discovered
+    def test_build_prompt_includes_great_projects(self, sample_profile: dict, sample_task: Task) -> None:
+        """Test that build_prompt includes great_projects_discovered from memory."""
+        from oss_navi.models.memory import GreatProjectSummary, LongTermMemory
+        from oss_navi.services.analyzer import build_prompt
+
+        memory = LongTermMemory(
+            great_projects_discovered=[
+                GreatProjectSummary(
+                    name="tokio-rs/tokio",
+                    shown_at=datetime.now(UTC),
+                    reason="Excellent async runtime",
+                )
+            ]
+        )
+
+        prompt = build_prompt(
+            profile=sample_profile,
+            tasks=[sample_task],
+            memory=memory.model_dump(),
+        )
+
+        # Should include great projects in prompt
+        assert "tokio" in prompt.lower() or "great project" in prompt.lower()
+
+    # T133: Test GitHub profile summary stored in memory
+    def test_update_memory_stores_github_profile(self, tmp_path: Path, sample_profile: dict) -> None:
+        """Test that update_memory_from_report stores GitHub profile summary."""
+        from oss_navi.services.analyzer import update_memory_from_report_with_profile
+
+        memory_file = tmp_path / "memory.json"
+
+        content = """# Report
+
+### 4. Long-term Memory Update
+Continue learning Python.
+"""
+        result = update_memory_from_report_with_profile(
+            content=content,
+            profile=sample_profile,
+            learning_focus=None,
+            memory_file=memory_file,
+        )
+        assert result is not None
+        assert result.github_profile is not None
+        assert result.github_profile.username == "testuser"
+        assert result.github_profile.total_repos == 42
+        assert result.analysis_count == 1
+
+    # Additional test: Memory analysis_count increments
+    def test_memory_analysis_count_increments(self, tmp_path: Path) -> None:
+        """Test that analysis_count increments on each update."""
+        from oss_navi.services.analyzer import update_memory_from_report
+
+        memory_file = tmp_path / "memory.json"
+
+        # First update
+        content = """# Report\n### 4. Long-term Memory Update\nGoal 1."""
+        result1 = update_memory_from_report(content, learning_focus=None, memory_file=memory_file)
+        assert result1 is not None
+        assert result1.analysis_count == 1
+
+        # Second update (memory_file already has the first result)
+        content = """# Report\n### 4. Long-term Memory Update\nGoal 2."""
+        result2 = update_memory_from_report(content, learning_focus=None, memory_file=memory_file)
+        assert result2 is not None
+        assert result2.analysis_count == 2

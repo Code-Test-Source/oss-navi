@@ -1,6 +1,5 @@
 """Tests for GreatProject model."""
 
-import pytest
 
 from oss_navi.models.task import GreatProject
 

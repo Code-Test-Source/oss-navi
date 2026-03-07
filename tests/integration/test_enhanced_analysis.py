@@ -1,6 +1,6 @@
 """Integration tests for enhanced analysis features."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -24,7 +24,7 @@ class TestEnhancedAnalysisIntegration:
     @pytest.fixture
     def mock_tasks(self) -> list[Task]:
         """Create mock tasks for testing."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         tasks = []
         for i in range(15):
             task = Task(
@@ -60,7 +60,7 @@ class TestEnhancedAnalysisIntegration:
                 is_assigned=False,
                 is_closed=False,
                 has_linked_pr=False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
             )
 
             recommendations = generate_recommendations(
@@ -172,7 +172,7 @@ class TestEnhancedAnalysisIntegration:
                 is_assigned=False,
                 is_closed=False,
                 has_linked_pr=False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
             )
             recommendations = generate_recommendations(
                 tasks=mock_tasks,
@@ -215,7 +215,7 @@ class TestReportStructure:
         """Test that recommendations include all required fields."""
         from oss_navi.models.task import RatingBreakdown
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         task = Task(
             id="test:1",
             title="Test issue",
@@ -290,7 +290,7 @@ class TestReportStructure:
 
     def test_issue_status_availability(self) -> None:
         """Test issue status availability logic."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Available issue
         available = IssueStatus(
