@@ -594,8 +594,6 @@ def generate_recommendations(
     Returns:
         List of scored recommendations sorted by rating
     """
-    import re
-
     count = max(5, min(10, count))  # Ensure 5-10 range
     recommendations = []
 
@@ -619,7 +617,7 @@ def generate_recommendations(
     candidates_count = min(count * 2, len(scored_tasks))  # Check 2x the needed count
 
     # Step 4: Check issue status only for top candidates
-    for task, breakdown in scored_tasks[:candidates_count]:
+    for task, _breakdown in scored_tasks[:candidates_count]:
         if len(recommendations) >= count:
             break
 
@@ -660,7 +658,7 @@ def generate_recommendations(
 
         recommendation = Recommendation(
             task=task,
-            rating=final_breakdown.weighted_total,
+            rating=max(1.0, final_breakdown.weighted_total),
             rating_breakdown=final_breakdown,
             reason=reason,
             code_analysis=f"This {task.repository.language or 'project'} project has {task.repository.stars} stars and focuses on {', '.join(task.repository.topics[:3]) or 'open source contributions'}.",
@@ -809,6 +807,10 @@ def find_great_projects(
     Returns:
         List of GreatProject objects with architecture analysis
     """
+    # Guard against empty language data (must come before cache to avoid caching empty results)
+    if not user_languages:
+        return []
+
     # Check cache first
     cache_data = read_json(TEMP_DIR / "great_projects_cache.json")
     cache_key = f"{','.join(sorted(user_languages.keys()))}_{learning_focus}"
