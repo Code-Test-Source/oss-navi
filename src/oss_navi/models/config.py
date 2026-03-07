@@ -2,11 +2,8 @@
 
 import re
 from datetime import datetime
-from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # GitHub token prefixes
 GITHUB_TOKEN_PREFIXES = ("ghp_", "gho_", "ghu_", "ghs_", "github_pat_")
@@ -23,20 +20,20 @@ class Filters(BaseModel):
 class Config(BaseModel):
     """User configuration for OSS-Navi."""
 
-    github_username: Optional[str] = None
-    github_token: Optional[str] = Field(default=None, exclude=True)  # Never serialize token
-    blog_repo_path: Optional[str] = None
+    github_username: str | None = None
+    github_token: str | None = Field(default=None, exclude=True)  # Never serialize token
+    blog_repo_path: str | None = None
     filters: Filters = Field(default_factory=Filters)
     # Proxy settings
-    http_proxy: Optional[str] = None
-    https_proxy: Optional[str] = None
-    no_proxy: Optional[str] = None  # Comma-separated list of hosts to bypass proxy
+    http_proxy: str | None = None
+    https_proxy: str | None = None
+    no_proxy: str | None = None  # Comma-separated list of hosts to bypass proxy
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
     @field_validator("github_username")
     @classmethod
-    def validate_github_username(cls, v: Optional[str]) -> Optional[str]:
+    def validate_github_username(cls, v: str | None) -> str | None:
         """Validate GitHub username format.
 
         Rules:
@@ -61,7 +58,7 @@ class Config(BaseModel):
 
     @field_validator("blog_repo_path")
     @classmethod
-    def validate_blog_repo_path(cls, v: Optional[str]) -> Optional[str]:
+    def validate_blog_repo_path(cls, v: str | None) -> str | None:
         """Validate blog repository path if provided."""
         if v is None:
             return None

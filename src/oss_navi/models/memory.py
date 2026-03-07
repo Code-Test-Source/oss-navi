@@ -1,7 +1,6 @@
 """Long-term memory models for tracking user's OSS journey."""
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -30,9 +29,9 @@ class PastRecommendation(BaseModel):
     date: datetime
     project: str  # Format: owner/repo
     issue_url: str
-    reason: Optional[str] = None
-    rating: Optional[float] = Field(default=None, ge=1.0, le=10.0)
-    status: Optional[str] = None  # "viewed", "attempted", "completed"
+    reason: str | None = None
+    rating: float | None = Field(default=None, ge=1.0, le=10.0)
+    status: str | None = None  # "viewed", "attempted", "completed"
 
 
 class GreatProjectSummary(BaseModel):
@@ -64,8 +63,8 @@ class LongTermMemory(BaseModel):
     great_projects_discovered: list[GreatProjectSummary] = Field(default_factory=list)
     field_exploration_history: list[FieldExploration] = Field(default_factory=list)
     # NEW fields for enhanced memory
-    github_profile: Optional[GitHubProfileSummary] = None
-    last_analysis_date: Optional[datetime] = None
+    github_profile: GitHubProfileSummary | None = None
+    last_analysis_date: datetime | None = None
     analysis_count: int = 0
 
     def add_skill_snapshot(self, snapshot: SkillSnapshot) -> None:

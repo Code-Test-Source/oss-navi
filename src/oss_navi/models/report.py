@@ -1,7 +1,6 @@
 """Analysis report models."""
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -13,7 +12,7 @@ class AnalysisReport(BaseModel):
     created_at: datetime
     content: str
     file_path: str
-    learning_focus: Optional[str] = None
+    learning_focus: str | None = None
     recommended_projects: list[str] = Field(default_factory=list)
 
     @staticmethod

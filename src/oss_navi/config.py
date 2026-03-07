@@ -2,7 +2,6 @@
 
 import os
 import stat
-from typing import Optional
 
 from pydantic import ValidationError
 
@@ -11,7 +10,7 @@ from oss_navi.utils.cache import read_json, write_json
 from oss_navi.utils.paths import CONFIG_FILE, TOKEN_FILE, ensure_directories
 
 
-def load_config() -> Optional[Config]:
+def load_config() -> Config | None:
     """Load configuration from disk.
 
     Returns:
@@ -39,7 +38,7 @@ def save_config(config: Config) -> None:
     write_json(CONFIG_FILE, config.model_dump())
 
 
-def get_github_token() -> Optional[str]:
+def get_github_token() -> str | None:
     """Get GitHub token from environment, file, or config.
 
     Priority:
@@ -146,7 +145,7 @@ def reset_config() -> None:
         TOKEN_FILE.unlink()
 
 
-def get_proxy_settings() -> dict[str, Optional[str]]:
+def get_proxy_settings() -> dict[str, str | None]:
     """Get proxy settings with environment variable precedence.
 
     Priority:

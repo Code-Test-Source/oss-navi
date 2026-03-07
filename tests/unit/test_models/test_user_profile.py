@@ -1,6 +1,6 @@
 """Unit tests for UserProfile model."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -35,7 +35,7 @@ class TestActivity:
         activity = Activity(
             type="PushEvent",
             repo_name="owner/repo",
-            created_at=datetime(2026, 3, 7, tzinfo=timezone.utc),
+            created_at=datetime(2026, 3, 7, tzinfo=UTC),
         )
         assert activity.repo_name == "owner/repo"
         assert activity.type == "PushEvent"
@@ -60,18 +60,18 @@ class TestUserProfile:
             Activity(
                 type="PushEvent",
                 repo_name="owner/repo1",
-                created_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+                created_at=datetime(2026, 3, 1, tzinfo=UTC),
             ),
             Activity(
                 type="PullRequestEvent",
                 repo_name="owner/repo2",
-                created_at=datetime(2026, 2, 15, tzinfo=timezone.utc),
+                created_at=datetime(2026, 2, 15, tzinfo=UTC),
             ),
         ]
 
     def test_create_user_profile(self, sample_languages: dict[str, float]) -> None:
         """Test creating a UserProfile with required fields."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         profile = UserProfile(
             username="testuser",
             languages=sample_languages,
@@ -89,7 +89,7 @@ class TestUserProfile:
         self, sample_languages: dict[str, float], sample_activities: list[Activity]
     ) -> None:
         """Test creating a UserProfile with activities."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         profile = UserProfile(
             username="testuser",
             languages=sample_languages,
@@ -104,7 +104,7 @@ class TestUserProfile:
 
     def test_user_profile_serialization(self, sample_languages: dict[str, float]) -> None:
         """Test UserProfile serialization to dict."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         profile = UserProfile(
             username="testuser",
             languages=sample_languages,

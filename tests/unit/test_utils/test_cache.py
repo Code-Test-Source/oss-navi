@@ -1,6 +1,6 @@
 """Unit tests for cache utilities."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -88,13 +88,13 @@ class TestCacheUtilities:
 
     def test_is_cache_valid_expired(self, temp_cache_dir: Path) -> None:
         """Test cache validation for expired cache."""
-        from oss_navi.utils.cache import is_cache_valid, read_json, write_json
+        from oss_navi.utils.cache import is_cache_valid, write_json
 
         metadata_file = temp_cache_dir / "metadata.json"
 
         with patch("oss_navi.utils.cache.CACHE_METADATA_FILE", metadata_file):
             # Create expired cache entry
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             expired = now - timedelta(hours=25)  # Past 24-hour expiration
 
             metadata = {

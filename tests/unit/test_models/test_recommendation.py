@@ -1,6 +1,6 @@
 """Tests for Recommendation and RatingBreakdown models."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -86,10 +86,10 @@ class TestRecommendation:
                 stars=100,
             ),
             labels=["good first issue"],
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
             hotness_score=5.0,
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
         )
 
     @pytest.fixture
@@ -121,7 +121,7 @@ class TestRecommendation:
                 is_assigned=False,
                 is_closed=False,
                 has_linked_pr=False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
             ),
         )
         assert recommendation.rating == 8.5
@@ -145,7 +145,7 @@ class TestRecommendation:
                 is_assigned=False,
                 is_closed=False,
                 has_linked_pr=False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
             ),
         )
         assert rec.rating == 9.5
@@ -167,7 +167,7 @@ class TestRecommendation:
                 is_assigned=False,
                 is_closed=False,
                 has_linked_pr=False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
             ),
         )
         assert len(recommendation.reason) > 0

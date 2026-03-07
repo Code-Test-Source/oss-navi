@@ -159,6 +159,8 @@ OSS-Navi validates issue availability to avoid recommending taken issues:
 - ⚠️ **Partial**: Has "in progress" labels
 - ❌ **Unavailable**: Assigned, closed, or has PR
 
+**Linked PR Detection**: OSS-Navi checks if an issue has a separate open PR linked via cross-references. If someone is already working on the issue, it won't be recommended.
+
 **Rate Limit Protection:**
 
 To avoid GitHub API rate limits, OSS-Navi:
@@ -362,6 +364,28 @@ uv sync --all-extras
 pytest --cov=oss_navi --cov-report=term-missing
 ruff check src/
 ```
+
+## Long-Term Memory
+
+OSS-Navi maintains a persistent memory of your learning journey:
+
+```bash
+~/.oss-navi/state/memory.json
+```
+
+**What's stored:**
+- `skill_history`: Your language distribution over time
+- `past_recommendations`: Issues you've been recommended
+- `learning_goals`: Technologies you've expressed interest in
+- `great_projects_discovered`: High-quality projects shown to you
+- `github_profile`: Cached summary of your GitHub profile
+
+**How it's used:**
+1. **Better recommendations**: Avoid recommending the same issues twice
+2. **Context enrichment**: Claude Code sees your history when generating advice
+3. **Progress tracking**: See how your skills evolve over time
+
+Memory is automatically updated after each analysis - no extra flags needed.
 
 ## License
 

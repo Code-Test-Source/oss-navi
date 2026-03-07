@@ -1,7 +1,6 @@
 """Task models for open source contribution opportunities."""
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -13,11 +12,11 @@ class Repository(BaseModel):
     name: str
     url: str
     stars: int = Field(ge=0)
-    language: Optional[str] = None
-    description: Optional[str] = None
+    language: str | None = None
+    description: str | None = None
     topics: list[str] = Field(default_factory=list)
     is_archived: bool = False
-    last_updated: Optional[datetime] = None
+    last_updated: datetime | None = None
 
     @field_validator("url")
     @classmethod
@@ -33,7 +32,7 @@ class Task(BaseModel):
 
     id: str
     title: str
-    description: Optional[str] = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, max_length=500)
     url: str
     source: str  # "upforgrabs" or "goodfirstissues"
     repository: Repository
@@ -66,11 +65,11 @@ class IssueStatus(BaseModel):
 
     issue_url: str
     is_assigned: bool
-    assignee: Optional[str] = None
+    assignee: str | None = None
     is_closed: bool
     has_linked_pr: bool
     has_open_pr: bool = False  # NEW: Has separate open PR linked via timeline
-    linked_pr_url: Optional[str] = None  # NEW: URL of linked PR if has_open_pr is true
+    linked_pr_url: str | None = None  # NEW: URL of linked PR if has_open_pr is true
     in_progress_labels: list[str] = Field(default_factory=list)
     checked_at: datetime
 
@@ -153,7 +152,7 @@ class LearningSession(BaseModel):
     """Captured during interactive analysis."""
 
     session_id: str = Field(default_factory=lambda: str(uuid4()))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     primary_interest: str  # What user is currently learning
     explore_fields: list[str] = Field(default_factory=list)
     suggested_fields: list[str] = Field(default_factory=list)

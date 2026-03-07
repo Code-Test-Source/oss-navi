@@ -1,6 +1,5 @@
 """Integration tests for task scraper services."""
 
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -113,7 +112,10 @@ class TestGoodFirstIssuesScraper:
     @patch("httpx.Client")
     def test_fetch_goodfirstissues_unavailable(self, mock_client_class: MagicMock) -> None:
         """Test handling when Good First Issues is unavailable."""
-        from oss_navi.services.scraper import GoodFirstIssueUnavailableError, fetch_goodfirstissues_tasks
+        from oss_navi.services.scraper import (
+            GoodFirstIssueUnavailableError,
+            fetch_goodfirstissues_tasks,
+        )
 
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client

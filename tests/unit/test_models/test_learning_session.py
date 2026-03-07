@@ -1,9 +1,7 @@
 """Tests for LearningSession model."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
-
-import pytest
 
 from oss_navi.models.task import LearningSession
 
@@ -49,11 +47,11 @@ class TestLearningSession:
 
     def test_learning_session_created_at_auto(self) -> None:
         """Test that created_at is automatically set."""
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         session = LearningSession(
             primary_interest="Go",
         )
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
 
         assert before <= session.created_at <= after
 
