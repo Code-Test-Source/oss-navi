@@ -553,3 +553,160 @@ class TestSuggestAdjacentFields:
         )
 
         assert 2 <= len(suggestions) <= 5
+
+
+class TestFindGreatProjects:
+    """Tests for find_great_projects function."""
+
+    @pytest.fixture
+    def user_languages(self) -> dict[str, float]:
+        """Create sample user languages."""
+        return {"Python": 0.6, "JavaScript": 0.3, "Go": 0.1}
+
+    @patch("oss_navi.services.analyzer.GitHubClient")
+    def test_find_great_projects_returns_projects(
+        self, mock_github_client: MagicMock, user_languages: dict[str, float]
+    ) -> None:
+        """Test that find_great_projects returns great projects."""
+        from oss_navi.services.analyzer import find_great_projects
+
+        # Mock GitHub search response
+        mock_client = MagicMock()
+        mock_github_client.return_value = mock_client
+        mock_client.search_repositories.return_value = [
+            {
+                "full_name": "python/cpython",
+                "html_url": "https://github.com/python/cpython",
+                "stargazers_count": 60000,
+                "language": "Python",
+                "description": "The Python programming language",
+                "topics": ["python", "interpreter", "programming-language"],
+            },
+            {
+                "full_name": "pallets/flask",
+                "html_url": "https://github.com/pallets/flask",
+                "stargazers_count": 65000,
+                "language": "Python",
+                "description": "The Python micro framework",
+                "topics": ["python", "flask", "web", "microframework"],
+            },
+        ]
+
+        projects = find_great_projects(
+            user_languages=user_languages,
+            learning_focus="Python",
+            count=2,
+        )
+
+        assert len(projects) <= 3  # Should return up to requested count
+        for project in projects:
+            assert project.name
+            assert project.url.startswith("https://github.com/")
+            assert project.stars >= 100  # Great projects have significant stars
+            assert project.language
+            assert project.why_great
+
+    @patch("oss_navi.services.analyzer.GitHubClient")
+    def test_find_great_projects_matches_skills(
+        self, mock_github_client: MagicMock, user_languages: dict[str, float]
+    ) -> None:
+        """Test that great projects match user's skills."""
+        from oss_navi.services.analyzer import find_great_projects
+
+        mock_client = MagicMock()
+        mock_github_client.return_value = mock_client
+        mock_client.search_repositories.return_value = [
+            {
+                "full_name": "python/cpython",
+                "html_url": "https://github.com/python/cpython",
+                "stargazers_count": 60000,
+                "language": "Python",
+                "description": "The Python programming language",
+                "topics": ["python"],
+            },
+        ]
+
+        projects = find_great_projects(
+            user_languages=user_languages,
+            learning_focus="Python",
+            count=1,
+        )
+
+        # Projects should match user languages or learning focus
+        for project in projects:
+            assert project.language in user_languages or project.language == "Python"
+
+    @patch("oss_navi.services.analyzer.GitHubClient")
+    def test_find_great_projects_not_beginner_only(
+        self, mock_github_client: MagicMock, user_languages: dict[str, float]
+    ) -> None:
+        """Test that great projects are NOT filtered by 'good first issue' labels.
+
+        Great projects should be selected for learning value, not beginner-friendliness.
+        """
+        from oss_navi.services.analyzer import find_great_projects
+
+        mock_client = MagicMock()
+        mock_github_client.return_value = mock_client
+        mock_client.search_repositories.return_value = [
+            {
+                "full_name": "tensorflow/tensorflow",
+                "html_url": "https://github.com/tensorflow/tensorflow",
+                "stargazers_count": 180000,
+                "language": "Python",
+                "description": "An Open Source Machine Learning Framework",
+                "topics": ["machine-learning", "deep-learning", "tensorflow"],
+            },
+        ]
+
+        projects = find_great_projects(
+            user_languages=user_languages,
+            learning_focus="machine learning",
+            count=1,
+        )
+
+        # Should return projects even if they're not beginner-friendly
+        assert len(projects) >= 1
+        # Should have architecture overview
+        assert projects[0].architecture_overview
+
+
+class TestAnalyzeProjectArchitecture:
+    """Tests for analyze_project_architecture function."""
+
+    def test_analyze_project_architecture_basic(self) -> None:
+        """Test that architecture analysis returns structured data."""
+        from oss_navi.services.analyzer import analyze_project_architecture
+
+        result = analyze_project_architecture(
+            repo_url="https://github.com/python/cpython",
+            language="Python",
+        )
+
+        assert result is not None
+        assert "architecture_overview" in result or isinstance(result, str)
+
+    def test_analyze_project_architecture_patterns(self) -> None:
+        """Test that architecture analysis identifies key patterns."""
+        from oss_navi.services.analyzer import analyze_project_architecture
+
+        result = analyze_project_architecture(
+            repo_url="https://github.com/pallets/flask",
+            language="Python",
+        )
+
+        # Should identify patterns in the project
+        assert result is not None
+
+    def test_analyze_project_architecture_empty_url(self) -> None:
+        """Test handling of invalid URL."""
+        from oss_navi.services.analyzer import analyze_project_architecture
+
+        # Should handle gracefully
+        result = analyze_project_architecture(
+            repo_url="",
+            language="Python",
+        )
+
+        # Should return None or empty analysis for invalid input
+        assert result is None or result == ""

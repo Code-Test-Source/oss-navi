@@ -99,16 +99,16 @@
 
 ### Tests for Great Projects
 
-- [ ] T067 [US1] Add tests for `find_great_projects()` matching user skills in `tests/unit/test_services/test_analyzer.py`
-- [ ] T068 [US1] Add tests for `analyze_project_architecture()` in `tests/unit/test_services/test_analyzer.py`
-- [ ] T069 [US1] Verify great project tests fail (functions not implemented)
+- [x] T067 [US1] Add tests for `find_great_projects()` matching user skills in `tests/unit/test_services/test_analyzer.py`
+- [x] T068 [US1] Add tests for `analyze_project_architecture()` in `tests/unit/test_services/test_analyzer.py`
+- [x] T069 [US1] Verify great project tests fail (functions not implemented)
 
 ### Implementation for Great Projects
 
-- [ ] T070 [US1] Implement `find_great_projects()` using GitHub search API in `src/oss_navi/services/analyzer.py`
-- [ ] T071 [US1] Implement `analyze_project_architecture()` for code analysis in `src/oss_navi/services/analyzer.py`
-- [ ] T072 [US1] Add great project caching to avoid repeated API calls in `src/oss_navi/utils/cache.py`
-- [ ] T073 [US1] Verify great project tests pass
+- [x] T070 [US1] Implement `find_great_projects()` using GitHub search API in `src/oss_navi/services/analyzer.py`
+- [x] T071 [US1] Implement `analyze_project_architecture()` for code analysis in `src/oss_navi/services/analyzer.py`
+- [x] T072 [US1] Add great project caching to avoid repeated API calls in `src/oss_navi/utils/cache.py`
+- [x] T073 [US1] Verify great project tests pass
 
 **Checkpoint**: Great projects should be discovered and analyzed with architecture overview
 

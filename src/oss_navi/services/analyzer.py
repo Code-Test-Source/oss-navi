@@ -9,6 +9,7 @@ from typing import Optional
 from oss_navi.models.memory import LongTermMemory, PastRecommendation, SkillSnapshot
 from oss_navi.models.report import AnalysisReport
 from oss_navi.models.task import (
+    GreatProject,
     IssueStatus,
     RatingBreakdown,
     Recommendation,
@@ -16,6 +17,7 @@ from oss_navi.models.task import (
     calculate_hotness_score,
 )
 from oss_navi.services.github import GitHubClient
+from oss_navi.utils.cache import read_json, write_json
 from oss_navi.utils.paths import MEMORY_FILE, TEMP_DIR
 
 
@@ -728,3 +730,330 @@ def suggest_adjacent_fields(
             unique.append(s)
 
     return unique[:4]  # Return 2-4 suggestions
+
+
+# Great project architecture patterns by language
+ARCHITECTURE_PATTERNS = {
+    "Python": {
+        "patterns": ["object-oriented design", "decorators", "context managers", "async/await", "type hints"],
+        "common_structure": "src/ layout with __init__.py modules",
+    },
+    "JavaScript": {
+        "patterns": ["modules", "promises/async", "event-driven", "functional", "prototypal inheritance"],
+        "common_structure": "src/ with index.js entry points",
+    },
+    "TypeScript": {
+        "patterns": ["interfaces", "generics", "decorators", "modules", "type guards"],
+        "common_structure": "src/ with tsconfig.json configuration",
+    },
+    "Go": {
+        "patterns": ["interfaces", "goroutines", "channels", "error handling", "package-oriented design"],
+        "common_structure": "cmd/ and pkg/ directories",
+    },
+    "Rust": {
+        "patterns": ["traits", "ownership/borrowing", "error handling", "modules", "macros"],
+        "common_structure": "src/ with Cargo.toml configuration",
+    },
+}
+
+# Great projects cache file
+GREAT_PROJECTS_CACHE_KEY = "great_projects_cache"
+
+
+def find_great_projects(
+    user_languages: dict[str, float],
+    learning_focus: Optional[str] = None,
+    count: int = 3,
+    token: Optional[str] = None,
+) -> list[GreatProject]:
+    """Find great open source projects for learning (not necessarily beginner-friendly).
+
+    Uses GitHub search API to find high-quality projects that match user skills.
+    Projects are selected for educational value, not ease of contribution.
+
+    Args:
+        user_languages: User's language distribution
+        learning_focus: What the user wants to learn
+        count: Number of projects to return (default 3)
+        token: Optional GitHub token for API access
+
+    Returns:
+        List of GreatProject objects with architecture analysis
+    """
+    # Check cache first
+    cache_data = read_json(TEMP_DIR / "great_projects_cache.json")
+    cache_key = f"{','.join(sorted(user_languages.keys()))}_{learning_focus}"
+    if cache_data and cache_key in cache_data:
+        cached = cache_data[cache_key]
+        if cached:
+            # Check if cache is still valid (24 hours)
+            from datetime import timedelta
+            cached_time = datetime.fromisoformat(cached.get("cached_at", "2000-01-01"))
+            if datetime.now(timezone.utc) - cached_time < timedelta(hours=24):
+                return [GreatProject(**p) for p in cached.get("projects", [])[:count]]
+
+    # Determine primary language to search
+    primary_lang = max(user_languages.keys(), key=lambda k: user_languages[k])
+    if learning_focus:
+        # Check if learning focus matches a known language
+        for lang in user_languages:
+            if learning_focus.lower() in lang.lower() or lang.lower() in learning_focus.lower():
+                primary_lang = lang
+                break
+
+    # Search for popular repositories in that language
+    client = GitHubClient(token=token)
+    projects: list[GreatProject] = []
+
+    # Build search queries for great projects (high stars, not beginner-focused)
+    # We want projects with significant stars that demonstrate good patterns
+    queries = [
+        f"language:{primary_lang} stars:>1000 archived:false",
+    ]
+
+    if learning_focus:
+        # Add topic-based search
+        queries.insert(0, f"topic:{learning_focus.lower().replace(' ', '-')} stars:>500 archived:false")
+
+    seen_repos: set[str] = set()
+
+    for query in queries:
+        if len(projects) >= count:
+            break
+
+        try:
+            # Use GitHub search API
+            results = client.search_repositories(query, sort="stars", per_page=min(count * 2, 10))
+
+            for repo in results:
+                if len(projects) >= count:
+                    break
+
+                repo_name = repo.get("full_name", "")
+                if repo_name in seen_repos:
+                    continue
+                seen_repos.add(repo_name)
+
+                # Skip repos that are primarily for beginners
+                topics = repo.get("topics", [])
+                if any(t in topics for t in ["good-first-issue", "beginner-friendly", "hacktoberfest"]):
+                    continue
+
+                # Analyze the project
+                architecture = analyze_project_architecture(
+                    repo_url=repo.get("html_url", ""),
+                    language=repo.get("language", primary_lang),
+                )
+
+                project = GreatProject(
+                    name=repo_name,
+                    url=repo.get("html_url", ""),
+                    stars=repo.get("stargazers_count", 0),
+                    language=repo.get("language", primary_lang),
+                    why_great=_generate_why_great(repo, learning_focus),
+                    architecture_overview=architecture if isinstance(architecture, str) else architecture.get("overview", "Well-structured project with clear organization."),
+                    key_patterns=_extract_key_patterns(repo.get("language", primary_lang), topics),
+                    contribution_areas=_suggest_contribution_areas(repo, topics),
+                    relevance_reason=_generate_relevance_reason(repo, user_languages, learning_focus),
+                )
+                projects.append(project)
+
+        except Exception:
+            # Continue with next query if one fails
+            continue
+
+    # Cache results
+    try:
+        TEMP_DIR.mkdir(parents=True, exist_ok=True)
+        cache_file = TEMP_DIR / "great_projects_cache.json"
+        existing_cache = read_json(cache_file) or {}
+        existing_cache[cache_key] = {
+            "cached_at": datetime.now(timezone.utc).isoformat(),
+            "projects": [p.model_dump() for p in projects],
+        }
+        write_json(cache_file, existing_cache)
+    except Exception:
+        pass  # Cache failure is not critical
+
+    return projects[:count]
+
+
+def analyze_project_architecture(
+    repo_url: str,
+    language: str,
+) -> str | dict:
+    """Analyze a project's architecture based on its URL and language.
+
+    Provides a brief architecture overview for learning purposes.
+
+    Args:
+        repo_url: GitHub repository URL
+        language: Primary language of the repository
+
+    Returns:
+        Architecture overview string or dict with analysis
+    """
+    if not repo_url or not repo_url.startswith("https://github.com/"):
+        return ""
+
+    # Extract repo name from URL
+    parts = repo_url.rstrip("/").split("/")
+    repo_name = parts[-1] if len(parts) >= 5 else "project"
+
+    # Get language-specific patterns
+    lang_patterns = ARCHITECTURE_PATTERNS.get(language, ARCHITECTURE_PATTERNS.get("Python", {}))
+
+    # Generate architecture overview based on language and common patterns
+    overview_parts = [
+        f"**{repo_name}** is a {language} project.",
+    ]
+
+    # Add language-specific insights
+    if language == "Python":
+        overview_parts.extend([
+            "Typically uses a `src/` layout with Python modules.",
+            "Look for `pyproject.toml` or `setup.py` for project configuration.",
+            "Key patterns: " + ", ".join(lang_patterns.get("patterns", ["clean code"])[:3]) + ".",
+        ])
+    elif language == "JavaScript":
+        overview_parts.extend([
+            "Common structure includes `src/` directory with modular components.",
+            "Check `package.json` for scripts and dependencies.",
+            "Key patterns: " + ", ".join(lang_patterns.get("patterns", ["modules"])[:3]) + ".",
+        ])
+    elif language == "TypeScript":
+        overview_parts.extend([
+            "Uses TypeScript for type safety with `tsconfig.json` configuration.",
+            "Look for interface definitions and type exports.",
+            "Key patterns: " + ", ".join(lang_patterns.get("patterns", ["interfaces", "generics"])[:3]) + ".",
+        ])
+    elif language == "Go":
+        overview_parts.extend([
+            "Follows Go conventions with `cmd/` and `pkg/` directories.",
+            "Look for interface definitions and package structure.",
+            "Key patterns: " + ", ".join(lang_patterns.get("patterns", ["interfaces", "goroutines"])[:3]) + ".",
+        ])
+    elif language == "Rust":
+        overview_parts.extend([
+            "Uses Cargo for package management with `Cargo.toml`.",
+            "Look for trait definitions and module organization.",
+            "Key patterns: " + ", ".join(lang_patterns.get("patterns", ["traits", "ownership"])[:3]) + ".",
+        ])
+    else:
+        overview_parts.append("Exhibits idiomatic " + language + " patterns and conventions.")
+
+    return " ".join(overview_parts)
+
+
+def _generate_why_great(repo: dict, learning_focus: Optional[str]) -> str:
+    """Generate a reason why this project is great to study."""
+    reasons = []
+    stars = repo.get("stargazers_count", 0)
+    description = repo.get("description", "")
+    topics = repo.get("topics", [])
+
+    if stars >= 10000:
+        reasons.append("Highly popular with strong community")
+    elif stars >= 1000:
+        reasons.append("Well-established project with active development")
+
+    if topics:
+        relevant_topics = [t for t in topics if t not in ["awesome-list", "hacktoberfest"]]
+        if relevant_topics:
+            reasons.append(f"Focuses on {relevant_topics[0].replace('-', ' ')}")
+
+    if learning_focus:
+        reasons.append(f"Excellent for learning {learning_focus}")
+
+    if not reasons:
+        reasons.append("Demonstrates professional-quality code")
+
+    return ". ".join(reasons[:2]) + "."
+
+
+def _extract_key_patterns(language: str, topics: list[str]) -> list[str]:
+    """Extract key patterns the project likely demonstrates."""
+    patterns = []
+
+    lang_patterns = ARCHITECTURE_PATTERNS.get(language, {})
+    default_patterns = lang_patterns.get("patterns", ["clean architecture", "modular design"])
+
+    # Add language-specific patterns
+    patterns.extend(default_patterns[:2])
+
+    # Add topic-based patterns
+    topic_to_pattern = {
+        "api": "REST API design",
+        "web": "web development patterns",
+        "cli": "CLI architecture",
+        "testing": "test-driven development",
+        "documentation": "documentation practices",
+        "async": "asynchronous programming",
+        "microservices": "microservices architecture",
+    }
+
+    for topic in topics:
+        pattern = topic_to_pattern.get(topic.lower())
+        if pattern and pattern not in patterns:
+            patterns.append(pattern)
+
+    return patterns[:4]
+
+
+def _suggest_contribution_areas(repo: dict, topics: list[str]) -> list[str]:
+    """Suggest areas where contributions could add value."""
+    areas = []
+    description = repo.get("description", "").lower()
+
+    # Generic contribution areas
+    areas.append("documentation improvements")
+
+    # Topic-based suggestions
+    if "api" in topics or "api" in description:
+        areas.append("API endpoint testing")
+    if "web" in topics:
+        areas.append("frontend components")
+    if "cli" in topics:
+        areas.append("command implementations")
+    if any(t in topics for t in ["testing", "test"]):
+        areas.append("test coverage expansion")
+    if "docs" in topics or "documentation" in description:
+        areas.append("example tutorials")
+
+    # Always add at least code review
+    if "code review" not in areas:
+        areas.append("code review and feedback")
+
+    return areas[:3]
+
+
+def _generate_relevance_reason(
+    repo: dict,
+    user_languages: dict[str, float],
+    learning_focus: Optional[str],
+) -> str:
+    """Generate why this project is relevant to the user."""
+    reasons = []
+    repo_lang = repo.get("language", "")
+    topics = repo.get("topics", [])
+
+    # Language match
+    for lang, pct in user_languages.items():
+        if lang.lower() == repo_lang.lower():
+            reasons.append(f"matches your {lang} expertise ({pct:.0%})")
+            break
+
+    # Learning focus match
+    if learning_focus:
+        focus_lower = learning_focus.lower()
+        if repo_lang.lower() in focus_lower or focus_lower in repo_lang.lower():
+            reasons.append(f"aligns with your learning goal of {learning_focus}")
+        for topic in topics:
+            if focus_lower in topic.lower():
+                reasons.append(f"involves {topic.replace('-', ' ')}")
+                break
+
+    if not reasons:
+        reasons.append("expands your open source knowledge")
+
+    return "This project " + " and ".join(reasons[:2]) + "."

@@ -331,6 +331,41 @@ class GitHubClient:
 
         return statuses
 
+    def search_repositories(
+        self,
+        query: str,
+        sort: str = "stars",
+        per_page: int = 10,
+    ) -> list[dict]:
+        """Search GitHub repositories.
+
+        Args:
+            query: Search query (e.g., "language:Python stars:>1000")
+            sort: Sort by "stars", "forks", or "updated"
+            per_page: Number of results per page (max 100)
+
+        Returns:
+            List of repository dictionaries
+        """
+        with self._create_client() as client:
+            response = client.get(
+                f"{GITHUB_API_BASE}/search/repositories",
+                headers=self._get_headers(),
+                params={
+                    "q": query,
+                    "sort": sort,
+                    "per_page": min(per_page, 100),
+                },
+            )
+
+            self._handle_error_response(response)
+
+            if response.status_code != 200:
+                return []
+
+            data = response.json()
+            return data.get("items", [])
+
 
 def fetch_and_cache_profile(username: str, token: str | None = None) -> UserProfile | None:
     """Fetch user profile and cache it locally.
