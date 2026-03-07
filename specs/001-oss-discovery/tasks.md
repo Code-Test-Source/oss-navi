@@ -30,11 +30,11 @@
 
 ### Implementation for Performance
 
-- [ ] T003 [PERF] Add async httpx client support in `src/oss_navi/services/scraper.py` for parallel YAML fetches
-- [ ] T004 [PERF] Implement `fetch_upforgrabs_tasks_async()` with concurrent YAML file fetching (max 10 parallel)
+- [x] T003 [PERF] Add async httpx client support in `src/oss_navi/services/scraper.py` for parallel YAML fetches
+- [x] T004 [PERF] Implement `fetch_upforgrabs_tasks_async()` with concurrent YAML file fetching (max 10 parallel)
 - [ ] T005 [PERF] Optimize `select_diverse_tasks()` with pre-indexed language/source lookup in `src/oss_navi/services/scraper.py`
 - [ ] T006 [PERF] Add streaming JSON parsing for large goodfirstissues response in `src/oss_navi/services/scraper.py`
-- [ ] T007 [PERF] Update `fetch_and_cache_tasks()` to use async fetchers in `src/oss_navi/services/scraper.py`
+- [x] T007 [PERF] Update `fetch_and_cache_tasks()` to use async fetchers in `src/oss_navi/services/scraper.py`
 - [ ] T008 [PERF] Verify performance tests pass (sync < 30s)
 
 **Checkpoint**: Task sync should now complete in under 30 seconds
@@ -120,7 +120,7 @@
 - [x] T036 Verify 80%+ test coverage maintained
 - [x] T037 Run ruff linting: `uv run ruff check src/`
 - [ ] T038 Manual test: `uv run oss-navi sync --tasks` completes in < 30s
-- [ ] T039 Manual test: `uv run oss-navi sync` with proxy works correctly
+- [x] T039 Manual test: `uv run oss-navi sync` with proxy works correctly (proxy auto-detected from env)
 - [ ] T040 Update CHANGELOG or release notes if applicable
 
 ---
