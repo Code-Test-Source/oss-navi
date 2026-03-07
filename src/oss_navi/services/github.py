@@ -55,14 +55,32 @@ class GitHubClient:
         self.timeout = timeout
         self._proxy_settings = get_proxy_settings()
 
-    def _get_proxies(self) -> Optional[dict[str, str]]:
-        """Get proxy configuration for httpx."""
-        proxies = {}
-        if self._proxy_settings["http_proxy"]:
-            proxies["http://"] = self._proxy_settings["http_proxy"]
-        if self._proxy_settings["https_proxy"]:
-            proxies["https://"] = self._proxy_settings["https_proxy"]
-        return proxies if proxies else None
+    def _create_client(self) -> httpx.Client:
+        """Create an httpx client with proxy support.
+
+        Automatically uses proxy from environment variables (HTTP_PROXY, HTTPS_PROXY).
+
+        Returns:
+            Configured httpx.Client instance
+        """
+        http_proxy = self._proxy_settings["http_proxy"]
+        https_proxy = self._proxy_settings["https_proxy"]
+
+        if https_proxy and http_proxy:
+            # Use mounts for different proxies per scheme
+            return httpx.Client(
+                timeout=self.timeout,
+                mounts={
+                    "http://": httpx.HTTPTransport(proxy=http_proxy),
+                    "https://": httpx.HTTPTransport(proxy=https_proxy),
+                }
+            )
+        elif https_proxy:
+            return httpx.Client(timeout=self.timeout, proxy=https_proxy)
+        elif http_proxy:
+            return httpx.Client(timeout=self.timeout, proxy=http_proxy)
+        else:
+            return httpx.Client(timeout=self.timeout)
 
     def _get_headers(self) -> dict[str, str]:
         """Get headers for GitHub API requests."""
@@ -111,7 +129,7 @@ class GitHubClient:
         now = datetime.now(timezone.utc)
         expires = now + timedelta(hours=24)
 
-        with httpx.Client(timeout=self.timeout, proxies=self._get_proxies()) as client:
+        with self._create_client() as client:
             # Fetch user info
             user_response = client.get(
                 f"{GITHUB_API_BASE}/users/{username}",
