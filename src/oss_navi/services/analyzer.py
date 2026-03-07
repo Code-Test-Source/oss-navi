@@ -1,13 +1,15 @@
 """Analysis service for generating personalized OSS recommendations."""
 
+import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from oss_navi.models.memory import LongTermMemory, PastRecommendation, SkillSnapshot
 from oss_navi.models.report import AnalysisReport
 from oss_navi.models.task import Task, calculate_hotness_score
-from oss_navi.utils.paths import TEMP_DIR
+from oss_navi.utils.paths import MEMORY_FILE, TEMP_DIR
 
 
 # Constants
@@ -206,6 +208,138 @@ def save_report(content: str, report_id: str) -> str:
     return str(file_path)
 
 
+def parse_memory_update(content: str) -> Optional[str]:
+    """Parse the Long-term Memory Update section from Claude Code output.
+
+    Args:
+        content: Markdown content from Claude Code
+
+    Returns:
+        Extracted memory update text, or None if not found
+    """
+    # Pattern to match "### 4. Long-term Memory Update" section
+    # Matches the heading and captures content until the next heading or end
+    pattern = r"###\s*4\.\s*Long[-\s]*term\s+Memory\s+Update\s*\n+(.*?)(?=\n#{2,3}|\Z)"
+
+    match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+    if match:
+        update_text = match.group(1).strip()
+        # Clean up the text - remove leading/trailing whitespace
+        # Return None if the text is empty or just whitespace
+        if update_text and not update_text.startswith("#"):
+            return update_text
+
+    return None
+
+
+def parse_recommendations_from_report(content: str) -> list[PastRecommendation]:
+    """Parse project recommendations from Claude Code output.
+
+    Args:
+        content: Markdown content from Claude Code
+
+    Returns:
+        List of PastRecommendation objects
+    """
+    recommendations = []
+    now = datetime.now(timezone.utc)
+
+    # Pattern to match GitHub URLs in recommendation sections
+    # Look for project mentions in "Top 1-2 Recommendations" section
+    rec_section_pattern = r"###\s*3\.\s*Top\s+\d+-\d+\s+Recommendations?\s*\n+(.*?)(?=\n###|\n##|\Z)"
+    rec_match = re.search(rec_section_pattern, content, re.IGNORECASE | re.DOTALL)
+
+    if rec_match:
+        rec_section = rec_match.group(1)
+
+        # Find GitHub URLs in the recommendations section
+        url_pattern = r"https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_.-]+)/issues/(\d+)"
+        for match in re.finditer(url_pattern, rec_section):
+            owner, repo, issue_num = match.groups()
+            project = f"{owner}/{repo}"
+            issue_url = match.group(0)
+
+            # Check if we already have this recommendation
+            if not any(r.project == project and r.issue_url == issue_url for r in recommendations):
+                recommendations.append(PastRecommendation(
+                    date=now,
+                    project=project,
+                    issue_url=issue_url,
+                    status="viewed",
+                ))
+
+            if len(recommendations) >= 2:
+                break
+
+    return recommendations
+
+
+def update_memory_from_report(
+    content: str,
+    learning_focus: Optional[str] = None,
+) -> Optional[LongTermMemory]:
+    """Update long-term memory based on Claude Code analysis output.
+
+    Args:
+        content: Markdown content from Claude Code
+        learning_focus: Optional learning focus from --learn flag
+
+    Returns:
+        Updated LongTermMemory object, or None if no updates
+    """
+    from oss_navi.utils.cache import read_json, write_json
+
+    # Load existing memory or create new
+    memory_data = read_json(MEMORY_FILE)
+    if memory_data:
+        memory = LongTermMemory(**memory_data)
+    else:
+        memory = LongTermMemory()
+
+    updated = False
+
+    # Parse and add memory update
+    memory_update = parse_memory_update(content)
+    if memory_update:
+        # Store the update in learning_goals if it's new
+        if memory_update not in memory.learning_goals:
+            memory.learning_goals.append(memory_update)
+            updated = True
+
+    # Parse and add recommendations
+    recommendations = parse_recommendations_from_report(content)
+    for rec in recommendations:
+        # Only add if not already in past_recommendations
+        if not any(r.issue_url == rec.issue_url for r in memory.past_recommendations):
+            memory.past_recommendations.append(rec)
+            updated = True
+
+    # Add learning focus if provided
+    if learning_focus and learning_focus not in memory.learning_goals:
+        memory.learning_goals.append(learning_focus)
+        updated = True
+
+    # Add skill snapshot (once per day max)
+    now = datetime.now(timezone.utc)
+    today = now.date()
+    if not any(s.date.date() == today for s in memory.skill_history):
+        # Extract skills from the content if possible
+        # This is a simple heuristic - could be enhanced
+        snapshot = SkillSnapshot(
+            date=now,
+            focus_areas=[learning_focus] if learning_focus else [],
+        )
+        memory.skill_history.append(snapshot)
+        updated = True
+
+    if updated:
+        memory.updated_at = now
+        write_json(MEMORY_FILE, memory.model_dump())
+        return memory
+
+    return None
+
+
 def run_analysis(
     profile: dict,
     tasks: list[Task],
@@ -268,3 +402,42 @@ def run_analysis(
         learning_focus=learning_focus,
         recommended_projects=recommended[:2],
     )
+
+
+def run_analysis_with_memory_update(
+    profile: dict,
+    tasks: list[Task],
+    learning_focus: Optional[str] = None,
+    memory: Optional[dict] = None,
+    min_stars: int = 50,
+    max_age_days: int = 90,
+) -> AnalysisReport:
+    """Run analysis and update long-term memory.
+
+    This is a convenience function that runs analysis and automatically
+    updates memory based on the results.
+
+    Args:
+        profile: User's GitHub profile data
+        tasks: List of available tasks
+        learning_focus: Optional learning focus
+        memory: Optional long-term memory
+        min_stars: Minimum stars filter (default: 50)
+        max_age_days: Maximum issue age filter (default: 90)
+
+    Returns:
+        AnalysisReport with the generated content
+    """
+    report = run_analysis(
+        profile=profile,
+        tasks=tasks,
+        learning_focus=learning_focus,
+        memory=memory,
+        min_stars=min_stars,
+        max_age_days=max_age_days,
+    )
+
+    # Update memory based on the report content
+    update_memory_from_report(report.content, learning_focus)
+
+    return report

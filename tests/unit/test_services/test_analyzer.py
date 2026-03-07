@@ -184,3 +184,151 @@ class TestAnalyzer:
                 tasks=[],
             )
         assert "No matching tasks found" in str(exc_info.value)
+
+
+class TestMemoryParsing:
+    """Tests for memory parsing functions."""
+
+    def test_parse_memory_update_found(self) -> None:
+        """Test parsing memory update from report content."""
+        from oss_navi.services.analyzer import parse_memory_update
+
+        content = """# Analysis Report
+
+## Skill Assessment
+You have strong Python skills.
+
+### 3. Top 1-2 Recommendations
+- python/cpython
+
+### 4. Long-term Memory Update
+User is interested in learning async programming in Python. Focus on asyncio and aiohttp libraries.
+
+## End
+"""
+        result = parse_memory_update(content)
+        assert result is not None
+        assert "async programming" in result
+        assert "asyncio" in result
+
+    def test_parse_memory_update_not_found(self) -> None:
+        """Test parsing when memory update section is missing."""
+        from oss_navi.services.analyzer import parse_memory_update
+
+        content = """# Analysis Report
+
+## Skill Assessment
+You have strong Python skills.
+"""
+        result = parse_memory_update(content)
+        assert result is None
+
+    def test_parse_memory_update_empty(self) -> None:
+        """Test parsing when memory update section is empty."""
+        from oss_navi.services.analyzer import parse_memory_update
+
+        content = """# Analysis Report
+
+### 4. Long-term Memory Update
+
+### 5. Next Steps
+"""
+        result = parse_memory_update(content)
+        assert result is None
+
+    def test_parse_recommendations_from_report(self) -> None:
+        """Test parsing recommendations from report content."""
+        from oss_navi.services.analyzer import parse_recommendations_from_report
+
+        content = """# Analysis Report
+
+### 3. Top 1-2 Recommendations
+
+**Project 1: python/cpython**
+- URL: https://github.com/python/cpython/issues/12345
+- Great for learning CPython internals
+
+**Project 2: pallets/click**
+- URL: https://github.com/pallets/click/issues/42
+- Good for CLI development
+
+### 4. Long-term Memory Update
+Focus on CLI tools.
+"""
+        recommendations = parse_recommendations_from_report(content)
+        assert len(recommendations) == 2
+        assert recommendations[0].project == "python/cpython"
+        assert recommendations[0].issue_url == "https://github.com/python/cpython/issues/12345"
+        assert recommendations[1].project == "pallets/click"
+
+    def test_parse_recommendations_no_urls(self) -> None:
+        """Test parsing recommendations when no GitHub URLs are present."""
+        from oss_navi.services.analyzer import parse_recommendations_from_report
+
+        content = """# Analysis Report
+
+### 3. Top 1-2 Recommendations
+
+No specific recommendations found.
+
+### 4. Long-term Memory Update
+Continue learning.
+"""
+        recommendations = parse_recommendations_from_report(content)
+        assert len(recommendations) == 0
+
+    def test_update_memory_from_report(self, tmp_path: Path) -> None:
+        """Test updating memory from report content."""
+        from oss_navi.services.analyzer import update_memory_from_report
+
+        memory_file = tmp_path / "memory.json"
+
+        with patch("oss_navi.services.analyzer.MEMORY_FILE", memory_file):
+            content = """# Report
+
+### 3. Top 1-2 Recommendations
+https://github.com/python/cpython/issues/12345
+
+### 4. Long-term Memory Update
+Focus on async programming.
+"""
+            result = update_memory_from_report(content, learning_focus="rust")
+            assert result is not None
+            assert "Focus on async programming." in result.learning_goals
+            assert "rust" in result.learning_goals
+            assert len(result.past_recommendations) == 1
+            assert result.past_recommendations[0].project == "python/cpython"
+
+    def test_update_memory_preserves_existing(self, tmp_path: Path) -> None:
+        """Test that updating memory preserves existing data."""
+        from oss_navi.services.analyzer import update_memory_from_report
+        from oss_navi.models.memory import LongTermMemory, PastRecommendation
+        from datetime import datetime, timezone
+
+        existing_memory = LongTermMemory(
+            learning_goals=["existing goal"],
+            past_recommendations=[
+                PastRecommendation(
+                    date=datetime.now(timezone.utc),
+                    project="existing/repo",
+                    issue_url="https://github.com/existing/repo/issues/1",
+                )
+            ],
+        )
+
+        memory_file = tmp_path / "memory.json"
+        # Write existing memory to file so read_json can read it
+        memory_file.write_text(existing_memory.model_dump_json())
+
+        with patch("oss_navi.services.analyzer.MEMORY_FILE", memory_file):
+            content = """# Report
+
+### 4. Long-term Memory Update
+New learning goal.
+"""
+            result = update_memory_from_report(content, learning_focus="python")
+            assert result is not None
+            assert "existing goal" in result.learning_goals
+            assert "New learning goal." in result.learning_goals
+            assert "python" in result.learning_goals
+            assert len(result.past_recommendations) == 1  # Original preserved

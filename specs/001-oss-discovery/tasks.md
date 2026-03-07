@@ -216,9 +216,9 @@
 - [x] T086 [P] Add --version flag to CLI in src/oss_navi/cli.py
 - [x] T087 Add consistent error output formatting (✓, ✗, ⚠ symbols) with no sensitive info leakage (FR-041) in src/oss_navi/cli.py
 - [x] T088 [P] Update README.md with complete usage examples and installation steps
-- [ ] T089 Add long-term memory update parsing from Claude Code output in src/oss_navi/services/analyzer.py
+- [x] T089 Add long-term memory update parsing from Claude Code output in src/oss_navi/services/analyzer.py
 - [x] T090 Verify 80%+ test coverage with pytest --cov
-- [ ] T091 Run pip-audit for dependency vulnerability scanning (FR-044)
+- [x] T091 Run pip-audit for dependency vulnerability scanning (FR-044)
 
 ---
 
