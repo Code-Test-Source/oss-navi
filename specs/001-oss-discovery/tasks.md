@@ -280,6 +280,209 @@ This delivers: 5-10 recommendations with ratings and issue status checking.
 
 ---
 
+---
+
+## Phase 9: Test Fixtures Setup (Real GitHub Data) 🆕
+
+**Purpose**: Fetch real GitHub data for integration testing of new features
+
+- [ ] T110 [P] Create test fixtures directory at `tests/fixtures/`
+- [ ] T111 [P] Fetch real GitHub issue data for testing linked PR detection - save to `tests/fixtures/issue_with_linked_pr.json`
+- [ ] T112 [P] Fetch real GitHub issue data for assigned issue - save to `tests/fixtures/issue_assigned.json`
+- [ ] T113 [P] Fetch real GitHub issue data for closed issue - save to `tests/fixtures/issue_closed.json`
+- [ ] T114 [P] Fetch real GitHub issue timeline data (cross-referenced PR) - save to `tests/fixtures/issue_timeline_linked_pr.json`
+- [ ] T115 [P] Create sample memory.json fixture at `tests/fixtures/memory_sample.json`
+- [ ] T116 [P] Create sample profile.json fixture at `tests/fixtures/profile_sample.json`
+- [ ] T117 [P] Create sample tasks.json fixture at `tests/fixtures/tasks_sample.json`
+
+---
+
+## Phase 10: Model Updates for Enhancement (FOUNDATION) 🆕
+
+**Purpose**: Core model changes that MUST be complete before implementation
+
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+
+### Tests for Model Updates (TDD)
+
+- [ ] T118 [P] Write unit test for IssueStatus.has_open_pr field in `tests/unit/test_models/test_issue_status.py`
+- [ ] T119 [P] Write unit test for IssueStatus.is_available with linked PR in `tests/unit/test_models/test_issue_status.py`
+- [ ] T120 [P] Write unit test for GitHubProfileSummary model in `tests/unit/test_models/test_memory.py`
+- [ ] T121 [P] Write unit test for LongTermMemory.github_profile field in `tests/unit/test_models/test_memory.py`
+- [ ] T122 [P] Write unit test for LongTermMemory.analysis_count field in `tests/unit/test_models/test_memory.py`
+
+### Implementation for Model Updates
+
+- [ ] T123 Add has_open_pr and linked_pr_url fields to IssueStatus model in `src/oss_navi/models/task.py`
+- [ ] T124 Update IssueStatus.is_available property to check has_open_pr in `src/oss_navi/models/task.py`
+- [ ] T125 Create GitHubProfileSummary model in `src/oss_navi/models/memory.py`
+- [ ] T126 Add github_profile, last_analysis_date, analysis_count fields to LongTermMemory in `src/oss_navi/models/memory.py`
+- [ ] T127 Increment version to 3 in LongTermMemory model in `src/oss_navi/models/memory.py`
+
+**Checkpoint**: Models updated and tests passing - user story implementation can begin
+
+---
+
+## Phase 11: User Story 1 - Fix Memory Module (Priority: P1) 🎯 MVP 🆕
+
+**Goal**: Ensure long-term memory is properly stored, updated, and used in analysis
+
+**Independent Test**:
+1. Run `oss-navi analysis` without --learn flag
+2. Verify memory.json is created/updated
+3. Run second analysis and verify memory content appears in prompt
+
+### Tests for User Story 1 (TDD)
+
+- [ ] T128 [P] [US1] Write test for memory creation when missing in `tests/unit/test_services/test_analyzer.py`
+- [ ] T129 [P] [US1] Write test for memory update after analysis (without --learn) in `tests/unit/test_services/test_analyzer.py`
+- [ ] T130 [P] [US1] Write test for memory prompt includes skill_history in `tests/unit/test_services/test_analyzer.py`
+- [ ] T131 [P] [US1] Write test for memory prompt includes past_recommendations in `tests/unit/test_services/test_analyzer.py`
+- [ ] T132 [P] [US1] Write test for memory prompt includes great_projects_discovered in `tests/unit/test_services/test_analyzer.py`
+- [ ] T133 [P] [US1] Write test for GitHub profile summary stored in memory in `tests/unit/test_services/test_analyzer.py`
+- [ ] T134 [P] [US1] Write integration test for full memory workflow in `tests/integration/test_memory_workflow.py`
+
+### Implementation for User Story 1
+
+- [ ] T135 [US1] Add load_or_create_memory() helper function in `src/oss_navi/services/analyzer.py`
+- [ ] T136 [US1] Update build_prompt() to include full memory context (skill_history, great_projects, field_exploration) in `src/oss_navi/services/analyzer.py`
+- [ ] T137 [US1] Update update_memory_from_report() to always update (remove --learn condition) in `src/oss_navi/services/analyzer.py`
+- [ ] T138 [US1] Add github_profile summary update in update_memory_from_report() in `src/oss_navi/services/analyzer.py`
+- [ ] T139 [US1] Increment analysis_count in update_memory_from_report() in `src/oss_navi/services/analyzer.py`
+- [ ] T140 [US1] Update CLI analysis command to always update memory in `src/oss_navi/cli.py`
+- [ ] T141 [US1] Remove "if learn:" condition from memory update in `src/oss_navi/cli.py`
+
+**Checkpoint**: Memory module fully functional - analysis updates memory every time
+
+---
+
+## Phase 12: User Story 2 - Enhanced Issue Status Detection (Priority: P2) 🆕
+
+**Goal**: Detect issues that have linked pull requests (work-in-progress)
+
+**Independent Test**:
+1. Create test with issue that has cross-referenced PR
+2. Verify has_open_pr is True
+3. Verify issue is marked as unavailable
+
+### Tests for User Story 2 (TDD)
+
+- [ ] T142 [P] [US2] Write test for check_issue_timeline() with linked PR in `tests/unit/test_services/test_github.py`
+- [ ] T143 [P] [US2] Write test for check_issue_timeline() without linked PR in `tests/unit/test_services/test_github.py`
+- [ ] T144 [P] [US2] Write test for check_issue_timeline() with closed PR in `tests/unit/test_services/test_github.py`
+- [ ] T145 [P] [US2] Write test for check_multiple_issues() rate limit handling in `tests/unit/test_services/test_github.py`
+- [ ] T146 [P] [US2] Write test for generate_recommendations() with linked PR issue in `tests/unit/test_services/test_analyzer.py`
+- [ ] T147 [P] [US2] Write integration test for issue status detection with real fixtures in `tests/integration/test_issue_status.py`
+
+### Implementation for User Story 2
+
+- [ ] T148 [US2] Add check_issue_timeline() method to GitHubClient in `src/oss_navi/services/github.py`
+- [ ] T149 [US2] Implement linked PR detection via cross-referenced events in `src/oss_navi/services/github.py`
+- [ ] T150 [US2] Update check_issue_status() to call check_issue_timeline() in `src/oss_navi/services/github.py`
+- [ ] T151 [US2] Add rate limit protection (only check top candidates) in `src/oss_navi/services/github.py`
+- [ ] T152 [US2] Update generate_recommendations() to use new IssueStatus fields in `src/oss_navi/services/analyzer.py`
+- [ ] T153 [US2] Update CLI output to show linked PR status in recommendations in `src/oss_navi/cli.py`
+
+**Checkpoint**: Issues with linked PRs correctly detected as unavailable
+
+---
+
+## Phase 13: User Story 3 - Optimize Recommendation Algorithm (Priority: P3) 🆕
+
+**Goal**: Improve scoring accuracy and issue filtering
+
+**Independent Test**:
+1. Run analysis with specific learning focus
+2. Verify scoring breakdown is accurate
+3. Verify past recommendations get lower score (variety)
+
+### Tests for User Story 3 (TDD)
+
+- [ ] T154 [P] [US3] Write test for calculate_rating_breakdown() with past recommendation penalty in `tests/unit/test_services/test_analyzer.py`
+- [ ] T155 [P] [US3] Write test for calculate_rating_breakdown() with normalized hotness score in `tests/unit/test_services/test_analyzer.py`
+- [ ] T156 [P] [US3] Write test for calculate_rating_breakdown() with improved topic relevance in `tests/unit/test_services/test_analyzer.py`
+- [ ] T157 [P] [US3] Write test for generate_recommendations() excludes past recommendations in `tests/unit/test_services/test_analyzer.py`
+- [ ] T158 [P] [US3] Write test for generate_recommendations() prioritizes available issues in `tests/unit/test_services/test_analyzer.py`
+- [ ] T159 [P] [US3] Write test for recommendation variety across multiple runs in `tests/unit/test_services/test_analyzer.py`
+
+### Implementation for User Story 3
+
+- [ ] T160 [US3] Add past_recommendation_penalty to calculate_rating_breakdown() in `src/oss_navi/services/analyzer.py`
+- [ ] T161 [US3] Improve hotness score normalization (log scale) in `src/oss_navi/services/analyzer.py`
+- [ ] T162 [US3] Enhance topic relevance scoring with semantic matching in `src/oss_navi/services/analyzer.py`
+- [ ] T163 [US3] Update generate_recommendations() to check past recommendations from memory in `src/oss_navi/services/analyzer.py`
+- [ ] T164 [US3] Defer availability scoring until after status check in `src/oss_navi/services/analyzer.py`
+- [ ] T165 [US3] Add recommendation reason explaining the fit in `src/oss_navi/services/analyzer.py`
+
+**Checkpoint**: Algorithm produces better, more varied recommendations
+
+---
+
+## Phase 14: Final Polish & Validation 🆕
+
+**Purpose**: Final validation, documentation, and cleanup for enhancement
+
+- [ ] T166 [P] Update README.md with memory module documentation
+- [ ] T167 [P] Update README.md with linked PR detection documentation
+- [ ] T168 [P] Update specs/001-oss-discovery/spec.md with resolved issues
+- [ ] T169 Run full test suite and verify 80%+ coverage: `pytest --cov=oss_navi tests/`
+- [ ] T170 Fix any failing tests
+- [ ] T171 Run ruff linting: `ruff check .`
+- [ ] T172 Run integration test with real GitHub API (if rate limit allows)
+- [ ] T173 Validate quickstart.md scenarios work end-to-end
+- [ ] T174 Update specs/001-oss-discovery/tasks.md with completion status
+
+---
+
+## Dependencies & Execution Order (Updated)
+
+### New Phase Dependencies
+
+- **Phase 9 (Fixtures)**: No dependencies - can start immediately
+- **Phase 10 (Model Updates)**: Depends on Phase 9 test fixtures - BLOCKS all user stories
+- **Phase 11 (US1 Memory Fix)**: Can start after Phase 10
+- **Phase 12 (US2 Linked PRs)**: Can start after Phase 10 (parallel with US1)
+- **Phase 13 (US3 Algorithm)**: Depends on Phase 11 and Phase 12 completion
+- **Phase 14 (Polish)**: Depends on all user stories being complete
+
+### Parallel Opportunities
+
+**Phase 9 (Test Fixtures)** - All tasks can run in parallel:
+```
+T110, T111, T112, T113, T114, T115, T116, T117
+```
+
+**Phase 10 (Model Tests)** - All tests can run in parallel:
+```
+T118, T119, T120, T121, T122
+```
+
+**User Story 1 & 2** - Can run in parallel (different files):
+```
+US1: T128-T141 (analyzer.py, cli.py)
+US2: T142-T153 (github.py, analyzer.py)
+```
+
+---
+
+## Real GitHub Test Cases
+
+The following real GitHub issues should be used for testing:
+
+### Linked PR Detection Test Cases
+
+1. **Issue with open linked PR**: Find an issue with a cross-referenced open PR
+2. **Issue with closed linked PR**: Find an issue where PR was merged
+3. **Issue without linked PR**: Any open issue without cross-references
+
+### Memory Test Cases
+
+1. **Fresh install**: No memory.json exists → Created with defaults
+2. **After first analysis**: Memory updated with learning_goals, past_recommendations
+3. **After multiple analyses**: Memory accumulates, analysis_count > 1
+
+---
+
 ## Completed Tasks (Previous Phases)
 
 The following phases from the original implementation are complete:
@@ -291,3 +494,15 @@ The following phases from the original implementation are complete:
 | Proxy Support | ✅ Complete | HTTP/HTTPS/SOCKS proxy support |
 | Documentation | ✅ Complete | README, contracts, quickstart updated |
 | Polish | ✅ Complete | Tests passing, linting clean |
+
+---
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| **Total Tasks (All Phases)** | 174 |
+| **Completed Tasks (Phases 1-8)** | 109 |
+| **New Tasks (Phases 9-14)** | 65 |
+| **Test Tasks** | 48 tasks |
+| **Parallel Opportunities** | 35 tasks (marked [P]) |

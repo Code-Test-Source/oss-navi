@@ -228,7 +228,9 @@ claude --print "prompt text here"
 
 ```json
 {
-  "version": 1,
+  "version": 3,
+  "created_at": "2026-03-07T10:00:00Z",
+  "updated_at": "2026-03-08T14:30:00Z",
   "skill_history": [
     {
       "date": "2026-03-07",
@@ -242,7 +244,24 @@ claude --print "prompt text here"
       "project": "owner/repo",
       "issue_url": "https://github.com/..."
     }
-  ]
+  ],
+  "learning_goals": ["Python async programming", "Rust basics"],
+  "great_projects_discovered": [
+    {
+      "name": "python/cpython",
+      "shown_at": "2026-03-07T10:00:00Z",
+      "reason": "Excellent for learning Python internals"
+    }
+  ],
+  "field_exploration_history": [],
+  "github_profile": {
+    "username": "developer",
+    "primary_languages": {"Python": 0.65, "TypeScript": 0.35},
+    "total_repos": 42,
+    "last_fetched": "2026-03-08T10:00:00Z"
+  },
+  "last_analysis_date": "2026-03-08T14:30:00Z",
+  "analysis_count": 5
 }
 ```
 
@@ -313,6 +332,7 @@ All technical questions resolved through research. No NEEDS CLARIFICATION items 
 
 ## Changelog
 
+- **2026-03-08**: Added research for linked PR detection and memory module fixes
 - **2026-03-07**: Added enhanced analysis features research (issue status, recommendations, great projects)
 - **2026-03-07**: Added performance optimization research
 - **2026-03-07**: Removed goodfirstissue.dev (client-side rendering issue)
@@ -426,4 +446,210 @@ All technical questions resolved through research. No NEEDS CLARIFICATION items 
    - Brief code analysis of project
 4. 2-3 great open source projects with code analysis
 5. Long-term memory updates
+```
+
+---
+
+## Linked PR Detection (Added 2026-03-08)
+
+### Problem
+
+Issues may have linked pull requests that indicate work is already in progress. Current implementation only checks if the issue itself IS a PR, not if there's a separate PR linked to it.
+
+### GitHub API Options
+
+#### Option 1: Issue Timeline API (RECOMMENDED)
+
+**Endpoint**: `GET /repos/{owner}/{repo}/issues/{issue_number}/timeline`
+
+**Event Types to Check**:
+- `cross-referenced` - When someone references this issue in a PR
+- `connected` - When a PR is explicitly connected to close this issue
+
+**Example Response**:
+```json
+[
+  {
+    "event": "cross-referenced",
+    "actor": {...},
+    "source": {
+      "issue": {
+        "number": 123,
+        "pull_request": {
+          "url": "https://api.github.com/repos/owner/repo/pulls/123"
+        }
+      }
+    }
+  }
+]
+```
+
+**Pros**:
+- Simple REST API
+- Already authenticated
+- No new dependencies
+
+**Cons**:
+- Requires extra API call per issue
+- Rate limit concerns for bulk checks
+
+**Rate Limit Strategy**:
+- Only check timeline for top 10-15 candidates (after initial filtering)
+- Cache results for 1 hour
+- Use conditional requests with ETag
+
+#### Option 2: GraphQL API
+
+**Query**:
+```graphql
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    issue(number: $number) {
+      timelineItems(itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT]) {
+        nodes {
+          ... on CrossReferencedEvent {
+            source {
+              ... on PullRequest {
+                number
+                state
+                url
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Pros**:
+- More efficient for bulk queries
+- Can get issue status and linked PRs in one call
+
+**Cons**:
+- Requires GraphQL client setup
+- More complex implementation
+
+#### Option 3: Search API
+
+**Endpoint**: `GET /search/issues?q=repo:owner/repo type:pr "fixes #123" OR "closes #123"`
+
+**Pros**:
+- Can search multiple patterns
+- Good for bulk discovery
+
+**Cons**:
+- Search API has separate rate limit (30 requests/min)
+- Less reliable (depends on PR description format)
+
+### Decision
+
+Use **Issue Timeline API** for now:
+1. Only check for top candidates (after initial scoring)
+2. Implement caching to minimize API calls
+3. Handle rate limits gracefully
+
+### Implementation
+
+```python
+def check_linked_prs(
+    self, owner: str, repo: str, issue_number: int
+) -> tuple[bool, str | None]:
+    """Check if an issue has any linked open PRs.
+
+    Returns:
+        Tuple of (has_open_pr, pr_url)
+    """
+    response = client.get(
+        f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/timeline",
+        headers=self._get_headers(),
+        params={"per_page": 100},
+    )
+
+    for event in response.json():
+        if event.get("event") == "cross-referenced":
+            source = event.get("source", {})
+            issue = source.get("issue", {})
+            pr = issue.get("pull_request", {})
+
+            if pr:
+                # Check if PR is open
+                if issue.get("state") == "open":
+                    return True, issue.get("html_url")
+
+    return False, None
+```
+
+---
+
+## Memory Module Fix (Added 2026-03-08)
+
+### Problem Analysis
+
+1. **Memory Not Created**: If `memory.json` doesn't exist, it's not created with defaults
+2. **Memory Not Updated**: Update only happens with `--learn` flag
+3. **Memory Not Fully Used**: Only `past_recommendations` shown in prompt
+
+### Current Flow
+
+```
+cli.py:137 → memory = read_json(MEMORY_FILE)  # May be None
+cli.py:194 → run_analysis(memory=memory)       # Passes None if missing
+cli.py:199-203 → if learn: update_memory()     # Only updates with --learn
+```
+
+### Fix Strategy
+
+1. **Always Initialize Memory**
+   - In `update_memory_from_report`, create new memory if missing
+   - Ensure `MEMORY_FILE` exists with defaults after first run
+
+2. **Always Update Memory**
+   - Remove `if learn:` condition
+   - Update memory after every analysis
+   - Track analysis count and last analysis date
+
+3. **Enhance Memory Content**
+   - Store GitHub profile summary
+   - Track all learning goals (from prompts and --learn)
+   - Record great projects discovered
+
+4. **Enhance Prompt Integration**
+   - Show skill history trends
+   - Show previously discovered great projects
+   - Show field exploration suggestions from history
+
+### Memory Schema Enhancement
+
+```python
+class GitHubProfileSummary(BaseModel):
+    """Cached summary of user's GitHub profile."""
+    username: str
+    primary_languages: dict[str, float]
+    total_repos: int
+    last_fetched: datetime
+
+
+class LongTermMemory(BaseModel):
+    # ... existing fields ...
+
+    # NEW fields
+    github_profile: Optional[GitHubProfileSummary] = None
+    last_analysis_date: Optional[datetime] = None
+    analysis_count: int = 0
+```
+
+### Memory Update Flow (Fixed)
+
+```python
+def run_analysis(...):
+    # ... analysis ...
+
+    # Always update memory
+    memory = load_or_create_memory()
+    memory = update_memory_from_report(memory, report, profile, learning_focus)
+    save_memory(memory)
+
+    return report
 ```

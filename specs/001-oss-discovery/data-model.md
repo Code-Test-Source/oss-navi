@@ -179,13 +179,20 @@ Real-time status of an issue (not cached, checked on-demand).
 | is_assigned | boolean | Yes | True if issue has assignee |
 | assignee | string | No | Assignee username if assigned |
 | is_closed | boolean | Yes | True if issue is closed |
-| has_linked_pr | boolean | Yes | True if PR mentions this issue |
+| has_linked_pr | boolean | Yes | True if issue IS a PR (pull_request key in response) |
+| has_open_pr | boolean | No | True if separate open PR is linked to this issue |
+| linked_pr_url | string | No | URL of linked PR if has_open_pr is true |
 | in_progress_labels | string[] | No | Labels indicating work in progress |
 | checked_at | datetime | Yes | When status was checked |
 
 **Status Determination**:
-- Available: `!is_assigned && !is_closed && !has_linked_pr`
+- Available: `!is_assigned && !is_closed && !has_linked_pr && !has_open_pr`
 - Unavailable: Any of the above is true
+
+**Linked PR Detection** (NEW):
+- Uses GitHub Issue Timeline API
+- Looks for `cross-referenced` events with open PRs
+- Only checked for top candidates to avoid rate limits
 
 ### Recommendation
 
@@ -250,7 +257,7 @@ Persistent memory stored in `~/.oss-navi/state/memory.json`.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| version | integer | Yes | Schema version (currently 2) |
+| version | integer | Yes | Schema version (currently 3) |
 | created_at | datetime | Yes | Memory creation date |
 | updated_at | datetime | Yes | Last update timestamp |
 | skill_history | SkillSnapshot[] | Yes | Historical skill assessments |
@@ -258,6 +265,20 @@ Persistent memory stored in `~/.oss-navi/state/memory.json`.
 | learning_goals | string[] | No | Accumulated learning focuses |
 | great_projects_discovered | GreatProjectSummary[] | No | Great projects shown to user |
 | field_exploration_history | FieldExploration[] | No | Fields user has explored |
+| github_profile | GitHubProfileSummary | No | Cached GitHub profile summary |
+| last_analysis_date | datetime | No | Date of last analysis run |
+| analysis_count | integer | No | Total number of analyses run |
+
+### GitHubProfileSummary
+
+Cached summary of user's GitHub profile for quick reference.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| username | string | Yes | GitHub username |
+| primary_languages | dict[string, float] | Yes | Top languages with percentages |
+| total_repos | integer | Yes | Number of public repos |
+| last_fetched | datetime | Yes | When profile was last synced |
 
 ### SkillSnapshot
 
