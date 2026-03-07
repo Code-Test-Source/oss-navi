@@ -20,5 +20,6 @@
   "updated_at": "2023-10-15T08:22:11Z",
   "body": "When a type annotation is missing, the error message could be more helpful.",
   "comments": 5,
-  "pull_request": null
+  "pull_request": null,
+  "fixture_note": "This fixture represents a GitHub issue that has a linked pull request recorded in the companion timeline fixture (issue_timeline_linked_pr.json). The pull_request field is null because the issue itself is not a pull request."
 }
