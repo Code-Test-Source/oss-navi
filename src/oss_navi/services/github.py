@@ -1,11 +1,14 @@
 """GitHub API client for fetching user profile and repository data."""
 
 import os
+import re
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlparse
 
 import httpx
 
 from oss_navi.config import get_proxy_settings, should_verify_ssl
+from oss_navi.models.task import IssueStatus
 from oss_navi.models.user_profile import Activity, Repository, UserProfile
 from oss_navi.utils.cache import read_json, update_cache_metadata, write_json
 from oss_navi.utils.paths import GITHUB_PROFILE_CACHE
@@ -13,6 +16,9 @@ from oss_navi.utils.paths import GITHUB_PROFILE_CACHE
 # Constants
 GITHUB_API_BASE = "https://api.github.com"
 DEFAULT_TIMEOUT = 30.0
+
+# Labels that indicate an issue is being worked on
+IN_PROGRESS_LABELS = {"in progress", "wip", "work in progress", "assigned", "taken"}
 
 
 class GitHubAuthError(Exception):
@@ -213,6 +219,117 @@ class GitHubClient:
                 fetched_at=now,
                 expires_at=expires,
             )
+
+    def check_issue_status(
+        self, owner: str, repo: str, issue_number: int
+    ) -> IssueStatus:
+        """Check the current status of a GitHub issue.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            issue_number: Issue number
+
+        Returns:
+            IssueStatus with availability information
+        """
+        now = datetime.now(UTC)
+        issue_url = f"https://github.com/{owner}/{repo}/issues/{issue_number}"
+
+        with self._create_client() as client:
+            response = client.get(
+                f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}",
+                headers=self._get_headers(),
+            )
+
+            # Handle rate limit
+            if response.status_code == 403:
+                return IssueStatus(
+                    issue_url=issue_url,
+                    is_assigned=False,
+                    is_closed=True,  # Treat as unavailable
+                    has_linked_pr=False,
+                    checked_at=now,
+                )
+
+            # Handle not found
+            if response.status_code == 404:
+                return IssueStatus(
+                    issue_url=issue_url,
+                    is_assigned=False,
+                    is_closed=True,
+                    has_linked_pr=False,
+                    checked_at=now,
+                )
+
+            if response.status_code != 200:
+                return IssueStatus(
+                    issue_url=issue_url,
+                    is_assigned=False,
+                    is_closed=True,
+                    has_linked_pr=False,
+                    checked_at=now,
+                )
+
+            data = response.json()
+
+            # Check if assigned
+            assignee = data.get("assignee")
+            is_assigned = assignee is not None
+            assignee_login = assignee.get("login") if assignee else None
+
+            # Check if closed
+            is_closed = data.get("state") == "closed"
+
+            # Check for in-progress labels
+            labels = data.get("labels", [])
+            in_progress_labels = [
+                label["name"]
+                for label in labels
+                if label.get("name", "").lower() in IN_PROGRESS_LABELS
+            ]
+
+            # Check for linked PR (if issue is a PR)
+            has_linked_pr = "pull_request" in data
+
+            return IssueStatus(
+                issue_url=issue_url,
+                is_assigned=is_assigned,
+                assignee=assignee_login,
+                is_closed=is_closed,
+                has_linked_pr=has_linked_pr,
+                in_progress_labels=in_progress_labels,
+                checked_at=now,
+            )
+
+    def check_multiple_issues(
+        self, issue_urls: list[str], max_issues: int = 10
+    ) -> list[IssueStatus]:
+        """Check status of multiple issues with rate limit protection.
+
+        Args:
+            issue_urls: List of GitHub issue URLs
+            max_issues: Maximum number of issues to check (default 10)
+
+        Returns:
+            List of IssueStatus objects
+        """
+        statuses = []
+
+        # Parse URLs and limit to max_issues
+        parsed = []
+        for url in issue_urls[:max_issues]:
+            match = re.match(
+                r"https://github\.com/([^/]+)/([^/]+)/issues/(\d+)", url
+            )
+            if match:
+                parsed.append((match.group(1), match.group(2), int(match.group(3)), url))
+
+        for owner, repo, issue_number, url in parsed:
+            status = self.check_issue_status(owner, repo, issue_number)
+            statuses.append(status)
+
+        return statuses
 
 
 def fetch_and_cache_profile(username: str, token: str | None = None) -> UserProfile | None:

@@ -52,15 +52,15 @@
 
 ### Tests for Issue Status
 
-- [ ] T052 [US1] Create `tests/unit/test_services/test_issue_status.py` with mocked GitHub API responses
-- [ ] T053 [US1] Verify issue status tests fail (function not implemented)
+- [x] T052 [US1] Create `tests/unit/test_services/test_issue_status.py` with mocked GitHub API responses
+- [x] T053 [US1] Verify issue status tests fail (function not implemented)
 
 ### Implementation for Issue Status
 
-- [ ] T054 [US1] Add `check_issue_status()` method to `GitHubClient` in `src/oss_navi/services/github.py`
-- [ ] T055 [US1] Add `check_multiple_issues()` batch method for efficiency in `src/oss_navi/services/github.py`
-- [ ] T056 [US1] Add rate limit handling for issue status checks in `src/oss_navi/services/github.py`
-- [ ] T057 [US1] Verify issue status tests pass
+- [x] T054 [US1] Add `check_issue_status()` method to `GitHubClient` in `src/oss_navi/services/github.py`
+- [x] T055 [US1] Add `check_multiple_issues()` batch method for efficiency in `src/oss_navi/services/github.py`
+- [x] T056 [US1] Add rate limit handling for issue status checks in `src/oss_navi/services/github.py`
+- [x] T057 [US1] Verify issue status tests pass
 
 **Checkpoint**: Issue status checking should work for single and batch requests
 
