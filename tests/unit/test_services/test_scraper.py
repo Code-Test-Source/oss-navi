@@ -81,42 +81,43 @@ class TestScrapersDetailed:
 
     @patch("httpx.Client")
     def test_fetch_upforgrabs_with_issues(self, mock_client_class: MagicMock) -> None:
-        """Test fetching Up For Grabs with valid issues."""
+        """Test fetching Up For Grabs with valid projects."""
         from oss_navi.services.scraper import fetch_upforgrabs_tasks
 
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client
 
-        mock_data = {
-            "projects": [
-                {
-                    "name": "owner/repo",
-                    "url": "https://github.com/owner/repo",
-                    "stars": 100,
-                    "language": "Python",
-                    "topics": ["web"],
-                    "issues": [
-                        {
-                            "number": 1,
-                            "title": "Test Issue",
-                            "url": "https://github.com/owner/repo/issues/1",
-                            "labels": ["good first issue"],
-                            "created_at": "2026-03-01T00:00:00Z",
-                            "updated_at": "2026-03-05T00:00:00Z",
-                        }
-                    ],
-                }
-            ]
-        }
+        # First call: list of project files
+        project_files = [
+            {"name": "test-project.yml", "path": "_data/projects/test-project.yml"}
+        ]
 
-        mock_client.get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: mock_data,
-        )
+        # Second call: YAML content
+        yaml_content = """
+name: Test Project
+desc: A test project
+site: https://github.com/owner/repo
+tags:
+  - python
+  - web
+upforgrabs:
+  name: good first issue
+  link: https://github.com/owner/repo/labels/good%20first%20issue
+stats:
+  issue-count: 2
+  last-updated: '2026-03-05T00:00:00Z'
+  fork-count: 100
+"""
+
+        responses = [
+            MagicMock(status_code=200, json=lambda: project_files),
+            MagicMock(status_code=200, text=yaml_content),
+        ]
+        mock_client.get.side_effect = responses
 
         tasks = fetch_upforgrabs_tasks()
-        assert len(tasks) == 1
-        assert tasks[0].title == "Test Issue"
+        assert len(tasks) == 2  # 2 issues from issue-count
+        assert "Test Project" in tasks[0].title
 
     @patch("httpx.Client")
     def test_fetch_upforgrabs_invalid_url(self, mock_client_class: MagicMock) -> None:
@@ -126,24 +127,29 @@ class TestScrapersDetailed:
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client
 
-        mock_data = {
-            "projects": [
-                {
-                    "name": "owner/repo",
-                    "url": "https://gitlab.com/owner/repo",  # Invalid URL
-                    "stars": 100,
-                    "issues": [],
-                }
-            ]
-        }
+        # First call: list of project files
+        project_files = [
+            {"name": "test-project.yml", "path": "_data/projects/test-project.yml"}
+        ]
 
-        mock_client.get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: mock_data,
-        )
+        # Second call: YAML with non-GitHub URL
+        yaml_content = """
+name: Test Project
+site: https://gitlab.com/owner/repo
+upforgrabs:
+  name: good first issue
+stats:
+  issue-count: 1
+"""
+
+        responses = [
+            MagicMock(status_code=200, json=lambda: project_files),
+            MagicMock(status_code=200, text=yaml_content),
+        ]
+        mock_client.get.side_effect = responses
 
         tasks = fetch_upforgrabs_tasks()
-        assert len(tasks) == 0  # Should skip invalid URLs
+        assert len(tasks) == 0  # Should skip non-GitHub URLs
 
     @patch("httpx.Client")
     def test_fetch_goodfirstissue_empty(self, mock_client_class: MagicMock) -> None:
@@ -170,30 +176,25 @@ class TestScrapersDetailed:
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client
 
-        # Mock Up For Grabs response
-        upforgrabs_data = {
-            "projects": [
-                {
-                    "name": "owner/repo",
-                    "url": "https://github.com/owner/repo",
-                    "stars": 100,
-                    "language": "Python",
-                    "issues": [
-                        {
-                            "number": 1,
-                            "title": "Test",
-                            "url": "https://github.com/owner/repo/issues/1",
-                            "labels": [],
-                            "created_at": "2026-03-01T00:00:00Z",
-                            "updated_at": "2026-03-05T00:00:00Z",
-                        }
-                    ],
-                }
-            ]
-        }
+        # Mock Up For Grabs response (new YAML structure)
+        project_files = [
+            {"name": "test-project.yml", "path": "_data/projects/test-project.yml"}
+        ]
+        yaml_content = """
+name: Test Project
+site: https://github.com/owner/repo
+upforgrabs:
+  name: good first issue
+  link: https://github.com/owner/repo/issues/1
+stats:
+  issue-count: 1
+  last-updated: '2026-03-05T00:00:00Z'
+  fork-count: 100
+"""
 
         responses = [
-            MagicMock(status_code=200, json=lambda: upforgrabs_data),
+            MagicMock(status_code=200, json=lambda: project_files),
+            MagicMock(status_code=200, text=yaml_content),
             MagicMock(status_code=503, text=""),  # GFI unavailable
         ]
         mock_client.get.side_effect = responses
@@ -243,7 +244,7 @@ class TestScrapersDetailed:
 
         mock_client.get.return_value = MagicMock(
             status_code=200,
-            json=lambda: {"projects": []},
+            json=lambda: [],
         )
 
         tasks = fetch_upforgrabs_tasks()
@@ -251,32 +252,24 @@ class TestScrapersDetailed:
 
     @patch("httpx.Client")
     def test_fetch_upforgrabs_malformed_issue(self, mock_client_class: MagicMock) -> None:
-        """Test Up For Grabs with malformed issue data."""
+        """Test Up For Grabs with malformed YAML data."""
         from oss_navi.services.scraper import fetch_upforgrabs_tasks
 
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client
 
-        mock_data = {
-            "projects": [
-                {
-                    "name": "owner/repo",
-                    "url": "https://github.com/owner/repo",
-                    "stars": 100,
-                    "issues": [
-                        {"number": 1, "url": "not-a-url"},  # Invalid URL
-                    ],
-                }
-            ]
-        }
+        project_files = [
+            {"name": "test-project.yml", "path": "_data/projects/test-project.yml"}
+        ]
 
-        mock_client.get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: mock_data,
-        )
+        responses = [
+            MagicMock(status_code=200, json=lambda: project_files),
+            MagicMock(status_code=200, text="invalid: yaml: : :"),  # Invalid YAML
+        ]
+        mock_client.get.side_effect = responses
 
         tasks = fetch_upforgrabs_tasks()
-        assert len(tasks) == 0  # Should skip malformed issues
+        assert len(tasks) == 0  # Should skip malformed projects
 
     @patch("httpx.Client")
     def test_fetch_upforgrabs_missing_dates(self, mock_client_class: MagicMock) -> None:
@@ -286,29 +279,25 @@ class TestScrapersDetailed:
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client
 
-        mock_data = {
-            "projects": [
-                {
-                    "name": "owner/repo",
-                    "url": "https://github.com/owner/repo",
-                    "stars": 100,
-                    "issues": [
-                        {
-                            "number": 1,
-                            "title": "Test",
-                            "url": "https://github.com/owner/repo/issues/1",
-                            "labels": [],
-                            # No created_at/updated_at
-                        }
-                    ],
-                }
-            ]
-        }
+        project_files = [
+            {"name": "test-project.yml", "path": "_data/projects/test-project.yml"}
+        ]
 
-        mock_client.get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: mock_data,
-        )
+        # YAML without last-updated date
+        yaml_content = """
+name: Test Project
+site: https://github.com/owner/repo
+upforgrabs:
+  name: good first issue
+stats:
+  issue-count: 1
+"""
+
+        responses = [
+            MagicMock(status_code=200, json=lambda: project_files),
+            MagicMock(status_code=200, text=yaml_content),
+        ]
+        mock_client.get.side_effect = responses
 
         tasks = fetch_upforgrabs_tasks()
         assert len(tasks) == 1  # Should still work with default dates

@@ -6,6 +6,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import httpx
+import yaml
 from bs4 import BeautifulSoup
 
 from oss_navi.models.task import Repository, Task, calculate_hotness_score
@@ -14,7 +15,8 @@ from oss_navi.utils.paths import GOODFIRSTISSUE_TASKS_CACHE, UPFORGRABS_TASKS_CA
 
 
 # Constants
-UPFORGRABS_URL = "https://up-for-grabs.net/api/projects.json"
+UPFORGRABS_PROJECTS_API = "https://api.github.com/repos/up-for-grabs/up-for-grabs.net/contents/_data/projects"
+UPFORGRABS_RAW_URL = "https://raw.githubusercontent.com/up-for-grabs/up-for-grabs.net/gh-pages/_data/projects/{}"
 GOODFIRSTISSUE_URL = "https://goodfirstissue.dev"
 DEFAULT_TIMEOUT = 30.0
 
@@ -154,13 +156,21 @@ def sanitize_text(text: Optional[str]) -> str:
 
 
 def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
-    """Fetch tasks from Up For Grabs API.
+    """Fetch tasks from Up For Grabs.
+
+    Note: Up For Grabs changed their data structure in 2024-2025. They no longer
+    provide a single projects.json API. Instead, each project is stored as an
+    individual YAML file in _data/projects/ directory.
+
+    This function fetches project data from the new YAML-based structure.
+    Since individual issues are no longer provided, we create project-level
+    tasks that link to the GitHub label page for each project.
 
     Args:
         timeout: Request timeout in seconds
 
     Returns:
-        List of Task objects
+        List of Task objects (project-level, linking to label pages)
 
     Raises:
         UpForGrabsUnavailableError: If Up For Grabs is unavailable
@@ -169,73 +179,104 @@ def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
     now = datetime.now(timezone.utc)
 
     with httpx.Client(timeout=timeout) as client:
-        response = client.get(UPFORGRABS_URL)
-
-        if response.status_code != 200:
-            raise UpForGrabsUnavailableError(
-                f"Up For Grabs returned status {response.status_code}"
-            )
-
-        data = response.json()
-        projects = data.get("projects", [])
-
-        for project in projects:
-            try:
-                # Validate repository URL
-                project_url = project.get("url", "")
-                if not validate_github_repo_url(project_url):
-                    continue
-
-                # Parse repository info
-                repo_name = project.get("name", "")
-                stars = project.get("stars", 0) or 0
-                language = project.get("language")
-                topics = project.get("topics", [])
-
-                repo = Repository(
-                    name=repo_name,
-                    url=project_url,
-                    stars=stars,
-                    language=sanitize_text(language),
-                    topics=topics,
+        # Step 1: Fetch list of project YAML files
+        try:
+            list_response = client.get(UPFORGRABS_PROJECTS_API)
+            if list_response.status_code != 200:
+                raise UpForGrabsUnavailableError(
+                    f"Up For Grabs API returned status {list_response.status_code}"
                 )
 
-                # Parse issues
-                issues = project.get("issues", [])
-                for issue in issues:
-                    issue_url = issue.get("url", "")
-                    if not validate_github_issue_url(issue_url):
-                        continue
+            project_files = list_response.json()
+            if not isinstance(project_files, list):
+                raise UpForGrabsUnavailableError(
+                    "Unexpected response format from Up For Grabs API"
+                )
 
-                    created_at_str = issue.get("created_at", "")
-                    updated_at_str = issue.get("updated_at", "")
+        except httpx.RequestError as e:
+            raise UpForGrabsUnavailableError(f"Failed to fetch Up For Grabs: {e}")
 
-                    try:
-                        created_at = datetime.fromisoformat(
-                            created_at_str.replace("Z", "+00:00")
-                        )
-                    except (ValueError, TypeError):
-                        created_at = now
+        # Step 2: Fetch and parse each project YAML file (limit to avoid rate limits)
+        max_projects = 50  # Limit to avoid GitHub API rate limits
+        for project_file in project_files[:max_projects]:
+            try:
+                filename = project_file.get("name", "")
+                if not filename.endswith(".yml"):
+                    continue
 
-                    try:
-                        updated_at = datetime.fromisoformat(
-                            updated_at_str.replace("Z", "+00:00")
-                        )
-                    except (ValueError, TypeError):
-                        updated_at = now
+                # Fetch raw YAML content
+                raw_url = UPFORGRABS_RAW_URL.format(filename)
+                yaml_response = client.get(raw_url)
 
-                    # Calculate age in days
-                    age_days = max(1, (now - created_at).days)
-                    hotness = calculate_hotness_score(stars, age_days)
+                if yaml_response.status_code != 200:
+                    continue
+
+                # Parse YAML
+                project_data = yaml.safe_load(yaml_response.text)
+                if not project_data:
+                    continue
+
+                # Extract project info
+                site_url = project_data.get("site", "")
+                if not validate_github_repo_url(site_url):
+                    continue
+
+                # Parse repository name from URL
+                parsed = urlparse(site_url)
+                path_parts = parsed.path.strip("/").split("/")
+                if len(path_parts) < 2:
+                    continue
+                repo_name = f"{path_parts[0]}/{path_parts[1]}"
+
+                # Get label info
+                upforgrabs = project_data.get("upforgrabs", {})
+                label_name = upforgrabs.get("name", "up for grabs")
+                label_url = upforgrabs.get("link", "")
+
+                if not validate_github_url(label_url):
+                    # Construct label URL from site URL
+                    label_url = f"{site_url}/labels/{label_name.replace(' ', '%20')}"
+
+                # Get stats
+                stats = project_data.get("stats", {})
+                issue_count = stats.get("issue-count", 0) or 0
+                fork_count = stats.get("fork-count", 0) or 0
+                last_updated = stats.get("last-updated", "")
+
+                # Parse last updated date
+                try:
+                    updated_at = datetime.fromisoformat(
+                        last_updated.replace("Z", "+00:00")
+                    )
+                except (ValueError, TypeError):
+                    updated_at = now
+
+                # Get tags
+                tags = project_data.get("tags", [])
+                language = tags[0] if tags else None
+
+                # Create repository
+                repo = Repository(
+                    name=repo_name,
+                    url=site_url,
+                    stars=fork_count,  # Use fork count as proxy for popularity
+                    language=sanitize_text(language),
+                    topics=tags,
+                )
+
+                # Create a task for each issue (simulated based on issue_count)
+                # Since we don't have individual issues, we create project-level tasks
+                for i in range(min(issue_count, 3)):  # Limit to 3 tasks per project
+                    hotness = calculate_hotness_score(fork_count, max(1, (now - updated_at).days))
 
                     task = Task(
-                        id=f"upforgrabs:{issue.get('number', hash(issue_url))}",
-                        title=sanitize_text(issue.get("title", "")),
-                        url=issue_url,
+                        id=f"upforgrabs:{repo_name.replace('/', '-')}:{i}",
+                        title=f"{project_data.get('name', repo_name)} - {label_name}",
+                        url=label_url,
                         source="upforgrabs",
                         repository=repo,
-                        labels=issue.get("labels", []),
-                        created_at=created_at,
+                        labels=[label_name],
+                        created_at=updated_at,
                         updated_at=updated_at,
                         hotness_score=hotness,
                         fetched_at=now,

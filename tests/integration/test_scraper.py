@@ -7,46 +7,51 @@ import pytest
 
 
 class TestUpForGrabsScraper:
-    """Tests for Up For Grabs JSON fetcher."""
+    """Tests for Up For Grabs YAML fetcher."""
 
     @pytest.fixture
-    def mock_upforgrabs_data(self) -> dict:
-        """Create mock Up For Grabs data."""
-        return {
-            "projects": [
-                {
-                    "name": "owner/repo1",
-                    "url": "https://github.com/owner/repo1",
-                    "stars": 100,
-                    "language": "Python",
-                    "topics": ["web"],
-                    "issues": [
-                        {
-                            "number": 123,
-                            "title": "Fix bug in authentication",
-                            "url": "https://github.com/owner/repo1/issues/123",
-                            "labels": ["good first issue"],
-                            "created_at": "2026-03-01T00:00:00Z",
-                            "updated_at": "2026-03-05T00:00:00Z",
-                        }
-                    ],
-                }
-            ]
-        }
+    def mock_upforgrabs_project_files(self) -> list:
+        """Create mock Up For Grabs project file list."""
+        return [
+            {"name": "test-project.yml", "path": "_data/projects/test-project.yml"}
+        ]
+
+    @pytest.fixture
+    def mock_upforgrabs_yaml(self) -> str:
+        """Create mock Up For Grabs YAML content."""
+        return """
+name: Test Project
+desc: A test project for open source contributions
+site: https://github.com/owner/repo1
+tags:
+  - python
+  - web
+upforgrabs:
+  name: good first issue
+  link: https://github.com/owner/repo1/labels/good%20first%20issue
+stats:
+  issue-count: 2
+  last-updated: '2026-03-05T00:00:00Z'
+  fork-count: 100
+"""
 
     @patch("httpx.Client")
     def test_fetch_upforgrabs_tasks(
-        self, mock_client_class: MagicMock, mock_upforgrabs_data: dict
+        self, mock_client_class: MagicMock, mock_upforgrabs_project_files: list, mock_upforgrabs_yaml: str
     ) -> None:
         """Test fetching tasks from Up For Grabs."""
         from oss_navi.services.scraper import fetch_upforgrabs_tasks
 
         mock_client = MagicMock()
         mock_client_class.return_value.__enter__.return_value = mock_client
-        mock_client.get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: mock_upforgrabs_data,
-        )
+
+        # First call: list of project files
+        # Second call: YAML content
+        responses = [
+            MagicMock(status_code=200, json=lambda: mock_upforgrabs_project_files),
+            MagicMock(status_code=200, text=mock_upforgrabs_yaml),
+        ]
+        mock_client.get.side_effect = responses
 
         tasks = fetch_upforgrabs_tasks()
 
