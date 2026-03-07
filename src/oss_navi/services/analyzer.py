@@ -3,9 +3,11 @@
 import re
 import subprocess
 from datetime import UTC, datetime
+from pathlib import Path
 
 from oss_navi.models.memory import (
     GitHubProfileSummary,
+    GreatProjectSummary,
     LongTermMemory,
     PastRecommendation,
     SkillSnapshot,
@@ -417,8 +419,6 @@ def parse_great_projects_from_report(content: str) -> list[GreatProjectSummary]:
     Returns:
         List of GreatProjectSummary objects
     """
-    from oss_navi.models.memory import GreatProjectSummary
-
     projects = []
     now = datetime.now(UTC)
 
@@ -429,14 +429,12 @@ def parse_great_projects_from_report(content: str) -> list[GreatProjectSummary]:
     if great_match:
         great_section = great_match.group(1)
 
-        # Find GitHub repo URLs (not issue URLs)
+        # Find GitHub repo URLs (not issue URLs). The regex's negative
+        # lookahead ensures that issue URLs (ending with /issues...) are
+        # excluded.
         url_pattern = r"https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_.-]+)(?!/issues)"
         for match in re.finditer(url_pattern, great_section):
             owner, repo = match.groups()
-            # Skip if it looks like an issue URL
-            full_url = match.group(0)
-            if "/issues/" in full_url:
-                continue
 
             project_name = f"{owner}/{repo}"
 
@@ -472,7 +470,7 @@ def update_memory_from_report(
     content: str,
     learning_focus: str | None = None,
     memory_file: Path | None = None,
-) -> LongTermMemory | None:
+) -> LongTermMemory:
     """Update long-term memory based on Claude Code analysis output.
 
     This function ALWAYS updates memory (not just when learning_focus is provided).
@@ -491,7 +489,6 @@ def update_memory_from_report(
     memory = load_or_create_memory(file_path)
 
     now = datetime.now(UTC)
-    updated = False
 
     # Parse and add memory update
     memory_update = parse_memory_update(content)
@@ -499,7 +496,6 @@ def update_memory_from_report(
         # Store the update in learning_goals if it's new
         if memory_update not in memory.learning_goals:
             memory.learning_goals.append(memory_update)
-            updated = True
 
     # Parse and add recommendations
     recommendations = parse_recommendations_from_report(content)
@@ -507,7 +503,6 @@ def update_memory_from_report(
         # Only add if not already in past_recommendations
         if not any(r.issue_url == rec.issue_url for r in memory.past_recommendations):
             memory.past_recommendations.append(rec)
-            updated = True
 
     # Parse and add great projects discovered
     great_projects = parse_great_projects_from_report(content)
@@ -515,12 +510,10 @@ def update_memory_from_report(
         # Only add if not already in great_projects_discovered
         if not any(p.name == proj.name for p in memory.great_projects_discovered):
             memory.great_projects_discovered.append(proj)
-            updated = True
 
     # Add learning focus if provided (ALWAYS, not just with --learn)
     if learning_focus and learning_focus not in memory.learning_goals:
         memory.learning_goals.append(learning_focus)
-        updated = True
 
     # Add skill snapshot (once per day max)
     today = now.date()
@@ -530,19 +523,14 @@ def update_memory_from_report(
             focus_areas=[learning_focus] if learning_focus else [],
         )
         memory.skill_history.append(snapshot)
-        updated = True
 
     # Always update these fields
     memory.last_analysis_date = now
     memory.analysis_count += 1
-    updated = True
 
-    if updated:
-        memory.updated_at = now
-        write_json(file_path, memory.model_dump())
-        return memory
-
-    return None
+    memory.updated_at = now
+    write_json(file_path, memory.model_dump())
+    return memory
 
 
 def update_memory_from_report_with_profile(
@@ -550,7 +538,7 @@ def update_memory_from_report_with_profile(
     profile: dict,
     learning_focus: str | None = None,
     memory_file: Path | None = None,
-) -> LongTermMemory | None:
+) -> LongTermMemory:
     """Update memory including GitHub profile summary.
 
     Args:
@@ -565,7 +553,7 @@ def update_memory_from_report_with_profile(
     file_path = memory_file or MEMORY_FILE
     memory = update_memory_from_report(content, learning_focus, file_path)
 
-    if memory and profile:
+    if profile:
         # Create/update GitHub profile summary
         memory.github_profile = GitHubProfileSummary(
             username=profile.get("username", ""),
