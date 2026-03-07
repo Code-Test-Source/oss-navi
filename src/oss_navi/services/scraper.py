@@ -1,0 +1,327 @@
+"""Task scraper for fetching open source contribution opportunities."""
+
+import re
+from datetime import datetime, timezone
+from typing import Optional
+from urllib.parse import urlparse
+
+import httpx
+from bs4 import BeautifulSoup
+
+from oss_navi.models.task import Repository, Task, calculate_hotness_score
+from oss_navi.utils.cache import read_json, update_cache_metadata, write_json
+from oss_navi.utils.paths import GOODFIRSTISSUE_TASKS_CACHE, UPFORGRABS_TASKS_CACHE
+
+
+# Constants
+UPFORGRABS_URL = "https://up-for-grabs.net/api/projects.json"
+GOODFIRSTISSUE_URL = "https://goodfirstissue.dev"
+DEFAULT_TIMEOUT = 30.0
+
+
+class UpForGrabsUnavailableError(Exception):
+    """Error when Up For Grabs is unavailable."""
+
+    pass
+
+
+class GoodFirstIssueUnavailableError(Exception):
+    """Error when Good First Issue is unavailable."""
+
+    pass
+
+
+def validate_github_url(url: str) -> bool:
+    """Validate that a URL is a valid GitHub URL.
+
+    Args:
+        url: URL to validate
+
+    Returns:
+        True if valid GitHub URL, False otherwise
+    """
+    if not url:
+        return False
+    try:
+        parsed = urlparse(url)
+        return parsed.netloc == "github.com" and parsed.scheme in ("http", "https")
+    except Exception:
+        return False
+
+
+def sanitize_text(text: Optional[str]) -> str:
+    """Sanitize text by removing HTML tags and extra whitespace.
+
+    Args:
+        text: Text to sanitize
+
+    Returns:
+        Sanitized text
+    """
+    if not text:
+        return ""
+    # Remove HTML tags
+    text = re.sub(r"<[^>]+>", "", text)
+    # Normalize whitespace
+    text = " ".join(text.split())
+    return text.strip()
+
+
+def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
+    """Fetch tasks from Up For Grabs API.
+
+    Args:
+        timeout: Request timeout in seconds
+
+    Returns:
+        List of Task objects
+
+    Raises:
+        UpForGrabsUnavailableError: If Up For Grabs is unavailable
+    """
+    tasks: list[Task] = []
+    now = datetime.now(timezone.utc)
+
+    with httpx.Client(timeout=timeout) as client:
+        response = client.get(UPFORGRABS_URL)
+
+        if response.status_code != 200:
+            raise UpForGrabsUnavailableError(
+                f"Up For Grabs returned status {response.status_code}"
+            )
+
+        data = response.json()
+        projects = data.get("projects", [])
+
+        for project in projects:
+            try:
+                # Validate URL
+                project_url = project.get("url", "")
+                if not validate_github_url(project_url):
+                    continue
+
+                # Parse repository info
+                repo_name = project.get("name", "")
+                stars = project.get("stars", 0) or 0
+                language = project.get("language")
+                topics = project.get("topics", [])
+
+                repo = Repository(
+                    name=repo_name,
+                    url=project_url,
+                    stars=stars,
+                    language=sanitize_text(language),
+                    topics=topics,
+                )
+
+                # Parse issues
+                issues = project.get("issues", [])
+                for issue in issues:
+                    issue_url = issue.get("url", "")
+                    if not validate_github_url(issue_url):
+                        continue
+
+                    created_at_str = issue.get("created_at", "")
+                    updated_at_str = issue.get("updated_at", "")
+
+                    try:
+                        created_at = datetime.fromisoformat(
+                            created_at_str.replace("Z", "+00:00")
+                        )
+                    except (ValueError, TypeError):
+                        created_at = now
+
+                    try:
+                        updated_at = datetime.fromisoformat(
+                            updated_at_str.replace("Z", "+00:00")
+                        )
+                    except (ValueError, TypeError):
+                        updated_at = now
+
+                    # Calculate age in days
+                    age_days = max(1, (now - created_at).days)
+                    hotness = calculate_hotness_score(stars, age_days)
+
+                    task = Task(
+                        id=f"upforgrabs:{issue.get('number', hash(issue_url))}",
+                        title=sanitize_text(issue.get("title", "")),
+                        url=issue_url,
+                        source="upforgrabs",
+                        repository=repo,
+                        labels=issue.get("labels", []),
+                        created_at=created_at,
+                        updated_at=updated_at,
+                        hotness_score=hotness,
+                        fetched_at=now,
+                    )
+                    tasks.append(task)
+
+            except Exception:
+                # Skip malformed projects
+                continue
+
+    return tasks
+
+
+def fetch_goodfirstissue_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
+    """Fetch tasks from Good First Issue website.
+
+    Args:
+        timeout: Request timeout in seconds
+
+    Returns:
+        List of Task objects
+
+    Raises:
+        GoodFirstIssueUnavailableError: If Good First Issue is unavailable
+    """
+    tasks: list[Task] = []
+    now = datetime.now(timezone.utc)
+
+    with httpx.Client(timeout=timeout) as client:
+        response = client.get(GOODFIRSTISSUE_URL)
+
+        if response.status_code != 200:
+            raise GoodFirstIssueUnavailableError(
+                f"Good First Issue returned status {response.status_code}"
+            )
+
+        soup = BeautifulSoup(response.text, "lxml")
+
+        # Parse issue cards (structure depends on actual site)
+        # This is a basic implementation that may need adjustment
+        for issue_card in soup.select(".issue, .card, article"):
+            try:
+                # Extract issue link
+                link = issue_card.find("a", href=True)
+                if not link:
+                    continue
+
+                issue_url = link.get("href", "")
+                if not validate_github_url(issue_url):
+                    continue
+
+                # Extract title
+                title = sanitize_text(link.get_text())
+
+                # Extract project name from URL
+                parts = issue_url.split("/")
+                if len(parts) < 5:
+                    continue
+                repo_name = f"{parts[3]}/{parts[4]}"
+
+                # Extract stars (if available)
+                stars_text = issue_card.find(class_="stars")
+                stars = 0
+                if stars_text:
+                    match = re.search(r"(\d+)", stars_text.get_text())
+                    if match:
+                        stars = int(match.group(1))
+
+                # Extract language (if available)
+                lang_elem = issue_card.find(class_="language")
+                language = sanitize_text(lang_elem.get_text()) if lang_elem else None
+
+                repo = Repository(
+                    name=repo_name,
+                    url=f"https://github.com/{repo_name}",
+                    stars=stars,
+                    language=language,
+                )
+
+                # Parse dates
+                created_at = now
+                updated_at = now
+
+                date_elem = issue_card.find(class_="created-at")
+                if date_elem:
+                    try:
+                        created_at = datetime.fromisoformat(
+                            date_elem.get_text().strip()
+                        )
+                    except (ValueError, TypeError):
+                        pass
+
+                age_days = max(1, (now - created_at).days)
+                hotness = calculate_hotness_score(stars, age_days)
+
+                task = Task(
+                    id=f"goodfirstissue:{hash(issue_url)}",
+                    title=title,
+                    url=issue_url,
+                    source="goodfirstissue",
+                    repository=repo,
+                    labels=["good first issue"],
+                    created_at=created_at,
+                    updated_at=updated_at,
+                    hotness_score=hotness,
+                    fetched_at=now,
+                )
+                tasks.append(task)
+
+            except Exception:
+                # Skip malformed issues
+                continue
+
+    return tasks
+
+
+def fetch_and_cache_tasks(
+    sources: Optional[list[str]] = None, timeout: float = DEFAULT_TIMEOUT
+) -> list[Task]:
+    """Fetch tasks from all sources and cache them.
+
+    Args:
+        sources: List of sources to fetch ("upforgrabs", "goodfirstissue")
+        timeout: Request timeout in seconds
+
+    Returns:
+        Combined list of Task objects
+    """
+    sources = sources or ["upforgrabs", "goodfirstissue"]
+    all_tasks: list[Task] = []
+
+    if "upforgrabs" in sources:
+        try:
+            tasks = fetch_upforgrabs_tasks(timeout)
+            all_tasks.extend(tasks)
+
+            # Cache Up For Grabs tasks
+            tasks_data = [t.model_dump() for t in tasks]
+            write_json(UPFORGRABS_TASKS_CACHE, tasks_data)
+            update_cache_metadata("upforgrabs_tasks", count=len(tasks))
+        except UpForGrabsUnavailableError:
+            pass
+
+    if "goodfirstissue" in sources:
+        try:
+            tasks = fetch_goodfirstissue_tasks(timeout)
+            all_tasks.extend(tasks)
+
+            # Cache Good First Issue tasks
+            tasks_data = [t.model_dump() for t in tasks]
+            write_json(GOODFIRSTISSUE_TASKS_CACHE, tasks_data)
+            update_cache_metadata("goodfirstissue_tasks", count=len(tasks))
+        except GoodFirstIssueUnavailableError:
+            pass
+
+    return all_tasks
+
+
+def load_cached_tasks() -> list[dict]:
+    """Load cached tasks from all sources.
+
+    Returns:
+        Combined list of cached task data
+    """
+    tasks: list[dict] = []
+
+    upforgrabs_data = read_json(UPFORGRABS_TASKS_CACHE)
+    if upforgrabs_data:
+        tasks.extend(upforgrabs_data if isinstance(upforgrabs_data, list) else [])
+
+    goodfirstissue_data = read_json(GOODFIRSTISSUE_TASKS_CACHE)
+    if goodfirstissue_data:
+        tasks.extend(goodfirstissue_data if isinstance(goodfirstissue_data, list) else [])
+
+    return tasks
