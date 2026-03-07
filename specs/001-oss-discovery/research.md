@@ -153,7 +153,7 @@
 **Performance Notes**:
 - JSON file is ~1.1MB
 - Use 60-second timeout
-- Randomize order for variety
+- Sort alphabetically by repository name for deterministic output (no randomization)
 
 ### ~~Good First Issue Integration~~ (REMOVED)
 

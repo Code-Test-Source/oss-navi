@@ -89,13 +89,16 @@ Cache metadata keys:
 
 ### Adding a New HTTP Client
 
-When creating any httpx client with proxy support:
+When creating any httpx client with proxy support, use helpers from `oss_navi.config`:
 
 ```python
+from oss_navi.config import get_proxy_settings, should_verify_ssl
+
 def create_client(timeout: float) -> httpx.Client:
-    http_proxy = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
-    https_proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
-    verify_ssl = os.environ.get("OSS_NAVI_VERIFY_SSL", "true").lower() not in ("false", "0", "no")
+    proxy_settings = get_proxy_settings()  # env vars take precedence over config file
+    http_proxy = proxy_settings["http_proxy"]
+    https_proxy = proxy_settings["https_proxy"]
+    verify_ssl = should_verify_ssl()
 
     if https_proxy and http_proxy:
         return httpx.Client(
@@ -113,6 +116,14 @@ def create_client(timeout: float) -> httpx.Client:
     else:
         return httpx.Client(timeout=timeout, verify=verify_ssl)
 ```
+
+**SSL Verification**: `should_verify_ssl()` reads `OSS_NAVI_VERIFY_SSL` from the environment.
+Setting `OSS_NAVI_VERIFY_SSL=false` disables certificate validation — use this only as a
+last resort. For corporate proxies with self-signed certificates, the preferred approach is
+to configure a trusted CA bundle using standard TLS environment variables such as
+`SSL_CERT_FILE` (single bundle file) or `SSL_CERT_DIR` (directory of certificates), or by
+passing a CA bundle path to `verify=` when constructing the `httpx` client. This keeps
+certificate validation active.
 
 ### Async Client Pattern
 
