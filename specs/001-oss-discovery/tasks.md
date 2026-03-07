@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/001-oss-discovery/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), data-model.md, contracts/cli.md
 
-**Tests**: Tests are NOT explicitly requested in the feature specification. They are omitted per the spec.
+**Tests**: Tests are REQUIRED per constitution principle I (Test-First Development - NON-NEGOTIABLE). Each user story phase includes test tasks to be written BEFORE implementation.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -56,9 +56,17 @@
 - [ ] T013 [P] Create src/oss_navi/models/report.py with AnalysisReport Pydantic model
 - [ ] T014 [P] Create src/oss_navi/models/memory.py with LongTermMemory, SkillSnapshot, PastRecommendation Pydantic models
 
+### Test Infrastructure
+
+- [ ] T015 [P] Create tests/unit/__init__.py
+- [ ] T016 [P] Create tests/unit/test_models/__init__.py
+- [ ] T017 [P] Create tests/unit/test_services/__init__.py
+- [ ] T018 [P] Create tests/unit/test_utils/__init__.py
+- [ ] T019 Create pytest configuration in pyproject.toml with coverage settings (80% minimum)
+
 ### Services Base
 
-- [ ] T015 Create src/oss_navi/services/__init__.py
+- [ ] T020 Create src/oss_navi/services/__init__.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -70,17 +78,26 @@
 
 **Independent Test**: Run analysis command with sample cached data and verify Markdown report is generated with skill assessment and recommendations
 
+### Tests for User Story 1
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [ ] T021 [P] [US1] Create tests/unit/test_models/test_report.py with AnalysisReport model tests
+- [ ] T022 [P] [US1] Create tests/unit/test_services/test_analyzer.py with mock Claude Code subprocess tests
+- [ ] T023 [US1] Verify tests fail (RED phase) before proceeding to implementation
+
 ### Implementation for User Story 1
 
-- [ ] T016 [P] [US1] Create src/oss_navi/services/analyzer.py with Claude Code subprocess invocation and prompt building
-- [ ] T017 [P] [US1] Create src/oss_navi/cli.py with analysis command implementation (click command)
-- [ ] T018 [US1] Implement task filtering by stars and recency in src/oss_navi/services/analyzer.py
-- [ ] T019 [US1] Implement hotness score calculation in src/oss_navi/services/analyzer.py
-- [ ] T020 [US1] Implement report generation and saving to temp directory in src/oss_navi/services/analyzer.py
-- [ ] T021 [US1] Add --learn flag support in analysis command in src/oss_navi/cli.py
-- [ ] T022 [US1] Add --output flag support in analysis command in src/oss_navi/cli.py
-- [ ] T023 [US1] Add error handling for Claude Code not found in src/oss_navi/services/analyzer.py
-- [ ] T024 [US1] Add error handling for no cached data in src/oss_navi/cli.py
+- [ ] T024 [P] [US1] Create src/oss_navi/services/analyzer.py with Claude Code subprocess invocation and prompt building
+- [ ] T025 [P] [US1] Create src/oss_navi/cli.py with analysis command implementation (click command)
+- [ ] T026 [US1] Implement task filtering by stars and recency in src/oss_navi/services/analyzer.py
+- [ ] T027 [US1] Implement hotness score calculation in src/oss_navi/services/analyzer.py
+- [ ] T028 [US1] Implement report generation and saving to temp directory in src/oss_navi/services/analyzer.py
+- [ ] T029 [US1] Add --learn flag support in analysis command in src/oss_navi/cli.py
+- [ ] T030 [US1] Add --output flag support in analysis command in src/oss_navi/cli.py
+- [ ] T031 [US1] Add error handling for Claude Code not found in src/oss_navi/services/analyzer.py
+- [ ] T032 [US1] Add error handling for no cached data in src/oss_navi/cli.py
+- [ ] T033 [US1] Verify tests pass (GREEN phase) after implementation
 
 **Checkpoint**: At this point, User Story 1 should be fully functional with sample cached data
 
@@ -92,19 +109,30 @@
 
 **Independent Test**: Run sync command with configured credentials and verify data is cached in ~/.oss-navi/cache/
 
+### Tests for User Story 2
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [ ] T034 [P] [US2] Create tests/unit/test_models/test_user_profile.py with UserProfile model tests
+- [ ] T035 [P] [US2] Create tests/unit/test_models/test_task.py with Task and Repository model tests
+- [ ] T036 [P] [US2] Create tests/integration/test_github.py with mocked GitHub API responses
+- [ ] T037 [P] [US2] Create tests/integration/test_scraper.py with mocked HTTP responses
+- [ ] T038 [US2] Verify tests fail (RED phase) before proceeding to implementation
+
 ### Implementation for User Story 2
 
-- [ ] T025 [P] [US2] Create src/oss_navi/services/github.py with GitHub API client using httpx
-- [ ] T026 [P] [US2] Create src/oss_navi/services/scraper.py with Up For Grabs JSON fetcher
-- [ ] T027 [US2] Add Good First Issue web scraper using beautifulsoup4 in src/oss_navi/services/scraper.py
-- [ ] T028 [US2] Implement GitHub profile fetching in src/oss_navi/services/github.py (repos, languages, activity)
-- [ ] T029 [US2] Implement cache storage for profile data in src/oss_navi/services/github.py
-- [ ] T030 [US2] Implement cache storage for task data in src/oss_navi/services/scraper.py
-- [ ] T031 [US2] Add sync command to src/oss_navi/cli.py with --github and --tasks flags
-- [ ] T032 [US2] Add --force flag to sync command to ignore cache in src/oss_navi/cli.py
-- [ ] T033 [US2] Add error handling for GitHub API rate limits in src/oss_navi/services/github.py
-- [ ] T034 [US2] Add error handling for Good First Issue unavailable in src/oss_navi/services/scraper.py
-- [ ] T035 [US2] Create cache metadata.json with timestamps in src/oss_navi/utils/cache.py
+- [ ] T039 [P] [US2] Create src/oss_navi/services/github.py with GitHub API client using httpx
+- [ ] T040 [P] [US2] Create src/oss_navi/services/scraper.py with Up For Grabs JSON fetcher
+- [ ] T041 [US2] Add Good First Issue web scraper using beautifulsoup4 in src/oss_navi/services/scraper.py
+- [ ] T042 [US2] Implement GitHub profile fetching in src/oss_navi/services/github.py (repos, languages, activity)
+- [ ] T043 [US2] Implement cache storage for profile data in src/oss_navi/services/github.py
+- [ ] T044 [US2] Implement cache storage for task data in src/oss_navi/services/scraper.py
+- [ ] T045 [US2] Add sync command to src/oss_navi/cli.py with --github and --tasks flags
+- [ ] T046 [US2] Add --force flag to sync command to ignore cache in src/oss_navi/cli.py
+- [ ] T047 [US2] Add error handling for GitHub API rate limits in src/oss_navi/services/github.py
+- [ ] T048 [US2] Add error handling for Good First Issue unavailable in src/oss_navi/services/scraper.py
+- [ ] T049 [US2] Create cache metadata.json with timestamps in src/oss_navi/utils/cache.py
+- [ ] T050 [US2] Verify tests pass (GREEN phase) after implementation
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -116,19 +144,28 @@
 
 **Independent Test**: Run config commands and verify settings are persisted in ~/.oss-navi/state/config.json
 
+### Tests for User Story 3
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [ ] T051 [P] [US3] Create tests/unit/test_models/test_config.py with Config and Filters model tests
+- [ ] T052 [P] [US3] Create tests/unit/test_utils/test_paths.py with path utility tests
+- [ ] T053 [US3] Verify tests fail (RED phase) before proceeding to implementation
+
 ### Implementation for User Story 3
 
-- [ ] T036 [US3] Create src/oss_navi/config.py with configuration loading and saving functions
-- [ ] T037 [US3] Implement secure token storage with 0600 permissions in src/oss_navi/config.py
-- [ ] T038 [US3] Add config command to src/oss_navi/cli.py with --github-username option
-- [ ] T039 [US3] Add --github-token option to config command in src/oss_navi/cli.py
-- [ ] T040 [US3] Add --blog-repo option to config command in src/oss_navi/cli.py
-- [ ] T041 [US3] Add --min-stars and --max-age filter options to config command in src/oss_navi/cli.py
-- [ ] T042 [US3] Add --list option to display current configuration in src/oss_navi/cli.py
-- [ ] T043 [US3] Add --reset option to clear configuration in src/oss_navi/cli.py
-- [ ] T044 [US3] Implement directory structure creation (~/.oss-navi/ with cache/, state/, temp/) in src/oss_navi/config.py
-- [ ] T045 [US3] Add input validation for GitHub username in src/oss_navi/config.py
-- [ ] T046 [US3] Add input validation for GitHub token format in src/oss_navi/config.py
+- [ ] T054 [US3] Create src/oss_navi/config.py with configuration loading and saving functions
+- [ ] T055 [US3] Implement secure token storage with 0600 permissions in src/oss_navi/config.py
+- [ ] T056 [US3] Add config command to src/oss_navi/cli.py with --github-username option
+- [ ] T057 [US3] Add --github-token option to config command in src/oss_navi/cli.py
+- [ ] T058 [US3] Add --blog-repo option to config command in src/oss_navi/cli.py
+- [ ] T059 [US3] Add --min-stars and --max-age filter options to config command in src/oss_navi/cli.py
+- [ ] T060 [US3] Add --list option to display current configuration in src/oss_navi/cli.py
+- [ ] T061 [US3] Add --reset option to clear configuration in src/oss_navi/cli.py
+- [ ] T062 [US3] Implement directory structure creation (~/.oss-navi/ with cache/, state/, temp/) in src/oss_navi/config.py
+- [ ] T063 [US3] Add input validation for GitHub username in src/oss_navi/config.py
+- [ ] T064 [US3] Add input validation for GitHub token format in src/oss_navi/config.py
+- [ ] T065 [US3] Verify tests pass (GREEN phase) after implementation
 
 **Checkpoint**: At this point, all three core user stories should work independently
 
@@ -140,16 +177,25 @@
 
 **Independent Test**: Run publish command and verify report is archived and/or pushed to git repository
 
+### Tests for User Story 4
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [ ] T066 [P] [US4] Create tests/unit/test_models/test_memory.py with LongTermMemory model tests
+- [ ] T067 [P] [US4] Create tests/unit/test_services/test_publisher.py with mocked git operations
+- [ ] T068 [US4] Verify tests fail (RED phase) before proceeding to implementation
+
 ### Implementation for User Story 4
 
-- [ ] T047 [US4] Create src/oss_navi/services/publisher.py with report archiving function
-- [ ] T048 [US4] Implement report archiving with timestamp naming in src/oss_navi/services/publisher.py
-- [ ] T049 [US4] Implement git operations (add, commit, push) in src/oss_navi/services/publisher.py
-- [ ] T050 [US4] Add publish command to src/oss_navi/cli.py with --push flag
-- [ ] T051 [US4] Add --message/-m option for commit message in src/oss_navi/cli.py
-- [ ] T052 [US4] Add --list option to show archived reports in src/oss_navi/cli.py
-- [ ] T053 [US4] Add error handling for missing blog repo configuration in src/oss_navi/cli.py
-- [ ] T054 [US4] Add error handling for git operation failures in src/oss_navi/services/publisher.py
+- [ ] T069 [US4] Create src/oss_navi/services/publisher.py with report archiving function
+- [ ] T070 [US4] Implement report archiving with timestamp naming in src/oss_navi/services/publisher.py
+- [ ] T071 [US4] Implement git operations (add, commit, push) in src/oss_navi/services/publisher.py
+- [ ] T072 [US4] Add publish command to src/oss_navi/cli.py with --push flag
+- [ ] T073 [US4] Add --message/-m option for commit message in src/oss_navi/cli.py
+- [ ] T074 [US4] Add --list option to show archived reports in src/oss_navi/cli.py
+- [ ] T075 [US4] Add error handling for missing blog repo configuration in src/oss_navi/cli.py
+- [ ] T076 [US4] Add error handling for git operation failures in src/oss_navi/services/publisher.py
+- [ ] T077 [US4] Verify tests pass (GREEN phase) after implementation
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -159,13 +205,13 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T055 [P] Add global --verbose/-v flag to CLI in src/oss_navi/cli.py
-- [ ] T056 [P] Add global --quiet/-q flag to CLI in src/oss_navi/cli.py
-- [ ] T057 [P] Add --version flag to CLI in src/oss_navi/cli.py
-- [ ] T058 Add consistent error output formatting (✓, ✗, ⚠ symbols) across all commands in src/oss_navi/cli.py
-- [ ] T059 [P] Update README.md with complete usage examples and installation steps
-- [ ] T060 Add long-term memory update parsing from Claude Code output in src/oss_navi/services/analyzer.py
-- [ ] T061 Verify 80%+ test coverage (manual: pytest --cov)
+- [ ] T078 [P] Add global --verbose/-v flag to CLI in src/oss_navi/cli.py
+- [ ] T079 [P] Add global --quiet/-q flag to CLI in src/oss_navi/cli.py
+- [ ] T080 [P] Add --version flag to CLI in src/oss_navi/cli.py
+- [ ] T081 Add consistent error output formatting (✓, ✗, ⚠ symbols) across all commands in src/oss_navi/cli.py
+- [ ] T082 [P] Update README.md with complete usage examples and installation steps
+- [ ] T083 Add long-term memory update parsing from Claude Code output in src/oss_navi/services/analyzer.py
+- [ ] T084 Verify 80%+ test coverage with pytest --cov
 
 ---
 
@@ -189,80 +235,45 @@
 - **User Story 3 (P3) - Config**: Can start after Foundational; fully independent
 - **User Story 4 (P4) - Publish**: Can start after Foundational; needs reports from US1
 
-### Recommended Implementation Order
+### TDD Workflow Per Story
 
-For a working end-to-end flow, implement in this order:
-1. **Foundational** → Core models and utilities
-2. **US3 (Config)** → Enables authentication for US2
-3. **US2 (Sync)** → Generates cache data for US1
-4. **US1 (Analysis)** → Core MVP functionality
-5. **US4 (Publish)** → Extended functionality
-6. **Polish** → Final touches
-
-### Within Each User Story
-
-- Services before CLI commands
-- Core implementation before error handling
-- Story complete before moving to next
+1. **RED**: Write test tasks (marked "Tests for User Story X")
+2. **Verify Fail**: Run tests, confirm they fail
+3. **GREEN**: Write implementation tasks
+4. **Verify Pass**: Run tests, confirm they pass
+5. **REFACTOR**: Clean up code while keeping tests green
 
 ### Parallel Opportunities
 
 - All Setup tasks marked [P] can run in parallel
 - All Foundational model tasks marked [P] can run in parallel
-- All US1 tasks marked [P] can run in parallel
-- All US2 tasks marked [P] can run in parallel
+- All test tasks within a user story marked [P] can run in parallel
+- All US1 implementation tasks marked [P] can run in parallel
+- All US2 implementation tasks marked [P] can run in parallel
 - Different user stories can be worked on in parallel by different team members (with integration testing after)
-
----
-
-## Parallel Example: User Story 1
-
-```bash
-# Launch all parallelizable tasks for User Story 1 together:
-Task: "Create src/oss_navi/services/analyzer.py with Claude Code subprocess invocation"
-Task: "Create src/oss_navi/cli.py with analysis command implementation"
-
-# Then sequential tasks:
-Task: "Implement task filtering by stars and recency"
-Task: "Implement hotness score calculation"
-# ... etc
-```
 
 ---
 
 ## Implementation Strategy
 
-### MVP First (User Story 1 Only with Sample Data)
+### TDD-Compliant MVP First (User Story 1 Only with Sample Data)
 
 1. Complete Phase 1: Setup
 2. Complete Phase 2: Foundational (CRITICAL - blocks all stories)
-3. Complete Phase 3: User Story 1 (with sample cache data for testing)
-4. **STOP and VALIDATE**: Test User Story 1 independently with mocked data
-5. Deploy/demo if ready
+3. **RED**: Complete tests for US1 (T021-T023)
+4. **GREEN**: Complete implementation for US1 (T024-T033)
+5. **STOP and VALIDATE**: Verify 80%+ coverage for US1
+6. Deploy/demo if ready
 
 ### Full Flow (Recommended)
 
 1. Complete Setup + Foundational → Foundation ready
-2. Add User Story 3 (Config) → Enables authentication
-3. Add User Story 2 (Sync) → Enables data fetching
-4. Add User Story 1 (Analysis) → Core MVP complete
-5. **STOP and VALIDATE**: Test full flow end-to-end
-6. Add User Story 4 (Publish) → Extended features
+2. **RED**: Write US3 tests → **GREEN**: Implement US3 (Config) → Enables authentication
+3. **RED**: Write US2 tests → **GREEN**: Implement US2 (Sync) → Enables data fetching
+4. **RED**: Write US1 tests → **GREEN**: Implement US1 (Analysis) → Core MVP complete
+5. **STOP and VALIDATE**: Verify 80%+ coverage, test full flow end-to-end
+6. **RED**: Write US4 tests → **GREEN**: Implement US4 (Publish) → Extended features
 7. Add Polish → Production ready
-
-### Parallel Team Strategy
-
-With multiple developers:
-
-1. Team completes Setup + Foundational together
-2. Once Foundational is done:
-   - Developer A: User Story 1 (Analysis) - test with sample data
-   - Developer B: User Story 3 (Config) - fully independent
-3. After US3 complete:
-   - Developer C: User Story 2 (Sync) - now has config support
-4. After US1 and US2 complete:
-   - Developer D: User Story 4 (Publish)
-5. Stories complete and integrate independently
 
 ---
 
@@ -270,6 +281,7 @@ With multiple developers:
 
 - [P] tasks = different files, no dependencies within phase
 - [Story] label maps task to specific user story for traceability
+- **TDD is NON-NEGOTIABLE**: Tests MUST be written before implementation
 - Each user story should be independently completable and testable (with appropriate test data)
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
@@ -281,12 +293,13 @@ With multiple developers:
 
 | Metric | Count |
 |--------|-------|
-| **Total Tasks** | 61 |
+| **Total Tasks** | 84 |
 | **Setup Phase** | 5 tasks |
-| **Foundational Phase** | 10 tasks |
-| **US1 (Analysis)** | 9 tasks |
-| **US2 (Sync)** | 11 tasks |
-| **US3 (Config)** | 11 tasks |
-| **US4 (Publish)** | 8 tasks |
+| **Foundational Phase** | 15 tasks |
+| **US1 (Analysis)** | 13 tasks (3 test + 10 implementation) |
+| **US2 (Sync)** | 17 tasks (5 test + 12 implementation) |
+| **US3 (Config)** | 15 tasks (3 test + 12 implementation) |
+| **US4 (Publish)** | 12 tasks (3 test + 9 implementation) |
 | **Polish Phase** | 7 tasks |
-| **Parallel Opportunities** | 18 tasks (marked [P]) |
+| **Test Tasks** | 17 tasks |
+| **Parallel Opportunities** | 28 tasks (marked [P]) |

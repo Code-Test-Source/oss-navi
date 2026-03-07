@@ -141,6 +141,14 @@ A developer wants to share their OSS contribution journey. They run the publish 
 - **FR-025**: The system MUST persist long-term memory as a single JSON file in the state directory, containing skill evolution history and past recommendations
 - **FR-026**: The system MUST store cached data as JSON files for human readability and debugging
 
+### Testing Requirements
+
+- **FR-027**: The system MUST have unit tests for all core models (Config, UserProfile, Task, AnalysisReport, LongTermMemory)
+- **FR-028**: The system MUST have integration tests for GitHub API client with mocked responses
+- **FR-029**: The system MUST have integration tests for web scraper with mocked HTTP responses
+- **FR-030**: The system MUST achieve minimum 80% test coverage as verified by pytest-cov
+- **FR-031**: All tests MUST be written before implementation code (TDD Red-Green-Refactor cycle)
+
 ### Key Entities
 
 - **UserProfile**: Represents the user's GitHub profile with commit history, language statistics, and activity metrics. Used to assess skills and match with projects.

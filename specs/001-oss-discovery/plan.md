@@ -25,7 +25,7 @@ OSS-Navi is a CLI tool that helps programmers discover and contribute to open so
 
 | Principle | Status | Notes |
 |-----------|--------|-------|
-| I. Test-First Development | ✅ Pass | pytest + pytest-cov, 80% coverage target |
+| I. Test-First Development | ✅ Pass | pytest + pytest-cov, 80% coverage target, test tasks in each phase (TDD compliant) |
 | II. Clean Architecture | ✅ Pass | Modular CLI with separate services for GitHub, scraping, analysis |
 | III. Security-First | ✅ Pass | Token stored with 0600 permissions, input validation on all external data |
 | IV. Code Quality & Simplicity | ✅ Pass | Single-project CLI, clear separation of concerns |
