@@ -67,7 +67,7 @@ def create_http_client(timeout: float = DEFAULT_TIMEOUT) -> httpx.Client:
     """Create an httpx client with proxy support.
 
     Automatically uses proxy from environment variables (HTTP_PROXY, HTTPS_PROXY).
-    This allows users to set global proxy in their shell and have oss-navi use it.
+    SSL verification can be disabled via OSS_NAVI_VERIFY_SSL=false env var.
 
     Args:
         timeout: Request timeout in seconds
@@ -76,14 +76,26 @@ def create_http_client(timeout: float = DEFAULT_TIMEOUT) -> httpx.Client:
         Configured httpx.Client instance
     """
     proxy_settings = get_proxy_settings()
-    proxies = {}
+    http_proxy = proxy_settings["http_proxy"]
+    https_proxy = proxy_settings["https_proxy"]
+    verify_ssl = should_verify_ssl()
 
-    if proxy_settings["http_proxy"]:
-        proxies["http://"] = proxy_settings["http_proxy"]
-    if proxy_settings["https_proxy"]:
-        proxies["https://"] = proxy_settings["https_proxy"]
-
-    return httpx.Client(timeout=timeout, proxies=proxies if proxies else None)
+    if https_proxy and http_proxy:
+        # Use mounts for different proxies per scheme
+        return httpx.Client(
+            timeout=timeout,
+            verify=verify_ssl,
+            mounts={
+                "http://": httpx.HTTPTransport(proxy=http_proxy, verify=verify_ssl),
+                "https://": httpx.HTTPTransport(proxy=https_proxy, verify=verify_ssl),
+            }
+        )
+    elif https_proxy:
+        return httpx.Client(timeout=timeout, verify=verify_ssl, proxy=https_proxy)
+    elif http_proxy:
+        return httpx.Client(timeout=timeout, verify=verify_ssl, proxy=http_proxy)
+    else:
+        return httpx.Client(timeout=timeout, verify=verify_ssl)
 
 
 def create_async_http_client(timeout: float = DEFAULT_TIMEOUT) -> httpx.AsyncClient:
