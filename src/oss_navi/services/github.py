@@ -1,11 +1,13 @@
 """GitHub API client for fetching user profile and repository data."""
 
 import os
+import re
 from datetime import UTC, datetime, timedelta
 
 import httpx
 
 from oss_navi.config import get_proxy_settings, should_verify_ssl
+from oss_navi.models.task import IssueStatus
 from oss_navi.models.user_profile import Activity, Repository, UserProfile
 from oss_navi.utils.cache import read_json, update_cache_metadata, write_json
 from oss_navi.utils.paths import GITHUB_PROFILE_CACHE
@@ -13,6 +15,16 @@ from oss_navi.utils.paths import GITHUB_PROFILE_CACHE
 # Constants
 GITHUB_API_BASE = "https://api.github.com"
 DEFAULT_TIMEOUT = 30.0
+
+# The timeline endpoint requires the mockingbird preview to include cross-reference events.
+# We keep both the standard v3 Accept and the preview type so other consumers of this
+# header value are not affected.
+TIMELINE_ACCEPT_HEADER = (
+    "application/vnd.github.v3+json, application/vnd.github.mockingbird-preview+json"
+)
+
+# Labels that indicate an issue is being worked on
+IN_PROGRESS_LABELS = {"in progress", "wip", "work in progress", "assigned", "taken"}
 
 
 class GitHubAuthError(Exception):
@@ -213,6 +225,181 @@ class GitHubClient:
                 fetched_at=now,
                 expires_at=expires,
             )
+
+    def check_issue_status(
+        self, owner: str, repo: str, issue_number: int
+    ) -> IssueStatus:
+        """Check the current status of a GitHub issue.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            issue_number: Issue number
+
+        Returns:
+            IssueStatus with availability information
+        """
+        now = datetime.now(UTC)
+        issue_url = f"https://github.com/{owner}/{repo}/issues/{issue_number}"
+
+        with self._create_client() as client:
+            response = client.get(
+                f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}",
+                headers=self._get_headers(),
+            )
+
+            # Handle 403: raise rate limit error if rate-limited, otherwise treat as unavailable
+            if response.status_code == 403:
+                if response.headers.get("X-RateLimit-Remaining") == "0":
+                    raise GitHubRateLimitError(
+                        "GitHub API rate limit exceeded while checking issue status"
+                    )
+                return IssueStatus(
+                    issue_url=issue_url,
+                    is_assigned=False,
+                    is_closed=True,  # Treat as unavailable (e.g. private repo)
+                    has_linked_pr=False,
+                    checked_at=now,
+                )
+
+            # Handle not found
+            if response.status_code == 404:
+                return IssueStatus(
+                    issue_url=issue_url,
+                    is_assigned=False,
+                    is_closed=True,
+                    has_linked_pr=False,
+                    checked_at=now,
+                )
+
+            if response.status_code != 200:
+                return IssueStatus(
+                    issue_url=issue_url,
+                    is_assigned=False,
+                    is_closed=True,
+                    has_linked_pr=False,
+                    checked_at=now,
+                )
+
+            data = response.json()
+
+            # Check if assigned
+            assignee = data.get("assignee")
+            is_assigned = assignee is not None
+            assignee_login = assignee.get("login") if assignee else None
+
+            # Check if closed
+            is_closed = data.get("state") == "closed"
+
+            # Check for in-progress labels
+            labels = data.get("labels", [])
+            in_progress_labels = [
+                label["name"]
+                for label in labels
+                if label.get("name", "").lower() in IN_PROGRESS_LABELS
+            ]
+
+            # Check for linked PRs by inspecting the issue timeline for cross-referenced PRs
+            has_linked_pr = False
+            try:
+                timeline_response = client.get(
+                    f"{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/timeline",
+                    headers={**self._get_headers(), "Accept": TIMELINE_ACCEPT_HEADER},
+                )
+                if timeline_response.status_code == 403:
+                    if timeline_response.headers.get("X-RateLimit-Remaining") == "0":
+                        raise GitHubRateLimitError(
+                            "GitHub API rate limit exceeded while fetching issue timeline"
+                        )
+                    # Other 403s (e.g. private repo) — fall back to no linked PR
+                elif timeline_response.status_code == 200:
+                    for event in timeline_response.json():
+                        if event.get("event") != "cross-referenced":
+                            continue
+                        source_issue = event.get("source", {}).get("issue") or {}
+                        # A source issue that has a "pull_request" key is itself a PR
+                        if "pull_request" in source_issue:
+                            has_linked_pr = True
+                            break
+            except GitHubRateLimitError:
+                raise
+            except Exception:
+                # Network errors or unexpected failures — fall back to no linked PR
+                has_linked_pr = False
+
+            return IssueStatus(
+                issue_url=issue_url,
+                is_assigned=is_assigned,
+                assignee=assignee_login,
+                is_closed=is_closed,
+                has_linked_pr=has_linked_pr,
+                in_progress_labels=in_progress_labels,
+                checked_at=now,
+            )
+
+    def check_multiple_issues(
+        self, issue_urls: list[str], max_issues: int = 10
+    ) -> list[IssueStatus]:
+        """Check status of multiple issues with rate limit protection.
+
+        Args:
+            issue_urls: List of GitHub issue URLs
+            max_issues: Maximum number of issues to check (default 10)
+
+        Returns:
+            List of IssueStatus objects
+        """
+        statuses = []
+
+        # Parse URLs and limit to max_issues
+        parsed = []
+        for url in issue_urls[:max_issues]:
+            match = re.match(
+                r"https://github\.com/([^/]+)/([^/]+)/issues/(\d+)", url
+            )
+            if match:
+                parsed.append((match.group(1), match.group(2), int(match.group(3)), url))
+
+        for owner, repo, issue_number, url in parsed:
+            status = self.check_issue_status(owner, repo, issue_number)
+            statuses.append(status)
+
+        return statuses
+
+    def search_repositories(
+        self,
+        query: str,
+        sort: str = "stars",
+        per_page: int = 10,
+    ) -> list[dict]:
+        """Search GitHub repositories.
+
+        Args:
+            query: Search query (e.g., "language:Python stars:>1000")
+            sort: Sort by "stars", "forks", or "updated"
+            per_page: Number of results per page (max 100)
+
+        Returns:
+            List of repository dictionaries
+        """
+        with self._create_client() as client:
+            response = client.get(
+                f"{GITHUB_API_BASE}/search/repositories",
+                headers=self._get_headers(),
+                params={
+                    "q": query,
+                    "sort": sort,
+                    "per_page": min(per_page, 100),
+                },
+            )
+
+            self._handle_error_response(response)
+
+            if response.status_code != 200:
+                return []
+
+            data = response.json()
+            return data.get("items", [])
 
 
 def fetch_and_cache_profile(username: str, token: str | None = None) -> UserProfile | None:

@@ -163,7 +163,7 @@ oss-navi sync --dry-run
 
 ### `oss-navi analysis`
 
-Generate personalized project recommendations.
+Generate personalized project recommendations with enhanced analysis.
 
 #### Usage
 
@@ -175,10 +175,26 @@ oss-navi analysis [OPTIONS]
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `--learn` | string | Learning focus (technology/language) |
+| `--learn` | string | Learning focus (technology/language) - optional, will prompt if omitted |
+| `--explore` | string | Field(s) to explore (comma-separated) - optional, will prompt if omitted |
 | `--output` / `-o` | string | Output file path (default: temp/current_report.md) |
 | `--no-cache` | flag | Skip cache, require fresh data |
 | `--open` | flag | Open report in default editor after generation |
+| `--recommendations` / `-n` | integer | Number of recommendations (default: 7, range: 5-10) |
+| `--no-interactive` | flag | Skip interactive prompts, use defaults/CLI args only |
+| `--no-archive` | flag | Don't auto-archive report after generation |
+
+#### Interactive Prompts
+
+When run without `--no-interactive`, the command will prompt:
+
+1. **Learning Interest**: "What are you currently learning or want to improve?"
+   - Free text input
+   - Suggestions based on profile languages
+
+2. **Field Exploration**: "Any specific fields you'd like to explore?"
+   - Multi-select from suggestions
+   - Free text for custom entries
 
 #### Exit Codes
 
@@ -194,11 +210,17 @@ oss-navi analysis [OPTIONS]
 #### Examples
 
 ```bash
-# Run analysis with current profile
+# Run analysis with interactive prompts
 oss-navi analysis
 
-# Focus on learning Python
-oss-navi analysis --learn python
+# Specify learning focus and fields to explore
+oss-navi analysis --learn python --explore "web development,machine learning"
+
+# Skip prompts, use CLI args only
+oss-navi analysis --learn rust --no-interactive
+
+# Get more recommendations
+oss-navi analysis -n 10
 
 # Output to specific file
 oss-navi analysis -o ~/reports/oss-analysis.md
@@ -209,16 +231,71 @@ oss-navi analysis --no-cache --open
 
 #### Output Format
 
-**Success**:
+**Success (with interactive prompts)**:
+```
+✓ Analyzing profile... (12 languages, 245 repos)
+? What are you currently learning? rust
+? Any fields to explore? [web development, systems programming]
+✓ Filtering tasks... (47 matches from 359 total)
+✓ Checking issue status... (45 available, 2 assigned/closed)
+✓ Generating recommendations via Claude Code...
+✓ Report saved: ~/.oss-navi/temp/current_report.md
+✓ Report archived: ~/.oss-navi/state/reports/report_20260307_100000.md
+
+Top Recommendations (7 issues):
+  1. [9.2/10] rust-lang/rust - Implement const fn for X
+  2. [8.7/10] tokio-rs/tokio - Add documentation for Y
+  3. [8.5/10] serde-rs/serde - Fix edge case in Z
+  ... (4 more)
+
+Great Projects to Study:
+  • rust-analyzer/rust-analyzer - Modern IDE support for Rust
+  • BurntSushi/ripgrep - Fast search tool with excellent code
+```
+
+**Success (non-interactive)**:
 ```
 ✓ Analyzing profile... (12 languages, 245 repos)
 ✓ Filtering tasks... (47 matches from 359 total)
+✓ Checking issue status... (45 available)
 ✓ Generating recommendations via Claude Code...
 ✓ Report saved: ~/.oss-navi/temp/current_report.md
+✓ Report archived: ~/.oss-navi/state/reports/report_20260307_100000.md
+```
 
-Top Recommendations:
-  1. python/cpython - Core Python interpreter
-  2. pallets/click - Python CLI framework
+**Report Content Structure**:
+```markdown
+# OSS-Navi Analysis Report
+
+## Skill Assessment
+[Analysis of user's languages and activity]
+
+## Learning Direction
+[Advice based on stated interests + profile]
+
+## Field Exploration
+[Suggested adjacent fields with rationale]
+
+## Recommended Issues (5-10)
+
+### 1. [Rating 9.2/10] project/name - Issue Title
+**Why this fits you**: [2-3 sentences]
+**Code Analysis**: [Brief project structure analysis]
+**Issue**: [Link and description]
+
+[... more recommendations ...]
+
+## Great Open Source Projects to Study
+
+### Project 1: owner/repo
+**Why study this**: [What makes it great]
+**Architecture**: [Brief overview]
+**Key Patterns**: [Notable patterns used]
+
+[... more projects ...]
+
+## Memory Updates
+[Long-term memory section for persistence]
 ```
 
 **Error (no cached data)**:

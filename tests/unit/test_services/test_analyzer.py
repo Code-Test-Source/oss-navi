@@ -332,3 +332,650 @@ New learning goal.
             assert "New learning goal." in result.learning_goals
             assert "python" in result.learning_goals
             assert len(result.past_recommendations) == 1  # Original preserved
+
+
+class TestCalculateRatingBreakdown:
+    """Tests for calculate_rating_breakdown function."""
+
+    @pytest.fixture
+    def sample_task(self) -> Task:
+        """Create a sample task for testing."""
+        now = datetime.now(timezone.utc)
+        return Task(
+            id="test:1",
+            title="Fix bug in authentication",
+            url="https://github.com/owner/repo/issues/1",
+            source="upforgrabs",
+            repository=Repository(
+                name="owner/repo",
+                url="https://github.com/owner/repo",
+                stars=1000,
+                language="Python",
+                topics=["web", "authentication"],
+            ),
+            labels=["good first issue", "bug"],
+            created_at=now,
+            updated_at=now,
+            hotness_score=50.0,
+            fetched_at=now,
+        )
+
+    def test_calculate_rating_breakdown_language_match(self, sample_task: Task) -> None:
+        """Test rating breakdown with language match."""
+        from oss_navi.models.task import IssueStatus
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        user_languages = {"Python": 0.8, "JavaScript": 0.2}
+        learning_focus = "Python"
+        issue_status = IssueStatus(
+            issue_url=sample_task.url,
+            is_assigned=False,
+            is_closed=False,
+            has_linked_pr=False,
+            checked_at=datetime.now(timezone.utc),
+        )
+
+        breakdown = calculate_rating_breakdown(
+            task=sample_task,
+            user_languages=user_languages,
+            learning_focus=learning_focus,
+            issue_status=issue_status,
+        )
+
+        # Language match should be high (Python matches)
+        assert breakdown.language_match >= 8.0
+        # Issue availability should be 10 (available)
+        assert breakdown.issue_availability == 10.0
+
+    def test_calculate_rating_breakdown_no_match(self, sample_task: Task) -> None:
+        """Test rating breakdown with no language match."""
+        from oss_navi.models.task import IssueStatus
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        user_languages = {"Rust": 0.6, "Go": 0.4}
+        learning_focus = "Rust"
+        issue_status = IssueStatus(
+            issue_url=sample_task.url,
+            is_assigned=False,
+            is_closed=False,
+            has_linked_pr=False,
+            checked_at=datetime.now(timezone.utc),
+        )
+
+        breakdown = calculate_rating_breakdown(
+            task=sample_task,
+            user_languages=user_languages,
+            learning_focus=learning_focus,
+            issue_status=issue_status,
+        )
+
+        # Language match should be low (no Python in user languages)
+        assert breakdown.language_match < 5.0
+
+    def test_calculate_rating_breakdown_assigned_issue(self, sample_task: Task) -> None:
+        """Test rating breakdown for assigned issue."""
+        from oss_navi.models.task import IssueStatus
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        user_languages = {"Python": 0.8}
+        learning_focus = "Python"
+        issue_status = IssueStatus(
+            issue_url=sample_task.url,
+            is_assigned=True,
+            assignee="other_dev",
+            is_closed=False,
+            has_linked_pr=False,
+            checked_at=datetime.now(timezone.utc),
+        )
+
+        breakdown = calculate_rating_breakdown(
+            task=sample_task,
+            user_languages=user_languages,
+            learning_focus=learning_focus,
+            issue_status=issue_status,
+        )
+
+        # Availability should be 0 (assigned)
+        assert breakdown.issue_availability == 0.0
+
+    def test_calculate_rating_breakdown_js_ts_partial_match(self) -> None:
+        """Test partial language match for JS/TS related languages."""
+        from datetime import timezone
+
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        now = datetime.now(timezone.utc)
+        task = Task(
+            id="test-js",
+            title="JS issue",
+            url="https://github.com/owner/repo/issues/1",
+            source="upforgrabs",
+            repository=Repository(
+                name="owner/repo",
+                url="https://github.com/owner/repo",
+                stars=500,
+                language="JavaScript",
+            ),
+            labels=[],
+            created_at=now,
+            updated_at=now,
+            hotness_score=5.0,
+            fetched_at=now,
+        )
+
+        # TypeScript user with JavaScript task should get partial match
+        breakdown = calculate_rating_breakdown(
+            task=task,
+            user_languages={"TypeScript": 0.9},
+            learning_focus=None,
+            issue_status=None,
+        )
+        assert breakdown.language_match == 3.0
+
+    def test_calculate_rating_breakdown_in_progress_labels(self) -> None:
+        """Test issue availability for in-progress label (partial availability)."""
+        from datetime import timezone
+
+        from oss_navi.models.task import IssueStatus
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        now = datetime.now(timezone.utc)
+        task = Task(
+            id="test-wip",
+            title="WIP issue",
+            url="https://github.com/owner/repo/issues/2",
+            source="upforgrabs",
+            repository=Repository(
+                name="owner/repo",
+                url="https://github.com/owner/repo",
+                stars=200,
+                language="Python",
+            ),
+            labels=["wip"],
+            created_at=now,
+            updated_at=now,
+            hotness_score=3.0,
+            fetched_at=now,
+        )
+
+        issue_status = IssueStatus(
+            issue_url=task.url,
+            is_assigned=False,
+            is_closed=False,
+            has_linked_pr=False,
+            in_progress_labels=["wip"],
+            checked_at=now,
+        )
+
+        breakdown = calculate_rating_breakdown(
+            task=task,
+            user_languages={"Python": 0.8},
+            learning_focus=None,
+            issue_status=issue_status,
+        )
+
+        assert breakdown.issue_availability == 5.0
+
+    def test_calculate_rating_breakdown_topic_learning_alignment(self) -> None:
+        """Test learning alignment via topic match."""
+        from datetime import timezone
+
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        now = datetime.now(timezone.utc)
+        task = Task(
+            id="test-ml",
+            title="ML issue",
+            url="https://github.com/owner/repo/issues/3",
+            source="upforgrabs",
+            repository=Repository(
+                name="owner/repo",
+                url="https://github.com/owner/repo",
+                stars=500,
+                language="Python",
+                topics=["machine-learning", "neural-network"],
+            ),
+            labels=[],
+            created_at=now,
+            updated_at=now,
+            hotness_score=5.0,
+            fetched_at=now,
+        )
+
+        breakdown = calculate_rating_breakdown(
+            task=task,
+            user_languages={"Python": 0.5},
+            learning_focus="machine-learning",
+            issue_status=None,
+        )
+
+        assert breakdown.learning_alignment >= 8.0
+
+    def test_calculate_rating_breakdown_label_learning_alignment(self) -> None:
+        """Test learning alignment via label match."""
+        from datetime import timezone
+
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        now = datetime.now(timezone.utc)
+        task = Task(
+            id="test-label",
+            title="Label issue",
+            url="https://github.com/owner/repo/issues/4",
+            source="upforgrabs",
+            repository=Repository(
+                name="owner/repo",
+                url="https://github.com/owner/repo",
+                stars=500,
+                language="Go",
+                topics=[],
+            ),
+            labels=["testing", "documentation"],
+            created_at=now,
+            updated_at=now,
+            hotness_score=5.0,
+            fetched_at=now,
+        )
+
+        breakdown = calculate_rating_breakdown(
+            task=task,
+            user_languages={"Go": 0.7},
+            learning_focus="testing",
+            issue_status=None,
+        )
+
+        assert breakdown.learning_alignment >= 7.0
+
+    def test_calculate_rating_breakdown_topic_relevance_language_match(self) -> None:
+        """Test topic relevance boost when topic contains user language name."""
+        from datetime import timezone
+
+        from oss_navi.services.analyzer import calculate_rating_breakdown
+
+        now = datetime.now(timezone.utc)
+        task = Task(
+            id="test-topic-lang",
+            title="Topic lang issue",
+            url="https://github.com/owner/repo/issues/5",
+            source="upforgrabs",
+            repository=Repository(
+                name="owner/repo",
+                url="https://github.com/owner/repo",
+                stars=300,
+                language="Python",
+                topics=["python-library", "utilities"],
+            ),
+            labels=[],
+            created_at=now,
+            updated_at=now,
+            hotness_score=5.0,
+            fetched_at=now,
+        )
+
+        breakdown = calculate_rating_breakdown(
+            task=task,
+            user_languages={"Python": 0.8},
+            learning_focus=None,
+            issue_status=None,
+        )
+
+        assert breakdown.topic_relevance >= 8.0
+
+
+class TestGenerateRecommendations:
+    """Tests for generate_recommendations function."""
+
+    @pytest.fixture
+    def sample_tasks(self) -> list[Task]:
+        """Create sample tasks for testing."""
+        now = datetime.now(timezone.utc)
+        tasks = []
+        for i in range(15):
+            task = Task(
+                id=f"test:{i}",
+                title=f"Issue {i}",
+                url=f"https://github.com/owner/repo{i}/issues/{i}",
+                source="upforgrabs",
+                repository=Repository(
+                    name=f"owner/repo{i}",
+                    url=f"https://github.com/owner/repo{i}",
+                    stars=100 * (i + 1),
+                    language="Python" if i % 2 == 0 else "JavaScript",
+                ),
+                labels=["good first issue"],
+                created_at=now,
+                updated_at=now,
+                hotness_score=10.0 * (i + 1),
+                fetched_at=now,
+            )
+            tasks.append(task)
+        return tasks
+
+    def test_generate_recommendations_count(self, sample_tasks: list[Task]) -> None:
+        """Test that generate_recommendations returns correct count."""
+        from oss_navi.services.analyzer import generate_recommendations
+
+        user_languages = {"Python": 0.6, "JavaScript": 0.4}
+        learning_focus = "Python"
+
+        with patch(
+            "oss_navi.services.analyzer.check_issue_status"
+        ) as mock_check:
+            from oss_navi.models.task import IssueStatus
+            mock_check.return_value = IssueStatus(
+                issue_url="https://github.com/owner/repo/issues/1",
+                is_assigned=False,
+                is_closed=False,
+                has_linked_pr=False,
+                checked_at=datetime.now(timezone.utc),
+            )
+
+            recommendations = generate_recommendations(
+                tasks=sample_tasks,
+                user_languages=user_languages,
+                learning_focus=learning_focus,
+                count=7,
+            )
+
+        assert 5 <= len(recommendations) <= 10
+
+    def test_generate_recommendations_sorted_by_rating(
+        self, sample_tasks: list[Task]
+    ) -> None:
+        """Test that recommendations are sorted by rating descending."""
+        from oss_navi.services.analyzer import generate_recommendations
+
+        user_languages = {"Python": 0.6, "JavaScript": 0.4}
+        learning_focus = "Python"
+
+        with patch(
+            "oss_navi.services.analyzer.check_issue_status"
+        ) as mock_check:
+            from oss_navi.models.task import IssueStatus
+            mock_check.return_value = IssueStatus(
+                issue_url="https://github.com/owner/repo/issues/1",
+                is_assigned=False,
+                is_closed=False,
+                has_linked_pr=False,
+                checked_at=datetime.now(timezone.utc),
+            )
+
+            recommendations = generate_recommendations(
+                tasks=sample_tasks,
+                user_languages=user_languages,
+                learning_focus=learning_focus,
+                count=5,
+            )
+
+        # Check sorted by rating descending
+        ratings = [r.rating for r in recommendations]
+        assert ratings == sorted(ratings, reverse=True)
+
+
+class TestSuggestAdjacentFields:
+    """Tests for suggest_adjacent_fields function."""
+
+    def test_suggest_from_python(self) -> None:
+        """Test field suggestions from Python background."""
+        from oss_navi.services.analyzer import suggest_adjacent_fields
+
+        suggestions = suggest_adjacent_fields(
+            current_interest="Python",
+            user_languages={"Python": 0.7, "JavaScript": 0.3},
+        )
+
+        assert len(suggestions) >= 2
+
+    def test_suggest_count(self) -> None:
+        """Test that suggestions return reasonable count."""
+        from oss_navi.services.analyzer import suggest_adjacent_fields
+
+        suggestions = suggest_adjacent_fields(
+            current_interest="TypeScript",
+            user_languages={"TypeScript": 0.6, "Python": 0.4},
+        )
+
+        assert 2 <= len(suggestions) <= 5
+
+
+class TestFindGreatProjects:
+    """Tests for find_great_projects function."""
+
+    @pytest.fixture
+    def user_languages(self) -> dict[str, float]:
+        """Create sample user languages."""
+        return {"Python": 0.6, "JavaScript": 0.3, "Go": 0.1}
+
+    @patch("oss_navi.services.analyzer.read_json", return_value=None)
+    @patch("oss_navi.services.analyzer.GitHubClient")
+    def test_find_great_projects_returns_projects(
+        self, mock_github_client: MagicMock, _mock_read: MagicMock, user_languages: dict[str, float]
+    ) -> None:
+        """Test that find_great_projects returns great projects."""
+        from oss_navi.services.analyzer import find_great_projects
+
+        # Mock GitHub search response
+        mock_client = MagicMock()
+        mock_github_client.return_value = mock_client
+        mock_client.search_repositories.return_value = [
+            {
+                "full_name": "python/cpython",
+                "html_url": "https://github.com/python/cpython",
+                "stargazers_count": 60000,
+                "language": "Python",
+                "description": "The Python programming language",
+                "topics": ["python", "interpreter", "programming-language"],
+            },
+            {
+                "full_name": "pallets/flask",
+                "html_url": "https://github.com/pallets/flask",
+                "stargazers_count": 65000,
+                "language": "Python",
+                "description": "The Python micro framework",
+                "topics": ["python", "flask", "web", "microframework"],
+            },
+        ]
+
+        projects = find_great_projects(
+            user_languages=user_languages,
+            learning_focus="Python",
+            count=2,
+        )
+
+        assert len(projects) <= 3  # Should return up to requested count
+        for project in projects:
+            assert project.name
+            assert project.url.startswith("https://github.com/")
+            assert project.stars >= 100  # Great projects have significant stars
+            assert project.language
+            assert project.why_great
+
+    @patch("oss_navi.services.analyzer.read_json", return_value=None)
+    @patch("oss_navi.services.analyzer.GitHubClient")
+    def test_find_great_projects_matches_skills(
+        self, mock_github_client: MagicMock, _mock_read: MagicMock, user_languages: dict[str, float]
+    ) -> None:
+        """Test that great projects match user's skills."""
+        from oss_navi.services.analyzer import find_great_projects
+
+        mock_client = MagicMock()
+        mock_github_client.return_value = mock_client
+        mock_client.search_repositories.return_value = [
+            {
+                "full_name": "python/cpython",
+                "html_url": "https://github.com/python/cpython",
+                "stargazers_count": 60000,
+                "language": "Python",
+                "description": "The Python programming language",
+                "topics": ["python"],
+            },
+        ]
+
+        projects = find_great_projects(
+            user_languages=user_languages,
+            learning_focus="Python",
+            count=1,
+        )
+
+        # Projects should match user languages or learning focus
+        for project in projects:
+            assert project.language in user_languages or project.language == "Python"
+
+    @patch("oss_navi.services.analyzer.read_json", return_value=None)
+    @patch("oss_navi.services.analyzer.GitHubClient")
+    def test_find_great_projects_not_beginner_only(
+        self, mock_github_client: MagicMock, _mock_read: MagicMock, user_languages: dict[str, float]
+    ) -> None:
+        """Test that great projects are NOT filtered by 'good first issue' labels.
+
+        Great projects should be selected for learning value, not beginner-friendliness.
+        """
+        from oss_navi.services.analyzer import find_great_projects
+
+        mock_client = MagicMock()
+        mock_github_client.return_value = mock_client
+        mock_client.search_repositories.return_value = [
+            {
+                "full_name": "tensorflow/tensorflow",
+                "html_url": "https://github.com/tensorflow/tensorflow",
+                "stargazers_count": 180000,
+                "language": "Python",
+                "description": "An Open Source Machine Learning Framework",
+                "topics": ["machine-learning", "deep-learning", "tensorflow"],
+            },
+        ]
+
+        projects = find_great_projects(
+            user_languages=user_languages,
+            learning_focus="machine learning",
+            count=1,
+        )
+
+        # Should return projects even if they're not beginner-friendly
+        assert len(projects) >= 1
+        # Should have architecture overview
+        assert projects[0].architecture_overview
+
+    def test_find_great_projects_empty_languages(self) -> None:
+        """Test that find_great_projects returns empty list when user has no language data."""
+        from oss_navi.services.analyzer import find_great_projects
+
+        projects = find_great_projects(user_languages={}, learning_focus=None, count=3)
+
+        assert projects == []
+
+
+class TestAnalyzeProjectArchitecture:
+    """Tests for analyze_project_architecture function."""
+
+    def test_analyze_project_architecture_basic(self) -> None:
+        """Test that architecture analysis returns structured data."""
+        from oss_navi.services.analyzer import analyze_project_architecture
+
+        result = analyze_project_architecture(
+            repo_url="https://github.com/python/cpython",
+            language="Python",
+        )
+
+        assert result is not None
+        assert "architecture_overview" in result or isinstance(result, str)
+
+    def test_analyze_project_architecture_patterns(self) -> None:
+        """Test that architecture analysis identifies key patterns."""
+        from oss_navi.services.analyzer import analyze_project_architecture
+
+        result = analyze_project_architecture(
+            repo_url="https://github.com/pallets/flask",
+            language="Python",
+        )
+
+        # Should identify patterns in the project
+        assert result is not None
+
+    def test_analyze_project_architecture_empty_url(self) -> None:
+        """Test handling of invalid URL."""
+        from oss_navi.services.analyzer import analyze_project_architecture
+
+        # Should handle gracefully
+        result = analyze_project_architecture(
+            repo_url="",
+            language="Python",
+        )
+
+        # Should return None or empty analysis for invalid input
+        assert result is None or result == ""
+
+
+class TestGenerateRecommendationReason:
+    """Tests for generate_recommendation_reason function."""
+
+    def _make_task(
+        self,
+        language: str = "Python",
+        stars: int = 500,
+        topics: list | None = None,
+        labels: list | None = None,
+    ) -> Task:
+        from datetime import timezone
+
+        now = datetime.now(timezone.utc)
+        return Task(
+            id="test-id",
+            title="Test issue",
+            url="https://github.com/owner/repo/issues/1",
+            source="upforgrabs",
+            repository=Repository(
+                name="owner/repo",
+                url="https://github.com/owner/repo",
+                stars=stars,
+                language=language,
+                topics=topics or [],
+            ),
+            labels=labels or [],
+            created_at=now,
+            updated_at=now,
+            hotness_score=10.0,
+            fetched_at=now,
+        )
+
+    def test_reason_with_topic_matching_learning_focus(self) -> None:
+        """Test reason includes topic info when topic matches learning focus."""
+        from oss_navi.services.analyzer import generate_recommendation_reason
+
+        task = self._make_task(language="Python", topics=["machine-learning", "tensorflow"])
+        reason = generate_recommendation_reason(
+            task=task,
+            user_languages={"Python": 0.8},
+            learning_focus="machine-learning",
+        )
+
+        assert "machine-learning" in reason or "learning" in reason
+
+    def test_reason_fallback_when_no_match(self) -> None:
+        """Test that reason falls back to generic when nothing matches."""
+        from oss_navi.services.analyzer import generate_recommendation_reason
+
+        task = self._make_task(
+            language="COBOL",
+            stars=10,
+            topics=[],
+            labels=[],
+        )
+        reason = generate_recommendation_reason(
+            task=task,
+            user_languages={"Rust": 0.9},
+            learning_focus=None,
+        )
+
+        assert "open source" in reason.lower() or len(reason) > 0
+
+    def test_suggest_adjacent_fields_no_exact_match(self) -> None:
+        """Test suggest_adjacent_fields falls back to user languages when no exact match."""
+        from oss_navi.services.analyzer import suggest_adjacent_fields
+
+        suggestions = suggest_adjacent_fields(
+            current_interest="assembly",  # Not in ADJACENT_FIELDS keys
+            user_languages={"Python": 0.9},  # Python IS in ADJACENT_FIELDS
+        )
+
+        assert len(suggestions) >= 1
