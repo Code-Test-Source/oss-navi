@@ -579,6 +579,7 @@ def generate_recommendations(
     learning_focus: str | None = None,
     count: int = 7,
     token: str | None = None,
+    check_status: bool = True,
 ) -> list[Recommendation]:
     """Generate scored recommendations from tasks.
 
@@ -588,38 +589,48 @@ def generate_recommendations(
         learning_focus: What the user wants to learn
         count: Number of recommendations (5-10)
         token: Optional GitHub token for status checks
+        check_status: Whether to check issue availability (default True)
 
     Returns:
         List of scored recommendations sorted by rating
     """
+    import re
+
     count = max(5, min(10, count))  # Ensure 5-10 range
     recommendations = []
 
-    # Score all tasks
+    # Step 1: Score all tasks WITHOUT checking issue status (to avoid rate limits)
+    # We'll check status only for top candidates
     scored_tasks = []
     for task in tasks:
-        # Check issue status
-        import re
-        match = re.match(r"https://github\.com/([^/]+)/([^/]+)/issues/(\d+)", task.url)
-        issue_status = None
-        if match:
-            owner, repo, issue_num = match.groups()
-            issue_status = check_issue_status(owner, repo, int(issue_num), token)
-
+        # Calculate initial score without issue status
         breakdown = calculate_rating_breakdown(
             task=task,
             user_languages=user_languages,
             learning_focus=learning_focus,
-            issue_status=issue_status,
+            issue_status=None,  # Don't check status yet
         )
+        scored_tasks.append((task, breakdown))
 
-        scored_tasks.append((task, breakdown, issue_status))
-
-    # Sort by weighted total (descending)
+    # Step 2: Sort by weighted total (descending)
     scored_tasks.sort(key=lambda x: x[1].weighted_total, reverse=True)
 
-    # Take top 'count' tasks
-    for task, breakdown, issue_status in scored_tasks[:count]:
+    # Step 3: Take top candidates (check more than needed in case some are unavailable)
+    candidates_count = min(count * 2, len(scored_tasks))  # Check 2x the needed count
+
+    # Step 4: Check issue status only for top candidates
+    for task, breakdown in scored_tasks[:candidates_count]:
+        if len(recommendations) >= count:
+            break
+
+        # Check issue status only for candidates
+        issue_status = None
+        if check_status:
+            match = re.match(r"https://github\.com/([^/]+)/([^/]+)/issues/(\d+)", task.url)
+            if match:
+                owner, repo, issue_num = match.groups()
+                issue_status = check_issue_status(owner, repo, int(issue_num), token)
+
         if issue_status is None:
             issue_status = IssueStatus(
                 issue_url=task.url,
@@ -629,6 +640,18 @@ def generate_recommendations(
                 checked_at=datetime.now(UTC),
             )
 
+        # Skip unavailable issues
+        if not issue_status.is_available:
+            continue
+
+        # Recalculate score with actual issue availability
+        final_breakdown = calculate_rating_breakdown(
+            task=task,
+            user_languages=user_languages,
+            learning_focus=learning_focus,
+            issue_status=issue_status,
+        )
+
         reason = generate_recommendation_reason(
             task=task,
             user_languages=user_languages,
@@ -637,8 +660,8 @@ def generate_recommendations(
 
         recommendation = Recommendation(
             task=task,
-            rating=breakdown.weighted_total,
-            rating_breakdown=breakdown,
+            rating=final_breakdown.weighted_total,
+            rating_breakdown=final_breakdown,
             reason=reason,
             code_analysis=f"This {task.repository.language or 'project'} project has {task.repository.stars} stars and focuses on {', '.join(task.repository.topics[:3]) or 'open source contributions'}.",
             status=issue_status,

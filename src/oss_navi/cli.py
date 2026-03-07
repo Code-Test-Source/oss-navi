@@ -62,6 +62,7 @@ def prompt_learning_interests() -> str | None:
 @click.option("--no-interactive", is_flag=True, help="Skip interactive prompts")
 @click.option("--explore", is_flag=True, help="Suggest adjacent fields to explore")
 @click.option("-n", "--recommendations", type=int, default=7, help="Number of recommendations (5-10)")
+@click.option("--skip-status", is_flag=True, help="Skip issue status checks (avoids GitHub API rate limits)")
 def analysis(
     learn: str | None,
     output_path: str | None,
@@ -70,6 +71,7 @@ def analysis(
     no_interactive: bool,
     explore: bool,
     recommendations: int,
+    skip_status: bool,
 ) -> None:
     """Generate personalized project recommendations.
 
@@ -170,6 +172,7 @@ def analysis(
         user_languages=user_languages,
         learning_focus=learning_focus,
         count=recommendations,
+        check_status=not skip_status,
     )
 
     # Show top recommendations with ratings
