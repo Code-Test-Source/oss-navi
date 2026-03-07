@@ -223,10 +223,10 @@ def sync(github: bool, tasks: bool, force: bool, dry_run: bool) -> None:
         else:
             click.echo("✓ Up For Grabs cache is valid (use --force to refresh)")
 
-        if force or not is_cache_valid("goodfirstissue_tasks"):
-            sources_to_fetch.append("goodfirstissue")
+        if force or not is_cache_valid("goodfirstissues_tasks"):
+            sources_to_fetch.append("goodfirstissues")
         else:
-            click.echo("✓ Good First Issue cache is valid (use --force to refresh)")
+            click.echo("✓ Good First Issues cache is valid (use --force to refresh)")
 
         if sources_to_fetch:
             click.echo(f"✓ Fetching tasks from: {', '.join(sources_to_fetch)}...")
