@@ -172,7 +172,8 @@ def sync(github: bool, tasks: bool, force: bool, dry_run: bool) -> None:
                 profile = fetch_and_cache_profile(username, config.github_token if config else None)
                 if profile:
                     click.echo(f"  Found {profile.public_repos} public repos")
-                    click.echo(f"  Languages: {', '.join(l.name for l in profile.languages[:5])}")
+                    langs = list(profile.languages.keys())[:5]
+                    click.echo(f"  Languages: {', '.join(langs)}")
                 else:
                     click.echo("✗ User not found", err=True)
             except GitHubAuthError as e:
