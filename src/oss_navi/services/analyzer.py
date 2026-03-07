@@ -2,9 +2,7 @@
 
 import re
 import subprocess
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Optional
+from datetime import UTC, datetime
 
 from oss_navi.models.memory import LongTermMemory, PastRecommendation, SkillSnapshot
 from oss_navi.models.report import AnalysisReport
@@ -14,12 +12,10 @@ from oss_navi.models.task import (
     RatingBreakdown,
     Recommendation,
     Task,
-    calculate_hotness_score,
 )
 from oss_navi.services.github import GitHubClient
 from oss_navi.utils.cache import read_json, write_json
 from oss_navi.utils.paths import MEMORY_FILE, TEMP_DIR
-
 
 # Constants
 CLAUDE_CODE_COMMAND = "claude"
@@ -67,7 +63,7 @@ def filter_tasks_by_recency(tasks: list[Task], max_age_days: int = 90) -> list[T
     Returns:
         Filtered list of tasks
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - __import__("datetime").timedelta(days=max_age_days)
 
     return [t for t in tasks if t.created_at >= cutoff]
@@ -88,8 +84,8 @@ def sort_tasks_by_hotness(tasks: list[Task]) -> list[Task]:
 def build_prompt(
     profile: dict,
     tasks: list[Task],
-    learning_focus: Optional[str] = None,
-    memory: Optional[dict] = None,
+    learning_focus: str | None = None,
+    memory: dict | None = None,
 ) -> str:
     """Build the analysis prompt for Claude Code.
 
@@ -239,7 +235,7 @@ def save_report(content: str, report_id: str) -> str:
     return str(file_path)
 
 
-def parse_memory_update(content: str) -> Optional[str]:
+def parse_memory_update(content: str) -> str | None:
     """Parse the Long-term Memory Update section from Claude Code output.
 
     Args:
@@ -273,7 +269,7 @@ def parse_recommendations_from_report(content: str) -> list[PastRecommendation]:
         List of PastRecommendation objects
     """
     recommendations = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Pattern to match GitHub URLs in recommendation sections
     # Look for project mentions in "Top 1-2 Recommendations" section
@@ -307,8 +303,8 @@ def parse_recommendations_from_report(content: str) -> list[PastRecommendation]:
 
 def update_memory_from_report(
     content: str,
-    learning_focus: Optional[str] = None,
-) -> Optional[LongTermMemory]:
+    learning_focus: str | None = None,
+) -> LongTermMemory | None:
     """Update long-term memory based on Claude Code analysis output.
 
     Args:
@@ -351,7 +347,7 @@ def update_memory_from_report(
         updated = True
 
     # Add skill snapshot (once per day max)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today = now.date()
     if not any(s.date.date() == today for s in memory.skill_history):
         # Extract skills from the content if possible
@@ -374,8 +370,8 @@ def update_memory_from_report(
 def run_analysis(
     profile: dict,
     tasks: list[Task],
-    learning_focus: Optional[str] = None,
-    memory: Optional[dict] = None,
+    learning_focus: str | None = None,
+    memory: dict | None = None,
     min_stars: int = 50,
     max_age_days: int = 90,
 ) -> AnalysisReport:
@@ -427,7 +423,7 @@ def run_analysis(
 
     return AnalysisReport(
         id=report_id,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         content=content,
         file_path=file_path,
         learning_focus=learning_focus,
@@ -438,8 +434,8 @@ def run_analysis(
 def run_analysis_with_memory_update(
     profile: dict,
     tasks: list[Task],
-    learning_focus: Optional[str] = None,
-    memory: Optional[dict] = None,
+    learning_focus: str | None = None,
+    memory: dict | None = None,
     min_stars: int = 50,
     max_age_days: int = 90,
 ) -> AnalysisReport:
@@ -477,8 +473,8 @@ def run_analysis_with_memory_update(
 def calculate_rating_breakdown(
     task: Task,
     user_languages: dict[str, float],
-    learning_focus: Optional[str] = None,
-    issue_status: Optional[IssueStatus] = None,
+    learning_focus: str | None = None,
+    issue_status: IssueStatus | None = None,
 ) -> RatingBreakdown:
     """Calculate rating breakdown for a task recommendation.
 
@@ -561,7 +557,7 @@ def calculate_rating_breakdown(
     )
 
 
-def check_issue_status(owner: str, repo: str, issue_number: int, token: Optional[str] = None) -> IssueStatus:
+def check_issue_status(owner: str, repo: str, issue_number: int, token: str | None = None) -> IssueStatus:
     """Check status of an issue using GitHub API.
 
     Args:
@@ -580,9 +576,9 @@ def check_issue_status(owner: str, repo: str, issue_number: int, token: Optional
 def generate_recommendations(
     tasks: list[Task],
     user_languages: dict[str, float],
-    learning_focus: Optional[str] = None,
+    learning_focus: str | None = None,
     count: int = 7,
-    token: Optional[str] = None,
+    token: str | None = None,
 ) -> list[Recommendation]:
     """Generate scored recommendations from tasks.
 
@@ -630,7 +626,7 @@ def generate_recommendations(
                 is_assigned=False,
                 is_closed=False,
                 has_linked_pr=False,
-                checked_at=datetime.now(timezone.utc),
+                checked_at=datetime.now(UTC),
             )
 
         reason = generate_recommendation_reason(
@@ -655,7 +651,7 @@ def generate_recommendations(
 def generate_recommendation_reason(
     task: Task,
     user_languages: dict[str, float],
-    learning_focus: Optional[str] = None,
+    learning_focus: str | None = None,
 ) -> str:
     """Generate a personalized reason for recommending this task.
 
@@ -772,9 +768,9 @@ GREAT_PROJECTS_CACHE_KEY = "great_projects_cache"
 
 def find_great_projects(
     user_languages: dict[str, float],
-    learning_focus: Optional[str] = None,
+    learning_focus: str | None = None,
     count: int = 3,
-    token: Optional[str] = None,
+    token: str | None = None,
 ) -> list[GreatProject]:
     """Find great open source projects for learning (not necessarily beginner-friendly).
 
@@ -799,7 +795,7 @@ def find_great_projects(
             # Check if cache is still valid (24 hours)
             from datetime import timedelta
             cached_time = datetime.fromisoformat(cached.get("cached_at", "2000-01-01"))
-            if datetime.now(timezone.utc) - cached_time < timedelta(hours=24):
+            if datetime.now(UTC) - cached_time < timedelta(hours=24):
                 return [GreatProject(**p) for p in cached.get("projects", [])[:count]]
 
     # Determine primary language to search
@@ -878,7 +874,7 @@ def find_great_projects(
         cache_file = TEMP_DIR / "great_projects_cache.json"
         existing_cache = read_json(cache_file) or {}
         existing_cache[cache_key] = {
-            "cached_at": datetime.now(timezone.utc).isoformat(),
+            "cached_at": datetime.now(UTC).isoformat(),
             "projects": [p.model_dump() for p in projects],
         }
         write_json(cache_file, existing_cache)
@@ -955,7 +951,7 @@ def analyze_project_architecture(
     return " ".join(overview_parts)
 
 
-def _generate_why_great(repo: dict, learning_focus: Optional[str]) -> str:
+def _generate_why_great(repo: dict, learning_focus: str | None) -> str:
     """Generate a reason why this project is great to study."""
     reasons = []
     stars = repo.get("stargazers_count", 0)
@@ -1040,7 +1036,7 @@ def _suggest_contribution_areas(repo: dict, topics: list[str]) -> list[str]:
 def _generate_relevance_reason(
     repo: dict,
     user_languages: dict[str, float],
-    learning_focus: Optional[str],
+    learning_focus: str | None,
 ) -> str:
     """Generate why this project is relevant to the user."""
     reasons = []

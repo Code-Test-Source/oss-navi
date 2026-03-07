@@ -180,9 +180,9 @@
 
 ### Tests & Coverage
 
-- [ ] T099 Run full test suite: `uv run pytest tests/ -q --tb=short --cov=oss_navi --cov-report=term-missing`
-- [ ] T100 Verify 80%+ test coverage maintained for new modules
-- [ ] T101 Run ruff linting: `uv run ruff check src/`
+- [x] T099 Run full test suite: `uv run pytest tests/ -q --tb=short --cov=oss_navi --cov-report=term-missing`
+- [x] T100 Verify 80%+ test coverage maintained for new modules
+- [x] T101 Run ruff linting: `uv run ruff check src/`
 
 ### Documentation Updates
 

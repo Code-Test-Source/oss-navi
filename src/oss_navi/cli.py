@@ -1,7 +1,7 @@
 """CLI entry point for OSS-Navi."""
 
 import logging
-from typing import Optional
+from datetime import UTC
 
 import click
 
@@ -40,7 +40,7 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     configure_logging(verbose, quiet)
 
 
-def prompt_learning_interests() -> Optional[str]:
+def prompt_learning_interests() -> str | None:
     """Prompt user for their current learning interests.
 
     Returns:
@@ -441,9 +441,9 @@ def config(
 
     # Save if any changes
     if updated:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        current_config.updated_at = datetime.now(timezone.utc)
+        current_config.updated_at = datetime.now(UTC)
         save_config(current_config)
         click.echo("✓ Configuration saved")
 
