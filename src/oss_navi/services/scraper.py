@@ -1,5 +1,6 @@
 """Task scraper for fetching open source contribution opportunities."""
 
+import asyncio
 import os
 import random
 import re
@@ -21,6 +22,7 @@ UPFORGRABS_RAW_URL = "https://raw.githubusercontent.com/up-for-grabs/up-for-grab
 GOODFIRSTISSUES_API = "https://raw.githubusercontent.com/iedr/goodfirstissues/master/backend/data.json"
 DEFAULT_TIMEOUT = 30.0
 DEFAULT_MAX_ISSUES = 100  # Maximum issues to fetch per source
+MAX_CONCURRENT_REQUESTS = 10  # Max parallel requests for async fetching
 
 
 class UpForGrabsUnavailableError(Exception):
@@ -51,6 +53,9 @@ def get_proxy_settings() -> dict[str, str]:
 def create_http_client(timeout: float = DEFAULT_TIMEOUT) -> httpx.Client:
     """Create an httpx client with proxy support.
 
+    Automatically uses proxy from environment variables (HTTP_PROXY, HTTPS_PROXY).
+    This allows users to set global proxy in their shell and have oss-navi use it.
+
     Args:
         timeout: Request timeout in seconds
 
@@ -66,6 +71,42 @@ def create_http_client(timeout: float = DEFAULT_TIMEOUT) -> httpx.Client:
         proxies["https://"] = proxy_settings["https_proxy"]
 
     return httpx.Client(timeout=timeout, proxies=proxies if proxies else None)
+
+
+def create_async_http_client(timeout: float = DEFAULT_TIMEOUT) -> httpx.AsyncClient:
+    """Create an async httpx client with proxy support.
+
+    Automatically uses proxy from environment variables (HTTP_PROXY, HTTPS_PROXY).
+    This allows users to set global proxy in their shell and have oss-navi use it.
+
+    Args:
+        timeout: Request timeout in seconds
+
+    Returns:
+        Configured httpx.AsyncClient instance
+    """
+    proxy_settings = get_proxy_settings()
+
+    # Build proxy configuration from environment
+    # httpx.AsyncClient accepts a single proxy URL or a dict mapping
+    http_proxy = proxy_settings["http_proxy"]
+    https_proxy = proxy_settings["https_proxy"]
+
+    if https_proxy and http_proxy:
+        # Use mounts for different proxies per scheme
+        return httpx.AsyncClient(
+            timeout=timeout,
+            mounts={
+                "http://": httpx.HTTPTransport(proxy=http_proxy),
+                "https://": httpx.HTTPTransport(proxy=https_proxy),
+            }
+        )
+    elif https_proxy:
+        return httpx.AsyncClient(timeout=timeout, proxy=https_proxy)
+    elif http_proxy:
+        return httpx.AsyncClient(timeout=timeout, proxy=http_proxy)
+    else:
+        return httpx.AsyncClient(timeout=timeout)
 
 
 def validate_github_url(url: str) -> bool:
@@ -321,6 +362,183 @@ def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
             except Exception:
                 # Skip malformed projects
                 continue
+
+    return tasks
+
+
+async def _fetch_single_project_yaml(
+    client: httpx.AsyncClient, filename: str
+) -> Optional[dict]:
+    """Fetch and parse a single project YAML file.
+
+    Args:
+        client: Async HTTP client
+        filename: YAML filename to fetch
+
+    Returns:
+        Parsed project data or None if fetch/parse fails
+    """
+    try:
+        raw_url = UPFORGRABS_RAW_URL.format(filename)
+        response = await client.get(raw_url)
+
+        if response.status_code != 200:
+            return None
+
+        project_data = yaml.safe_load(response.text)
+        if not project_data:
+            return None
+
+        return project_data
+    except Exception:
+        return None
+
+
+def _parse_project_to_tasks(project_data: dict, now: datetime) -> list[Task]:
+    """Parse a project data dict into Task objects.
+
+    Args:
+        project_data: Parsed YAML project data
+        now: Current timestamp
+
+    Returns:
+        List of Task objects from this project
+    """
+    tasks: list[Task] = []
+
+    try:
+        site_url = project_data.get("site", "")
+        if not validate_github_repo_url(site_url):
+            return tasks
+
+        # Parse repository name from URL
+        parsed = urlparse(site_url)
+        path_parts = parsed.path.strip("/").split("/")
+        if len(path_parts) < 2:
+            return tasks
+        repo_name = f"{path_parts[0]}/{path_parts[1]}"
+
+        # Get label info
+        upforgrabs = project_data.get("upforgrabs", {})
+        label_name = upforgrabs.get("name", "up for grabs")
+        label_url = upforgrabs.get("link", "")
+
+        if not validate_github_url(label_url):
+            # Construct label URL from site URL
+            label_url = f"{site_url}/labels/{label_name.replace(' ', '%20')}"
+
+        # Get stats
+        stats = project_data.get("stats", {})
+        issue_count = stats.get("issue-count", 0) or 0
+        fork_count = stats.get("fork-count", 0) or 0
+        last_updated = stats.get("last-updated", "")
+
+        # Parse last updated date
+        try:
+            updated_at = datetime.fromisoformat(
+                last_updated.replace("Z", "+00:00")
+            )
+        except (ValueError, TypeError):
+            updated_at = now
+
+        # Get tags
+        tags = project_data.get("tags", [])
+        language = tags[0] if tags else None
+
+        # Create repository
+        repo = Repository(
+            name=repo_name,
+            url=site_url,
+            stars=fork_count,  # Use fork count as proxy for popularity
+            language=sanitize_text(language),
+            topics=tags,
+        )
+
+        # Create a task for each issue (simulated based on issue_count)
+        for i in range(min(issue_count, 3)):  # Limit to 3 tasks per project
+            hotness = calculate_hotness_score(fork_count, max(1, (now - updated_at).days))
+
+            task = Task(
+                id=f"upforgrabs:{repo_name.replace('/', '-')}:{i}",
+                title=f"{project_data.get('name', repo_name)} - {label_name}",
+                url=label_url,
+                source="upforgrabs",
+                repository=repo,
+                labels=[label_name],
+                created_at=updated_at,
+                updated_at=updated_at,
+                hotness_score=hotness,
+                fetched_at=now,
+            )
+            tasks.append(task)
+
+    except Exception:
+        pass
+
+    return tasks
+
+
+async def fetch_upforgrabs_tasks_async(
+    timeout: float = DEFAULT_TIMEOUT, max_projects: int = 50
+) -> list[Task]:
+    """Fetch tasks from Up For Grabs using async parallel requests.
+
+    This is significantly faster than the sync version when fetching
+    multiple project YAML files in parallel.
+
+    Args:
+        timeout: Request timeout in seconds
+        max_projects: Maximum number of projects to fetch
+
+    Returns:
+        List of Task objects (project-level, linking to label pages)
+
+    Raises:
+        UpForGrabsUnavailableError: If Up For Grabs is unavailable
+    """
+    now = datetime.now(timezone.utc)
+
+    async with create_async_http_client(timeout=timeout) as client:
+        # Step 1: Fetch list of project YAML files
+        try:
+            list_response = await client.get(UPFORGRABS_PROJECTS_API)
+            if list_response.status_code != 200:
+                raise UpForGrabsUnavailableError(
+                    f"Up For Grabs API returned status {list_response.status_code}"
+                )
+
+            project_files = list_response.json()
+            if not isinstance(project_files, list):
+                raise UpForGrabsUnavailableError(
+                    "Unexpected response format from Up For Grabs API"
+                )
+
+        except httpx.RequestError as e:
+            raise UpForGrabsUnavailableError(f"Failed to fetch Up For Grabs: {e}")
+
+        # Step 2: Fetch YAML files in parallel with semaphore for rate limiting
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+
+        async def fetch_with_semaphore(filename: str) -> Optional[dict]:
+            async with semaphore:
+                return await _fetch_single_project_yaml(client, filename)
+
+        yaml_filenames = [
+            pf.get("name", "")
+            for pf in project_files[:max_projects]
+            if pf.get("name", "").endswith(".yml")
+        ]
+
+        # Fetch all YAML files in parallel
+        project_data_list = await asyncio.gather(
+            *[fetch_with_semaphore(fname) for fname in yaml_filenames]
+        )
+
+    # Step 3: Parse projects into tasks
+    tasks: list[Task] = []
+    for project_data in project_data_list:
+        if project_data:
+            tasks.extend(_parse_project_to_tasks(project_data, now))
 
     return tasks
 
@@ -584,6 +802,8 @@ def fetch_and_cache_tasks(
 ) -> list[Task]:
     """Fetch tasks from all sources and cache them.
 
+    Uses async parallel fetching for Up For Grabs for better performance.
+
     Args:
         sources: List of sources to fetch ("upforgrabs", "goodfirstissues")
         timeout: Request timeout in seconds
@@ -596,7 +816,8 @@ def fetch_and_cache_tasks(
 
     if "upforgrabs" in sources:
         try:
-            tasks = fetch_upforgrabs_tasks(timeout)
+            # Use async version for parallel fetching (much faster)
+            tasks = asyncio.run(fetch_upforgrabs_tasks_async(timeout))
             all_tasks.extend(tasks)
 
             # Cache Up For Grabs tasks

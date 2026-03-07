@@ -167,14 +167,20 @@ stats:
         tasks = fetch_goodfirstissues_tasks()
         assert len(tasks) == 0
 
+    @patch("httpx.AsyncClient")
     @patch("httpx.Client")
-    def test_fetch_and_cache_tasks(self, mock_client_class: MagicMock, tmp_path) -> None:
+    def test_fetch_and_cache_tasks(self, mock_client_class: MagicMock, mock_async_client_class: MagicMock, tmp_path) -> None:
         """Test fetch_and_cache_tasks function."""
         from oss_navi.services.scraper import fetch_and_cache_tasks
         from pathlib import Path
 
-        mock_client = MagicMock()
-        mock_client_class.return_value.__enter__.return_value = mock_client
+        # Mock sync client for Good First Issues
+        mock_sync_client = MagicMock()
+        mock_client_class.return_value.__enter__.return_value = mock_sync_client
+
+        # Mock async client for Up For Grabs
+        mock_async_client = MagicMock()
+        mock_async_client_class.return_value.__aenter__.return_value = mock_async_client
 
         # Mock Up For Grabs response (new YAML structure)
         project_files = [
@@ -210,12 +216,26 @@ stats:
             }
         ]
 
-        responses = [
-            MagicMock(status_code=200, json=lambda: project_files),
-            MagicMock(status_code=200, text=yaml_content),
-            MagicMock(status_code=200, json=lambda: gfi_data),
-        ]
-        mock_client.get.side_effect = responses
+        # Async responses for Up For Grabs
+        async_list_response = MagicMock()
+        async_list_response.status_code = 200
+        async_list_response.json = lambda: project_files
+
+        async_yaml_response = MagicMock()
+        async_yaml_response.status_code = 200
+        async_yaml_response.text = yaml_content
+
+        # Setup async client get to return coroutine
+        async def async_get_side_effect(url):
+            if "contents" in url:
+                return async_list_response
+            return async_yaml_response
+
+        mock_async_client.get = async_get_side_effect
+
+        # Sync responses for Good First Issues
+        sync_response = MagicMock(status_code=200, json=lambda: gfi_data)
+        mock_sync_client.get.return_value = sync_response
 
         with patch("oss_navi.utils.paths.UPFORGRABS_TASKS_CACHE", tmp_path / "ufg.json"):
             with patch("oss_navi.utils.paths.GOODFIRSTISSUES_TASKS_CACHE", tmp_path / "gfi.json"):
