@@ -313,6 +313,117 @@ All technical questions resolved through research. No NEEDS CLARIFICATION items 
 
 ## Changelog
 
+- **2026-03-07**: Added enhanced analysis features research (issue status, recommendations, great projects)
 - **2026-03-07**: Added performance optimization research
 - **2026-03-07**: Removed goodfirstissue.dev (client-side rendering issue)
 - **2026-03-07**: Renamed cache file to `goodfirstissues_tasks.json`
+
+---
+
+## Enhanced Analysis Features (Added 2026-03-07)
+
+### Issue Status Checking
+
+**Approach**: GitHub API to check issue status
+
+**Key Endpoints**:
+- `GET /repos/{owner}/{repo}/issues/{issue_number}` - Issue details including assignee
+- `GET /repos/{owner}/{repo}/pulls` - Check for linked PRs
+
+**Status Indicators**:
+- `assignee` field: If present, issue is assigned
+- `state` field: "open" or "closed"
+- Labels: Check for "in progress", "assigned", "wip" etc.
+- Linked PRs: Search for PRs mentioning the issue
+
+**Rate Limit Consideration**:
+- Batch check multiple issues
+- Cache status for 1 hour
+- Only check top candidates (after filtering)
+
+### Recommendation Engine Design
+
+**Scoring Factors** (weighted):
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Language Match | 30% | User's top languages vs project language |
+| Hotness Score | 20% | Stars / age (from existing calculation) |
+| Issue Availability | 15% | Unassigned, no linked PRs |
+| Learning Alignment | 15% | Matches user's stated learning goals |
+| Skill Level Fit | 10% | Beginner/intermediate/advanced tag matching |
+| Topic Relevance | 10% | Project topics match user interests |
+
+**Rating Output**: 1-10 scale with breakdown
+
+### Interactive Learning Interest Input
+
+**Approach**: Prompt during analysis command
+
+**Questions**:
+1. "What are you currently learning or want to improve?" (free text)
+2. "Any specific fields you'd like to explore?" (suggestions + free text)
+
+**Integration**:
+- Store in analysis session
+- Include in Claude Code prompt
+- Update LongTermMemory.learning_goals
+
+### Great Open Source Projects Analysis
+
+**Selection Criteria**:
+- High code quality (stars > 1000, active maintenance)
+- Well-documented codebase
+- Relevant to user's skills
+- Not necessarily beginner-friendly (advanced patterns)
+
+**Analysis Content**:
+- Project architecture overview
+- Key patterns used
+- Code organization
+- Entry points for contribution
+
+**Sources**:
+- GitHub Trending (filtered by language)
+- User's starred repos
+- Projects with high "good first issue" ratio but also complex areas
+
+### Automatic Report Archiving
+
+**Approach**: Archive immediately after generation
+
+**Implementation**:
+1. Generate report to temp location
+2. Copy to `state/reports/` with timestamp
+3. Update `memory.json` with recommendations
+4. No manual publish required
+
+**Archive Naming**: `report_YYYYMMDD_HHMMSS.md`
+
+### Claude Code Prompt Enhancement
+
+**New Prompt Structure**:
+
+```
+## User Profile
+[languages, activity, top repos]
+
+## Learning Interests
+[interactive input + historical goals]
+
+## Available Tasks
+[filtered, status-checked tasks with ratings]
+
+## Great Projects for Learning
+[advanced projects matching skills]
+
+## Output Requirements
+1. Skill assessment with learning advice
+2. Field exploration recommendations
+3. 5-10 issue recommendations with:
+   - Rating (1-10)
+   - Reason why it fits
+   - Brief code analysis of project
+4. 2-3 great open source projects with code analysis
+5. Long-term memory updates
+```

@@ -156,12 +156,93 @@ Generated Markdown report with recommendations.
 | file_path | string | Yes | Path to saved report |
 | learning_focus | string | No | User's learning focus if provided |
 | recommended_projects | string[] | Yes | List of recommended repo names |
+| great_projects | GreatProject[] | No | Great open source projects analyzed |
+| archived_at | datetime | No | When report was archived |
 
 **Report Structure**:
 1. Skill Assessment (derived from GitHub profile)
-2. Learning Direction (influenced by --learn flag)
-3. Top 1-2 Recommendations with code reading hints
-4. Long-term Memory Update section
+2. Learning Direction & Field Exploration Advice
+3. 5-10 Recommendations with:
+   - Rating (1-10)
+   - Recommendation reason
+   - Brief code analysis
+4. Great Open Source Projects Analysis (2-3 projects)
+5. Long-term Memory Update section
+
+### IssueStatus
+
+Real-time status of an issue (not cached, checked on-demand).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| issue_url | string | Yes | GitHub issue URL |
+| is_assigned | boolean | Yes | True if issue has assignee |
+| assignee | string | No | Assignee username if assigned |
+| is_closed | boolean | Yes | True if issue is closed |
+| has_linked_pr | boolean | Yes | True if PR mentions this issue |
+| in_progress_labels | string[] | No | Labels indicating work in progress |
+| checked_at | datetime | Yes | When status was checked |
+
+**Status Determination**:
+- Available: `!is_assigned && !is_closed && !has_linked_pr`
+- Unavailable: Any of the above is true
+
+### Recommendation
+
+A scored recommendation for a specific task/issue.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| task | Task | Yes | The recommended task |
+| rating | float | Yes | Score 1.0-10.0 |
+| rating_breakdown | RatingBreakdown | Yes | Detailed score components |
+| reason | string | Yes | Why this fits the user (2-3 sentences) |
+| code_analysis | string | Yes | Brief analysis of project code |
+| status | IssueStatus | Yes | Current issue availability |
+
+### RatingBreakdown
+
+Detailed scoring components for a recommendation.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| language_match | float | Yes | 0-10: How well languages align |
+| hotness_score | float | Yes | 0-10: Normalized popularity score |
+| issue_availability | float | Yes | 0-10: 10 if available, 0 if taken |
+| learning_alignment | float | Yes | 0-10: Match with learning goals |
+| skill_level_fit | float | Yes | 0-10: Appropriate difficulty |
+| topic_relevance | float | Yes | 0-10: Project topic match |
+| weighted_total | float | Yes | Final weighted score |
+
+**Weights**: language_match (30%), hotness (20%), availability (15%), learning (15%), skill (10%), topic (10%)
+
+### GreatProject
+
+An excellent open source project for learning (not necessarily beginner-friendly).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| name | string | Yes | Repository name (owner/repo) |
+| url | string | Yes | Repository URL |
+| stars | integer | Yes | Star count |
+| language | string | Yes | Primary language |
+| why_great | string | Yes | Why this is a great project to study |
+| architecture_overview | string | Yes | Brief architecture analysis |
+| key_patterns | string[] | Yes | Notable patterns used |
+| contribution_areas | string[] | Yes | Good areas for intermediate contribution |
+| relevance_reason | string | Yes | Why relevant to user's skills/goals |
+
+### LearningSession
+
+Captured during interactive analysis.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| session_id | string | Yes | UUID for this analysis session |
+| created_at | datetime | Yes | Session timestamp |
+| primary_interest | string | Yes | What user is currently learning |
+| explore_fields | string[] | No | Fields user wants to explore |
+| suggested_fields | string[] | No | AI-suggested adjacent fields |
 
 ### LongTermMemory
 
@@ -169,12 +250,14 @@ Persistent memory stored in `~/.oss-navi/state/memory.json`.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| version | integer | Yes | Schema version (currently 1) |
+| version | integer | Yes | Schema version (currently 2) |
 | created_at | datetime | Yes | Memory creation date |
 | updated_at | datetime | Yes | Last update timestamp |
 | skill_history | SkillSnapshot[] | Yes | Historical skill assessments |
 | past_recommendations | PastRecommendation[] | Yes | Previously recommended projects |
 | learning_goals | string[] | No | Accumulated learning focuses |
+| great_projects_discovered | GreatProjectSummary[] | No | Great projects shown to user |
+| field_exploration_history | FieldExploration[] | No | Fields user has explored |
 
 ### SkillSnapshot
 
@@ -197,7 +280,29 @@ Record of a previous project recommendation.
 | project | string | Yes | Repository name (owner/repo) |
 | issue_url | string | Yes | Specific issue URL |
 | reason | string | No | Why it was recommended |
+| rating | float | No | Rating given (1-10) |
 | status | string | No | User's status (viewed, attempted, completed) |
+
+### GreatProjectSummary
+
+Brief record of a great project shown to user.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| name | string | Yes | Repository name |
+| shown_at | datetime | Yes | When it was recommended |
+| reason | string | Yes | Why it was relevant |
+
+### FieldExploration
+
+Record of field exploration advice given.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| date | datetime | Yes | When advice was given |
+| current_interest | string | Yes | User's stated interest |
+| suggested_fields | string[] | Yes | Fields suggested to explore |
+| rationale | string | Yes | Why these fields were suggested |
 
 ## State Transitions
 

@@ -19,7 +19,7 @@
 
 ### User Story 1 - Get Personalized Project Recommendations (Priority: P1)
 
-A developer wants to find open source projects that match their skills and learning goals. They run the analysis command and receive a curated list of beginner-friendly issues with personalized recommendations.
+A developer wants to find open source projects that match their skills and learning goals. They run the analysis command and receive a curated list of beginner-friendly issues with personalized recommendations, plus great open source projects to study.
 
 **Why this priority**: This is the core value proposition - helping developers find the right OSS projects to contribute to. Without this, the tool has no purpose.
 
@@ -27,10 +27,13 @@ A developer wants to find open source projects that match their skills and learn
 
 **Acceptance Scenarios**:
 
-1. **Given** a user has configured their GitHub username, **When** they run the analysis command, **Then** a Markdown report is generated containing their skill assessment and 1-2 project recommendations
+1. **Given** a user has configured their GitHub username, **When** they run the analysis command, **Then** a Markdown report is generated containing their skill assessment and 5-10 project recommendations with ratings
 2. **Given** a user runs analysis with `--learn python`, **When** the report is generated, **Then** recommendations prioritize projects matching their learning focus
-3. **Given** the analysis completes, **When** the user views the report, **Then** it includes code reading hints for recommended projects
-4. **Given** the analysis completes, **When** the user views the report, **Then** it includes an updated long-term memory section
+3. **Given** the analysis completes, **When** the user views the report, **Then** it includes code analysis for each recommended project
+4. **Given** the analysis completes, **When** the user views the report, **Then** it includes 2-3 great open source projects with architecture analysis
+5. **Given** the analysis completes, **When** the user checks the reports directory, **Then** the report is automatically archived
+6. **Given** a recommended issue is already assigned, **When** the analysis runs, **Then** that issue is excluded or flagged as unavailable
+7. **Given** a user runs analysis without `--no-interactive`, **When** the command executes, **Then** they are prompted for learning interests and fields to explore
 
 ---
 
@@ -145,6 +148,15 @@ A developer wants to share their OSS contribution journey. They run the publish 
 - **FR-045**: The system MUST support HTTP/HTTPS proxy configuration via environment variables (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
 - **FR-046**: The system MUST support SOCKS proxies (socks5://) via the httpx[socks] dependency
 - **FR-047**: The system MUST allow disabling SSL verification via OSS_NAVI_VERIFY_SSL=false environment variable for proxies with self-signed certificates
+
+**Enhanced Analysis Features**
+- **FR-048**: The system MUST check if recommended issues are assigned, closed, or have linked PRs before recommending
+- **FR-049**: The system MUST provide 5-10 recommendations (configurable) with detailed ratings (1-10 scale) and recommendation reasons
+- **FR-050**: The system MUST include brief code analysis of recommended projects in the report
+- **FR-051**: The system MUST interactively prompt for learning interests and fields to explore during analysis
+- **FR-052**: The system MUST provide advice on exploring adjacent fields based on user's profile and interests
+- **FR-053**: The system MUST recommend 2-3 great open source projects (not beginner-friendly) with code analysis
+- **FR-054**: The system MUST automatically archive reports after generation to `~/.oss-navi/state/reports/`
 
 ### Testing Requirements
 

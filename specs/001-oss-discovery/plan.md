@@ -1,23 +1,33 @@
-# Implementation Plan: OSS-Navi Performance & Documentation Improvements
+# Implementation Plan: Enhanced Analysis & Recommendations
 
 **Branch**: `001-oss-discovery` | **Date**: 2026-03-07 | **Spec**: [spec.md](./spec.md)
-**Input**: User feedback on slow search, non-working goodfirstissue.dev, and outdated README
+**Input**: Feature specification from `/specs/001-oss-discovery/spec.md` + Enhancement Request
+
+**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
 
 ## Summary
 
-Fix performance issues in task searching, remove non-functional goodfirstissue.dev source, and update all documentation to be consistent and accurate for users.
+Enhance the OSS-Navi analysis feature with:
+1. Issue status validation (check if assigned/under development)
+2. More recommendations (5-10 instead of 1-2)
+3. Detailed ratings and recommendation reasons
+4. Brief code analysis of recommended projects
+5. Interactive learning interest input during analysis
+6. Advice on exploring adjacent fields
+7. Great open source project analysis (beyond beginner-friendly issues)
+8. Automatic report archiving
 
 ## Technical Context
 
 **Language/Version**: Python 3.11+
 **Primary Dependencies**: Click (CLI), httpx (HTTP client), Pydantic v2 (data models), PyYAML
 **Storage**: JSON files in `~/.oss-navi/` (cache/, state/, temp/)
-**Testing**: pytest + pytest-cov (80% minimum coverage)
-**Target Platform**: Cross-platform CLI (Linux, macOS, Windows)
+**Testing**: pytest + pytest-cov (80% coverage required)
+**Target Platform**: Linux/macOS/Windows CLI
 **Project Type**: CLI tool
-**Performance Goals**: Task fetch < 30s total, search < 1s for 1000 tasks
-**Constraints**: HTTP requests should be parallelized, minimize external API calls
-**Scale/Scope**: ~100-500 tasks from 2 working sources
+**Performance Goals**: Analysis < 60s end-to-end, issue status checks < 5s per issue
+**Constraints**: GitHub API rate limits, Claude Code subprocess timeout (60s)
+**Scale/Scope**: Single user, ~1000 tasks cached, 5-10 recommendations per analysis
 
 ## Constitution Check
 
@@ -25,13 +35,15 @@ Fix performance issues in task searching, remove non-functional goodfirstissue.d
 
 | Principle | Status | Notes |
 |-----------|--------|-------|
-| I. Test-First Development | ✅ PASS | Existing tests at 80.59% coverage |
-| II. Clean Architecture | ✅ PASS | Well-structured services and models |
-| III. Security-First | ✅ PASS | Token storage, URL validation in place |
-| IV. Code Quality & Simplicity | ✅ PASS | Code is clean, needs performance optimization |
-| V. Documentation Standards | ✅ FIXED | README and specs updated |
-| VI. Observability & Debuggability | ✅ PASS | Good error handling |
-| VII. Versioning & Breaking Changes | ✅ PASS | Removing non-working source is a fix, not breaking |
+| I. Test-First Development | ✅ PASS | TDD workflow will be followed for new features |
+| II. Clean Architecture | ✅ PASS | New services added to existing modular structure |
+| III. Security-First | ✅ PASS | GitHub API calls authenticated, no new secrets |
+| IV. Code Quality & Simplicity | ✅ PASS | Each new feature in focused modules |
+| V. Documentation Standards | ✅ PASS | Update spec.md, contracts, README |
+| VI. Observability & Debuggability | ✅ PASS | Add logging for issue status checks |
+| VII. Versioning & Breaking Changes | ✅ PASS | Minor version bump (new features, backward compatible) |
+
+**Gate Status**: ✅ PASSED - All constitution checks satisfied.
 
 ## Project Structure
 
@@ -40,108 +52,81 @@ Fix performance issues in task searching, remove non-functional goodfirstissue.d
 ```text
 specs/001-oss-discovery/
 ├── plan.md              # This file
-├── research.md          # Updated with performance findings
-├── data-model.md        # Updated with correct sources
-├── quickstart.md        # Updated usage examples
-├── contracts/
-│   └── cli.md           # CLI contracts
-└── tasks.md             # Updated task list
+├── research.md          # Phase 0 output (updated for enhancements)
+├── data-model.md        # Phase 1 output (updated for new entities)
+├── quickstart.md        # Phase 1 output
+├── contracts/           # Phase 1 output
+│   └── cli.md           # Updated CLI contracts
+└── tasks.md             # Phase 2 output
 ```
 
 ### Source Code (repository root)
 
 ```text
 src/oss_navi/
-├── __init__.py
-├── cli.py               # CLI commands
+├── cli.py               # Updated: interactive prompts, archive command
 ├── config.py            # Configuration management
 ├── models/
-│   ├── __init__.py
-│   ├── config.py        # Config and Filters models
-│   ├── task.py          # Task and Repository models
-│   ├── user_profile.py  # UserProfile model
-│   ├── report.py        # AnalysisReport model
-│   └── memory.py        # Long-term memory models
+│   ├── config.py
+│   ├── task.py          # Updated: IssueStatus, Recommendation
+│   └── user_profile.py
 ├── services/
-│   ├── __init__.py
-│   ├── scraper.py       # Task fetching and search
-│   ├── analyzer.py      # Claude Code integration
-│   ├── github.py        # GitHub API client
-│   └── publisher.py     # Report publishing
+│   ├── github.py        # Updated: issue status checking
+│   ├── scraper.py       # Existing task fetching
+│   ├── analyzer.py      # NEW: recommendation engine
+│   └── archiver.py      # NEW: report archiving
 └── utils/
-    ├── __init__.py
-    ├── cache.py         # Cache utilities
-    └── paths.py         # Path constants
+    ├── cache.py
+    ├── paths.py
+    └── memory.py        # Updated: great projects tracking
 
 tests/
-├── conftest.py
 ├── unit/
-│   ├── __init__.py
-│   ├── test_models/
-│   │   ├── __init__.py
-│   │   ├── test_config.py
-│   │   ├── test_task.py
-│   │   ├── test_user_profile.py
-│   │   ├── test_report.py
-│   │   └── test_memory.py
 │   └── test_services/
-│       ├── __init__.py
-│       ├── test_analyzer.py
-│       └── test_scraper.py
+│       ├── test_analyzer.py     # NEW
+│       ├── test_archiver.py     # NEW
+│       └── test_github.py       # Updated
 └── integration/
-    ├── __init__.py
-    ├── test_github.py
     └── test_scraper.py
 ```
 
-**Structure Decision**: Single project structure with services for external integrations.
-
-## Key Files Modified
-
-| File Path | Changes |
-|-----------|---------|
-| `src/oss_navi/services/scraper.py` | Removed `fetch_goodfirstissue_tasks()`, added proxy support, renamed cache file |
-| `src/oss_navi/services/github.py` | Added proxy support |
-| `src/oss_navi/models/config.py` | Added http_proxy, https_proxy, no_proxy fields |
-| `src/oss_navi/models/task.py` | Updated source validation |
-| `src/oss_navi/utils/paths.py` | Renamed `GOODFIRSTISSUE_TASKS_CACHE` to `GOODFIRSTISSUES_TASKS_CACHE` |
-| `src/oss_navi/cli.py` | Added proxy CLI options, fixed cache file references |
-| `src/oss_navi/config.py` | Added `get_proxy_settings()` function |
-| `README.md` | Complete rewrite with detailed instructions |
-| `pyproject.toml` | Updated URLs, removed unused dependencies |
-
-## Issues Identified and Resolved
-
-### 1. Slow Search Performance
-
-**Root Causes**:
-- `fetch_upforgrabs_tasks()`: Sequential HTTP requests (1 list + up to 50 YAML fetches)
-- `fetch_goodfirstissues_tasks()`: 1.1MB JSON file with 60s timeout
-- `select_diverse_tasks()`: Inefficient iteration for diversity selection
-
-**Solutions**:
-- Use `httpx` async client for parallel requests (deferred to Phase 1)
-- Cache aggressively with proper expiration
-- Optimize search algorithm with pre-indexing
-
-### 2. Non-Working goodfirstissue.dev
-
-**Issue**: The site (goodfirstissue.dev) is a Nuxt.js SPA with client-side rendering. The HTML scraper returns empty results because content is loaded via JavaScript.
-
-**Solution**: ✅ DONE - Removed `fetch_goodfirstissue_tasks()` function and all references. Now using only:
-- Up For Grabs (YAML-based, working)
-- Good First Issues (JSON API, working)
-
-### 3. Outdated Documentation
-
-**Issues**:
-- README mentioned "Good First Issue (goodfirstissue.dev)" which doesn't work
-- Task sources list was incorrect
-- Cache file names didn't match actual implementation
-- No `uv run` prefix in command examples
-
-**Solution**: ✅ DONE - Updated all documentation files to reflect actual working sources and correct usage.
+**Structure Decision**: Single project structure with new service modules added to `services/`. The `analyzer.py` will contain the recommendation engine, and `archiver.py` will handle report archiving.
 
 ## Complexity Tracking
 
-No constitution violations requiring justification.
+> No violations requiring justification.
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| (none) | - | - |
+
+## New Feature Requirements
+
+### FR-048: Issue Status Validation
+The system MUST check if recommended issues are:
+- Already assigned to someone
+- Closed or have linked PRs
+- Marked as "in progress" via labels
+
+### FR-049: Enhanced Recommendations
+The system MUST provide 5-10 recommendations (up from 1-2) with:
+- Detailed rating (1-10 scale)
+- Recommendation reason (why this fits user)
+- Brief code analysis of the project structure
+
+### FR-050: Interactive Learning Interest
+The system MUST prompt user for current learning interests during analysis:
+- Ask for primary learning focus
+- Ask for fields they want to explore
+- Incorporate into skill analysis and recommendations
+
+### FR-051: Great Open Source Project Analysis
+The system MUST recommend great open source projects (not beginner-friendly):
+- Projects with excellent code quality
+- Relevant to user's skills and learning goals
+- Include brief code analysis (architecture, patterns)
+
+### FR-052: Automatic Report Archiving
+The system MUST automatically archive reports after generation:
+- Save to `~/.oss-navi/state/reports/` with timestamp
+- Update memory with recommendations made
