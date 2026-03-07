@@ -29,6 +29,56 @@ class TestScrapersDetailed:
         assert not validate_github_url("")
         assert not validate_github_url(None)
 
+    def test_validate_github_issue_url_valid(self) -> None:
+        """Test valid GitHub issue URLs."""
+        from oss_navi.services.scraper import validate_github_issue_url
+
+        assert validate_github_issue_url("https://github.com/python/cpython/issues/12345")
+        assert validate_github_issue_url("https://github.com/pallets/click/issues/1")
+        assert validate_github_issue_url("http://github.com/owner/repo/issues/999")
+
+    def test_validate_github_issue_url_invalid(self) -> None:
+        """Test invalid GitHub issue URLs."""
+        from oss_navi.services.scraper import validate_github_issue_url
+
+        # Not a GitHub URL
+        assert not validate_github_issue_url("https://gitlab.com/owner/repo/issues/1")
+        # Not an issue URL
+        assert not validate_github_issue_url("https://github.com/owner/repo")
+        assert not validate_github_issue_url("https://github.com/owner/repo/pulls/1")
+        # Missing issue number
+        assert not validate_github_issue_url("https://github.com/owner/repo/issues/")
+        # Invalid issue number
+        assert not validate_github_issue_url("https://github.com/owner/repo/issues/abc")
+        # Empty/None
+        assert not validate_github_issue_url("")
+        assert not validate_github_issue_url(None)
+
+    def test_validate_github_repo_url_valid(self) -> None:
+        """Test valid GitHub repository URLs."""
+        from oss_navi.services.scraper import validate_github_repo_url
+
+        assert validate_github_repo_url("https://github.com/python/cpython")
+        assert validate_github_repo_url("https://github.com/pallets/click")
+        assert validate_github_repo_url("http://github.com/owner/repo")
+        assert validate_github_repo_url("https://github.com/owner/repo-with-dashes")
+        assert validate_github_repo_url("https://github.com/owner/repo_with_underscores")
+
+    def test_validate_github_repo_url_invalid(self) -> None:
+        """Test invalid GitHub repository URLs."""
+        from oss_navi.services.scraper import validate_github_repo_url
+
+        # Not a GitHub URL
+        assert not validate_github_repo_url("https://gitlab.com/owner/repo")
+        # Missing repo name
+        assert not validate_github_repo_url("https://github.com/owner")
+        assert not validate_github_repo_url("https://github.com/")
+        # Invalid characters in names
+        assert not validate_github_repo_url("https://github.com/owner/repo@invalid")
+        # Empty/None
+        assert not validate_github_repo_url("")
+        assert not validate_github_repo_url(None)
+
     @patch("httpx.Client")
     def test_fetch_upforgrabs_with_issues(self, mock_client_class: MagicMock) -> None:
         """Test fetching Up For Grabs with valid issues."""

@@ -49,6 +49,92 @@ def validate_github_url(url: str) -> bool:
         return False
 
 
+def validate_github_issue_url(url: str) -> bool:
+    """Validate that a URL is a valid GitHub issue URL.
+
+    Expected format: https://github.com/{owner}/{repo}/issues/{number}
+
+    Args:
+        url: URL to validate
+
+    Returns:
+        True if valid GitHub issue URL, False otherwise
+    """
+    if not validate_github_url(url):
+        return False
+
+    try:
+        parsed = urlparse(url)
+        path_parts = parsed.path.strip("/").split("/")
+
+        # Expected: [owner, repo, "issues", number] or [owner, repo, "issues"]
+        if len(path_parts) < 4:
+            return False
+
+        if path_parts[2] != "issues":
+            return False
+
+        # Validate owner and repo names (non-empty, valid characters)
+        owner = path_parts[0]
+        repo = path_parts[1]
+
+        if not owner or not repo:
+            return False
+
+        # GitHub naming rules: alphanumeric, hyphens, underscores
+        valid_name_pattern = r"^[a-zA-Z0-9._-]+$"
+        if not re.match(valid_name_pattern, owner) or not re.match(valid_name_pattern, repo):
+            return False
+
+        # Issue number should be numeric (if present)
+        if len(path_parts) >= 4:
+            issue_num = path_parts[3]
+            if not issue_num.isdigit():
+                return False
+
+        return True
+    except Exception:
+        return False
+
+
+def validate_github_repo_url(url: str) -> bool:
+    """Validate that a URL is a valid GitHub repository URL.
+
+    Expected format: https://github.com/{owner}/{repo}
+
+    Args:
+        url: URL to validate
+
+    Returns:
+        True if valid GitHub repository URL, False otherwise
+    """
+    if not validate_github_url(url):
+        return False
+
+    try:
+        parsed = urlparse(url)
+        path_parts = parsed.path.strip("/").split("/")
+
+        # Expected: [owner, repo] (optionally more for deeper paths)
+        if len(path_parts) < 2:
+            return False
+
+        owner = path_parts[0]
+        repo = path_parts[1]
+
+        if not owner or not repo:
+            return False
+
+        # GitHub naming rules
+        valid_name_pattern = r"^[a-zA-Z0-9._-]+$"
+        if not re.match(valid_name_pattern, owner) or not re.match(valid_name_pattern, repo):
+            return False
+
+        return True
+    except Exception:
+        return False
+
+
 def sanitize_text(text: Optional[str]) -> str:
     """Sanitize text by removing HTML tags and extra whitespace.
 
@@ -95,9 +181,9 @@ def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
 
         for project in projects:
             try:
-                # Validate URL
+                # Validate repository URL
                 project_url = project.get("url", "")
-                if not validate_github_url(project_url):
+                if not validate_github_repo_url(project_url):
                     continue
 
                 # Parse repository info
@@ -118,7 +204,7 @@ def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
                 issues = project.get("issues", [])
                 for issue in issues:
                     issue_url = issue.get("url", "")
-                    if not validate_github_url(issue_url):
+                    if not validate_github_issue_url(issue_url):
                         continue
 
                     created_at_str = issue.get("created_at", "")
@@ -198,17 +284,24 @@ def fetch_goodfirstissue_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
                     continue
 
                 issue_url = link.get("href", "")
-                if not validate_github_url(issue_url):
+                # Validate issue URL format
+                if not validate_github_issue_url(issue_url):
                     continue
 
                 # Extract title
                 title = sanitize_text(link.get_text())
 
                 # Extract project name from URL
-                parts = issue_url.split("/")
-                if len(parts) < 5:
+                parsed = urlparse(issue_url)
+                path_parts = parsed.path.strip("/").split("/")
+                if len(path_parts) < 2:
                     continue
-                repo_name = f"{parts[3]}/{parts[4]}"
+                repo_name = f"{path_parts[0]}/{path_parts[1]}"
+
+                # Validate the constructed repo URL
+                repo_url = f"https://github.com/{repo_name}"
+                if not validate_github_repo_url(repo_url):
+                    continue
 
                 # Extract stars (if available)
                 stars_text = issue_card.find(class_="stars")
@@ -224,7 +317,7 @@ def fetch_goodfirstissue_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
 
                 repo = Repository(
                     name=repo_name,
-                    url=f"https://github.com/{repo_name}",
+                    url=repo_url,
                     stars=stars,
                     language=language,
                 )
