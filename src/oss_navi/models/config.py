@@ -27,6 +27,10 @@ class Config(BaseModel):
     github_token: Optional[str] = Field(default=None, exclude=True)  # Never serialize token
     blog_repo_path: Optional[str] = None
     filters: Filters = Field(default_factory=Filters)
+    # Proxy settings
+    http_proxy: Optional[str] = None
+    https_proxy: Optional[str] = None
+    no_proxy: Optional[str] = None  # Comma-separated list of hosts to bypass proxy
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 

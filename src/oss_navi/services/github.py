@@ -1,15 +1,14 @@
 """GitHub API client for fetching user profile and repository data."""
 
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from oss_navi.config import get_proxy_settings, should_verify_ssl
 from oss_navi.models.user_profile import Activity, Repository, UserProfile
 from oss_navi.utils.cache import read_json, update_cache_metadata, write_json
 from oss_navi.utils.paths import GITHUB_PROFILE_CACHE
-
 
 # Constants
 GITHUB_API_BASE = "https://api.github.com"
@@ -31,7 +30,7 @@ class GitHubRateLimitError(Exception):
 class GitHubClient:
     """GitHub API client for fetching user profile data."""
 
-    def __init__(self, token: Optional[str] = None, timeout: float = DEFAULT_TIMEOUT):
+    def __init__(self, token: str | None = None, timeout: float = DEFAULT_TIMEOUT):
         """Initialize GitHub client.
 
         Args:
@@ -40,6 +39,37 @@ class GitHubClient:
         """
         self.token = token or os.environ.get("GITHUB_TOKEN")
         self.timeout = timeout
+        self._proxy_settings = get_proxy_settings()
+
+    def _create_client(self) -> httpx.Client:
+        """Create an httpx client with proxy support.
+
+        Automatically uses proxy from environment variables (HTTP_PROXY, HTTPS_PROXY).
+        SSL verification can be disabled via OSS_NAVI_VERIFY_SSL=false env var.
+
+        Returns:
+            Configured httpx.Client instance
+        """
+        http_proxy = self._proxy_settings["http_proxy"]
+        https_proxy = self._proxy_settings["https_proxy"]
+        verify_ssl = should_verify_ssl()
+
+        if https_proxy and http_proxy:
+            # Use mounts for different proxies per scheme
+            return httpx.Client(
+                timeout=self.timeout,
+                verify=verify_ssl,
+                mounts={
+                    "http://": httpx.HTTPTransport(proxy=http_proxy, verify=verify_ssl),
+                    "https://": httpx.HTTPTransport(proxy=https_proxy, verify=verify_ssl),
+                }
+            )
+        elif https_proxy:
+            return httpx.Client(timeout=self.timeout, verify=verify_ssl, proxy=https_proxy)
+        elif http_proxy:
+            return httpx.Client(timeout=self.timeout, verify=verify_ssl, proxy=http_proxy)
+        else:
+            return httpx.Client(timeout=self.timeout, verify=verify_ssl)
 
     def _get_headers(self) -> dict[str, str]:
         """Get headers for GitHub API requests."""
@@ -72,7 +102,7 @@ class GitHubClient:
                     "GitHub API rate limit exceeded. Wait and try again later."
                 )
 
-    def fetch_user_profile(self, username: str) -> Optional[UserProfile]:
+    def fetch_user_profile(self, username: str) -> UserProfile | None:
         """Fetch user profile from GitHub API.
 
         Args:
@@ -85,10 +115,10 @@ class GitHubClient:
             GitHubAuthError: For authentication failures
             GitHubRateLimitError: For rate limit exceeded
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires = now + timedelta(hours=24)
 
-        with httpx.Client(timeout=self.timeout) as client:
+        with self._create_client() as client:
             # Fetch user info
             user_response = client.get(
                 f"{GITHUB_API_BASE}/users/{username}",
@@ -185,7 +215,7 @@ class GitHubClient:
             )
 
 
-def fetch_and_cache_profile(username: str, token: Optional[str] = None) -> Optional[UserProfile]:
+def fetch_and_cache_profile(username: str, token: str | None = None) -> UserProfile | None:
     """Fetch user profile and cache it locally.
 
     Args:
@@ -206,7 +236,7 @@ def fetch_and_cache_profile(username: str, token: Optional[str] = None) -> Optio
     return profile
 
 
-def load_cached_profile() -> Optional[dict]:
+def load_cached_profile() -> dict | None:
     """Load cached profile from disk.
 
     Returns:

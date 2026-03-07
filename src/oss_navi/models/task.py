@@ -34,7 +34,7 @@ class Task(BaseModel):
     title: str
     description: Optional[str] = Field(default=None, max_length=500)
     url: str
-    source: str  # "upforgrabs" or "goodfirstissue"
+    source: str  # "upforgrabs" or "goodfirstissues"
     repository: Repository
     labels: list[str] = Field(default_factory=list)
     created_at: datetime
@@ -54,7 +54,7 @@ class Task(BaseModel):
     @classmethod
     def validate_source(cls, v: str) -> str:
         """Validate that source is one of the allowed values."""
-        allowed = {"upforgrabs", "goodfirstissue"}
+        allowed = {"upforgrabs", "goodfirstissues"}
         if v not in allowed:
             raise ValueError(f"Source must be one of: {', '.join(allowed)}")
         return v

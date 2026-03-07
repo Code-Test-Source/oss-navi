@@ -7,25 +7,33 @@ OSS-Navi analyzes your GitHub profile, scrapes beginner-friendly issues from mul
 ## Features
 
 - **Profile Analysis**: Fetch and analyze your GitHub profile (commits, languages, activity)
-- **Task Discovery**: Scrape open source tasks from Up For Grabs and Good First Issue
+- **Task Discovery**: Scrape open source tasks from Up For Grabs and Good First Issues
 - **Smart Filtering**: Filter tasks by stars, recency, and compute a "hotness" score
 - **Learning Focus**: Specify what you're currently learning with `--learn` flag
 - **AI Recommendations**: Generate personalized recommendations with Claude Code
 - **Report Archiving**: Archive and optionally publish reports to your blog
-- **Robust URL Validation**: Validates all scraped URLs to ensure they point to valid GitHub issues
+- **Proxy Support**: Configure HTTP/HTTPS proxy for corporate firewalls
+
+## Requirements
+
+- Python 3.11+ or [uv](https://docs.astral.sh/uv/) package manager
+- GitHub Personal Access Token (optional, for profile sync)
+- Claude Code installed locally (for analysis command)
 
 ## Installation
 
+**One-line setup (Linux/macOS/Windows):**
+
 ```bash
-# Clone the repository
-git clone https://github.com/Code-Test-Source/oss-navi.git
-cd oss-navi
+# Clone and install as global CLI tool
+git clone https://github.com/Code-Test-Source/oss-navi.git && cd oss-navi && uv tool install -e .
+```
 
-# Install with uv (recommended)
-uv sync
+After installation, `oss-navi` is available globally:
 
-# Or with pip
-pip install -e ".[dev]"
+```bash
+oss-navi --version
+oss-navi --help
 ```
 
 ## Quick Start
@@ -52,22 +60,13 @@ oss-navi analysis --learn rust
 Manage configuration settings:
 
 ```bash
-# Set GitHub username
 oss-navi config --github-username your-username
-
-# Set GitHub token (stored securely with 0600 permissions)
 oss-navi config --github-token ghp_your_token
-
-# Set blog repository for publishing
 oss-navi config --blog-repo /path/to/blog
-
-# Set filter preferences
 oss-navi config --min-stars 100 --max-age 30
-
-# View current configuration
+oss-navi config --http-proxy http://proxy.example.com:8080
+oss-navi config --https-proxy http://proxy.example.com:8080
 oss-navi config --list
-
-# Reset to defaults
 oss-navi config --reset
 ```
 
@@ -76,20 +75,19 @@ oss-navi config --reset
 Fetch GitHub profile and task data:
 
 ```bash
-# Sync everything
-oss-navi sync
+oss-navi sync              # Sync everything
+oss-navi sync --github     # Sync only GitHub profile
+oss-navi sync --tasks      # Sync only task sources
+oss-navi sync --force      # Force refresh (ignore cache)
+oss-navi sync --dry-run    # Preview without fetching
+```
 
-# Sync only GitHub profile
-oss-navi sync --github
-
-# Sync only task sources
-oss-navi sync --tasks
-
-# Force refresh (ignore cache)
-oss-navi sync --force
-
-# Preview without fetching
-oss-navi sync --dry-run
+**Expected Output:**
+```
+✓ GitHub profile cached (245 repos, 12 languages)
+✓ Up For Grabs: 156 tasks
+✓ Good First Issues: 203 tasks
+✓ Cache expires: 2026-03-08 10:00:00
 ```
 
 ### `oss-navi analysis`
@@ -97,20 +95,19 @@ oss-navi sync --dry-run
 Generate personalized project recommendations:
 
 ```bash
-# Generate recommendations
-oss-navi analysis
+oss-navi analysis                    # Generate recommendations
+oss-navi analysis --learn python     # Focus on a technology
+oss-navi analysis --output report.md # Save to custom location
+oss-navi analysis --no-cache         # Require fresh data
+oss-navi analysis --open             # Open report after generation
+```
 
-# Focus on a technology you're learning
-oss-navi analysis --learn python
-
-# Save to custom location
-oss-navi analysis --output my-recommendations.md
-
-# Skip cache and require fresh data
-oss-navi analysis --no-cache
-
-# Open report after generation
-oss-navi analysis --open
+**Expected Output:**
+```
+✓ Analyzing profile... (12 languages, 245 repos)
+✓ Filtering tasks... (47 matches from 359 total)
+✓ Generating recommendations via Claude Code...
+✓ Report saved: ~/.oss-navi/temp/current_report.md
 ```
 
 ### `oss-navi publish`
@@ -118,33 +115,19 @@ oss-navi analysis --open
 Archive and publish analysis reports:
 
 ```bash
-# Archive current report
-oss-navi publish
-
-# Archive and push to blog
-oss-navi publish --push
-
-# With custom commit message
-oss-navi publish --push -m "Add weekly recommendations"
-
-# List archived reports
-oss-navi publish --list
+oss-navi publish                      # Archive current report
+oss-navi publish --push               # Archive and push to blog
+oss-navi publish --push -m "message"  # With custom commit message
+oss-navi publish --list               # List archived reports
 ```
 
 ### Global Options
 
 ```bash
-# Enable verbose output
-oss-navi -v sync
-
-# Suppress non-essential output
-oss-navi -q analysis
-
-# Show version
-oss-navi --version
-
-# Show help
-oss-navi --help
+oss-navi -v sync        # Verbose output
+oss-navi -q analysis    # Quiet mode
+oss-navi --version      # Show version
+oss-navi --help         # Show help
 ```
 
 ## Configuration
@@ -157,43 +140,68 @@ All data is stored under `~/.oss-navi/`:
 ├── cache/              # Cached data (24h expiration)
 │   ├── github_profile.json
 │   ├── upforgrabs_tasks.json
-│   ├── goodfirstissue_tasks.json
+│   ├── goodfirstissues_tasks.json
 │   └── metadata.json
 ├── state/              # Persistent data
 │   ├── config.json
 │   ├── memory.json
 │   └── reports/
-└── temp/               # Temporary files
+└── temp/
     └── current_report.md
 ```
 
 ## Task Sources
 
-OSS-Navi fetches tasks from:
-- **Up For Grabs** (https://up-for-grabs.net) - JSON API
-- **Good First Issue** (https://goodfirstissue.dev) - Web scraping
+| Source | URL | Method |
+|--------|-----|--------|
+| **Up For Grabs** | https://up-for-grabs.net | GitHub API (YAML) |
+| **Good First Issues** | https://goodfirstissues.com | JSON API |
 
-All URLs are validated to ensure they point to valid GitHub issues and repositories.
+## Proxy Configuration
 
-## Requirements
+```bash
+# Via CLI
+oss-navi config --http-proxy http://proxy:8080
+oss-navi config --https-proxy http://proxy:8080
+oss-navi config --no-proxy "localhost,127.0.0.1"
 
-- Python 3.11+
-- GitHub Personal Access Token (optional, for profile sync)
-- Claude Code installed locally (for analysis command)
+# Via environment variables (takes precedence)
+export HTTP_PROXY=http://proxy:8080
+export HTTPS_PROXY=http://proxy:8080
+export NO_PROXY=localhost,127.0.0.1
+```
+
+### SSL Verification
+
+If your proxy uses self-signed certificates (e.g., FastGitHub), disable SSL verification:
+
+```bash
+export OSS_NAVI_VERIFY_SSL=false
+oss-navi sync --force
+```
+
+Or inline:
+```bash
+OSS_NAVI_VERIFY_SSL=false oss-navi sync --force
+```
+
+> **Note**: SOCKS proxies (socks5://) are supported via the `httpx[socks]` dependency.
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| `command not found` | Run `uv tool install -e .` to install as global CLI |
+| `Configuration incomplete` | Run `oss-navi config --github-username <user>` |
+| `No cached data` | Run `oss-navi sync` |
+| `Claude Code not found` | Install from https://claude.ai/code |
+| `Rate limit exceeded` | Wait 1 hour or use cached data |
 
 ## Development
 
 ```bash
-# Install development dependencies
 uv sync --all-extras
-
-# Run tests
-pytest
-
-# Run tests with coverage
 pytest --cov=oss_navi --cov-report=term-missing
-
-# Run linter
 ruff check src/
 ```
 

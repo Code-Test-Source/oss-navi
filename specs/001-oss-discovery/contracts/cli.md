@@ -141,7 +141,7 @@ oss-navi sync --dry-run
 ```
 ✓ GitHub profile cached (245 repos, 12 languages)
 ✓ Up For Grabs: 156 tasks
-✓ Good First Issue: 203 tasks
+✓ Good First Issues: 203 tasks
 ✓ Cache expires: 2026-03-08 10:00:00
 ```
 
@@ -149,7 +149,7 @@ oss-navi sync --dry-run
 ```
 ✓ GitHub profile cached (245 repos, 12 languages)
 ✓ Up For Grabs: 156 tasks
-⚠ Good First Issue: unavailable (using cached data)
+⚠ Good First Issues: unavailable (using cached data)
 ✓ Cache expires: 2026-03-08 10:00:00
 ```
 
@@ -333,6 +333,9 @@ oss-navi publish --list
 | `OSS_NAVI_HOME` | Override default data directory (default: `~/.oss-navi`) |
 | `OSS_NAVI_CONFIG` | Path to config file |
 | `GITHUB_TOKEN` | Fallback GitHub token if not configured |
+| `HTTP_PROXY` | HTTP proxy URL (takes precedence over config) |
+| `HTTPS_PROXY` | HTTPS proxy URL (takes precedence over config) |
+| `NO_PROXY` | Comma-separated hosts to bypass proxy |
 
 ## Configuration File Format
 
@@ -342,6 +345,9 @@ oss-navi publish --list
 {
   "github_username": "octocat",
   "blog_repo_path": "/home/user/my-blog",
+  "http_proxy": "http://proxy.example.com:8080",
+  "https_proxy": "http://proxy.example.com:8080",
+  "no_proxy": "localhost,127.0.0.1,.internal.example.com",
   "filters": {
     "min_stars": 50,
     "max_age_days": 90,

@@ -59,7 +59,7 @@ def analysis(
     from oss_navi.utils.cache import read_json
     from oss_navi.utils.paths import (
         GITHUB_PROFILE_CACHE,
-        GOODFIRSTISSUE_TASKS_CACHE,
+        GOODFIRSTISSUES_TASKS_CACHE,
         UPFORGRABS_TASKS_CACHE,
     )
 
@@ -77,7 +77,7 @@ def analysis(
 
     # Load cached task data
     tasks_data = read_json(UPFORGRABS_TASKS_CACHE) or []
-    tasks_data += read_json(GOODFIRSTISSUE_TASKS_CACHE) or []
+    tasks_data += read_json(GOODFIRSTISSUES_TASKS_CACHE) or []
 
     if not tasks_data:
         click.echo(
@@ -223,10 +223,10 @@ def sync(github: bool, tasks: bool, force: bool, dry_run: bool) -> None:
         else:
             click.echo("✓ Up For Grabs cache is valid (use --force to refresh)")
 
-        if force or not is_cache_valid("goodfirstissue_tasks"):
-            sources_to_fetch.append("goodfirstissue")
+        if force or not is_cache_valid("goodfirstissues_tasks"):
+            sources_to_fetch.append("goodfirstissues")
         else:
-            click.echo("✓ Good First Issue cache is valid (use --force to refresh)")
+            click.echo("✓ Good First Issues cache is valid (use --force to refresh)")
 
         if sources_to_fetch:
             click.echo(f"✓ Fetching tasks from: {', '.join(sources_to_fetch)}...")
@@ -245,6 +245,9 @@ def sync(github: bool, tasks: bool, force: bool, dry_run: bool) -> None:
 @click.option("--blog-repo", help="Set blog repository path")
 @click.option("--min-stars", type=int, help="Set minimum stars filter")
 @click.option("--max-age", type=int, help="Set maximum issue age (days)")
+@click.option("--http-proxy", help="Set HTTP proxy URL (e.g., http://proxy:8080)")
+@click.option("--https-proxy", help="Set HTTPS proxy URL (e.g., http://proxy:8080)")
+@click.option("--no-proxy", help="Set hosts to bypass proxy (comma-separated)")
 @click.option("--list", "show_list", is_flag=True, help="List current configuration")
 @click.option("--reset", is_flag=True, help="Reset configuration to defaults")
 def config(
@@ -253,6 +256,9 @@ def config(
     blog_repo: str | None,
     min_stars: int | None,
     max_age: int | None,
+    http_proxy: str | None,
+    https_proxy: str | None,
+    no_proxy: str | None,
     show_list: bool,
     reset: bool,
 ) -> None:
@@ -269,7 +275,7 @@ def config(
         validate_github_token,
         validate_github_username,
     )
-    from oss_navi.models.config import Config, Filters
+    from oss_navi.models.config import Config
 
     # Handle reset
     if reset:
@@ -289,6 +295,9 @@ def config(
         click.echo(f"  Blog Repository: {current_config.blog_repo_path or 'not set'}")
         click.echo(f"  Min Stars: {current_config.filters.min_stars}")
         click.echo(f"  Max Age (days): {current_config.filters.max_age_days}")
+        click.echo(f"  HTTP Proxy: {current_config.http_proxy or 'not set'}")
+        click.echo(f"  HTTPS Proxy: {current_config.https_proxy or 'not set'}")
+        click.echo(f"  No Proxy: {current_config.no_proxy or 'not set'}")
         return
 
     # Load existing config or create new
@@ -336,6 +345,22 @@ def config(
         updated = True
         click.echo(f"✓ Max age filter set: {max_age} days")
 
+    # Update proxy settings
+    if http_proxy is not None:
+        current_config.http_proxy = http_proxy if http_proxy else None
+        updated = True
+        click.echo(f"✓ HTTP proxy set: {http_proxy or 'cleared'}")
+
+    if https_proxy is not None:
+        current_config.https_proxy = https_proxy if https_proxy else None
+        updated = True
+        click.echo(f"✓ HTTPS proxy set: {https_proxy or 'cleared'}")
+
+    if no_proxy is not None:
+        current_config.no_proxy = no_proxy if no_proxy else None
+        updated = True
+        click.echo(f"✓ No proxy set: {no_proxy or 'cleared'}")
+
     # Save if any changes
     if updated:
         from datetime import datetime, timezone
@@ -356,6 +381,8 @@ def publish(push: bool, message: str | None, show_list: bool, report: str | None
     Without arguments, archives the current report.
     Use --push to also push to a configured blog repository.
     """
+    from pathlib import Path
+
     from oss_navi.config import load_config
     from oss_navi.services.publisher import (
         BlogRepoNotConfiguredError,

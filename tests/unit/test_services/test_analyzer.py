@@ -39,7 +39,7 @@ class TestAnalyzer:
                 id="test:2",
                 title="Add feature",
                 url="https://github.com/owner/repo2/issues/2",
-                source="goodfirstissue",
+                source="goodfirstissues",
                 repository=Repository(
                     name="owner/repo2",
                     url="https://github.com/owner/repo2",

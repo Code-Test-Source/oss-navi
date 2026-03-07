@@ -30,7 +30,7 @@ CACHE_METADATA_FILE: Path = CACHE_DIR / "metadata.json"
 # Cache files
 GITHUB_PROFILE_CACHE: Path = CACHE_DIR / "github_profile.json"
 UPFORGRABS_TASKS_CACHE: Path = CACHE_DIR / "upforgrabs_tasks.json"
-GOODFIRSTISSUE_TASKS_CACHE: Path = CACHE_DIR / "goodfirstissue_tasks.json"
+GOODFIRSTISSUES_TASKS_CACHE: Path = CACHE_DIR / "goodfirstissues_tasks.json"
 
 
 def ensure_directories() -> None:
