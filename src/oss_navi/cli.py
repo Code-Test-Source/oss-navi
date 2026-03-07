@@ -1,6 +1,7 @@
 """CLI entry point for OSS-Navi."""
 
 import logging
+from typing import Optional
 
 import click
 
@@ -39,29 +40,58 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     configure_logging(verbose, quiet)
 
 
+def prompt_learning_interests() -> Optional[str]:
+    """Prompt user for their current learning interests.
+
+    Returns:
+        User input string or None if empty
+    """
+    return click.prompt(
+        "What are you currently learning or interested in?",
+        default="",
+        show_default=False,
+        type=str,
+    ).strip() or None
+
+
 @main.command()
 @click.option("--learn", "-l", help="Learning focus (technology/language)")
 @click.option("--output", "-o", "output_path", help="Output file path")
 @click.option("--no-cache", is_flag=True, help="Skip cache, require fresh data")
 @click.option("--open", "open_report", is_flag=True, help="Open report after generation")
+@click.option("--no-interactive", is_flag=True, help="Skip interactive prompts")
+@click.option("--explore", is_flag=True, help="Suggest adjacent fields to explore")
+@click.option("-n", "--recommendations", type=int, default=7, help="Number of recommendations (5-10)")
 def analysis(
     learn: str | None,
     output_path: str | None,
     no_cache: bool,
     open_report: bool,
+    no_interactive: bool,
+    explore: bool,
+    recommendations: int,
 ) -> None:
     """Generate personalized project recommendations.
 
     Analyzes your GitHub profile and available tasks to recommend
     the best open source projects for you to contribute to.
     """
-    from oss_navi.services.analyzer import ClaudeCodeError, run_analysis
+    from oss_navi.services.analyzer import (
+        ClaudeCodeError,
+        find_great_projects,
+        generate_recommendations,
+        run_analysis,
+        suggest_adjacent_fields,
+    )
     from oss_navi.utils.cache import read_json
     from oss_navi.utils.paths import (
         GITHUB_PROFILE_CACHE,
         GOODFIRSTISSUES_TASKS_CACHE,
         UPFORGRABS_TASKS_CACHE,
     )
+
+    # Clamp recommendations to valid range
+    recommendations = max(5, min(10, recommendations))
 
     click.echo("✓ Analyzing profile...")
 
@@ -104,15 +134,63 @@ def analysis(
 
     memory = read_json(MEMORY_FILE)
 
+    # Interactive prompt for learning interests
+    learning_focus = learn
+    if not no_interactive and not learn:
+        learning_focus = prompt_learning_interests()
+
+    # Show field exploration suggestions if requested
+    if explore:
+        user_languages = profile.get("languages", {})
+        current_interest = learning_focus or list(user_languages.keys())[0] if user_languages else "programming"
+        suggestions = suggest_adjacent_fields(current_interest, user_languages)
+        click.echo("\n📚 Suggested fields to explore:")
+        for i, field in enumerate(suggestions, 1):
+            click.echo(f"  {i}. {field}")
+        click.echo()
+
+    # Find great projects for learning
+    user_languages = profile.get("languages", {})
+    great_projects = find_great_projects(
+        user_languages=user_languages,
+        learning_focus=learning_focus,
+        count=3,
+    )
+
+    if great_projects:
+        click.echo("\n⭐ Great projects for learning:")
+        for proj in great_projects:
+            click.echo(f"  - {proj.name} ({proj.stars:,} stars)")
+            click.echo(f"    {proj.why_great}")
+
+    # Generate scored recommendations
+    click.echo(f"\n✓ Generating {recommendations} recommendations...")
+    scored_recommendations = generate_recommendations(
+        tasks=tasks,
+        user_languages=user_languages,
+        learning_focus=learning_focus,
+        count=recommendations,
+    )
+
+    # Show top recommendations with ratings
+    if scored_recommendations:
+        click.echo("\n🎯 Top Recommendations:")
+        for i, rec in enumerate(scored_recommendations[:recommendations], 1):
+            status_icon = "✓" if rec.status.is_available else "⚠"
+            click.echo(f"  {i}. {rec.task.title[:50]}...")
+            click.echo(f"     Rating: {rec.rating:.1f}/10 - {rec.reason[:60]}...")
+            if not rec.status.is_available:
+                click.echo(f"     {status_icon} Issue may not be available")
+
     # Run analysis
     try:
         report = run_analysis(
             profile=profile,
             tasks=tasks,
-            learning_focus=learn,
+            learning_focus=learning_focus,
             memory=memory,
         )
-        click.echo(f"✓ Report saved: {report.file_path}")
+        click.echo(f"\n✓ Report saved: {report.file_path}")
 
         # Update long-term memory if learning focus was provided
         if learn:

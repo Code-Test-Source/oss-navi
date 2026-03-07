@@ -122,44 +122,31 @@
 
 ### Tests for Interactive Prompts
 
-- [ ] T074 [US1] Add tests for `prompt_learning_interests()` in `tests/unit/test_cli.py`
-- [ ] T075 [US1] Add tests for `suggest_adjacent_fields()` in `tests/unit/test_services/test_analyzer.py`
-- [ ] T076 [US1] Verify interactive prompt tests fail (functions not implemented)
+- [x] T074 [US1] Add tests for `prompt_learning_interests()` in `tests/unit/test_cli.py`
+- [x] T075 [US1] Add tests for `suggest_adjacent_fields()` in `tests/unit/test_services/test_analyzer.py`
+- [x] T076 [US1] Verify interactive prompt tests fail (functions not implemented)
 
 ### Implementation for Interactive Prompts
 
-- [ ] T077 [US1] Implement `prompt_learning_interests()` using Click prompts in `src/oss_navi/cli.py`
-- [ ] T078 [US1] Add `--explore` option for field exploration in `src/oss_navi/cli.py`
-- [ ] T079 [US1] Add `--recommendations` / `-n` option for count in `src/oss_navi/cli.py`
-- [ ] T080 [US1] Implement `suggest_adjacent_fields()` in `src/oss_navi/services/analyzer.py`
-- [ ] T081 [US1] Verify interactive prompt tests pass
+- [x] T077 [US1] Implement `prompt_learning_interests()` using Click prompts in `src/oss_navi/cli.py`
+- [x] T078 [US1] Add `--explore` option for field exploration in `src/oss_navi/cli.py`
+- [x] T079 [US1] Add `--recommendations` / `-n` option for count in `src/oss_navi/cli.py`
+- [x] T080 [US1] Implement `suggest_adjacent_fields()` in `src/oss_navi/services/analyzer.py`
+- [x] T081 [US1] Verify interactive prompt tests pass
 
 **Checkpoint**: Analysis command should prompt for learning interests interactively
 
 ---
 
-## Phase 6: Report Archiver (US1)
+## Phase 6: Report Archiver (US1) - SKIPPED
 
-**Goal**: Implement automatic report archiving after generation
+**Note**: User requested to skip automatic archive feature as the `publish` command already handles archiving.
 
-**Independent Test**: Run `uv run oss-navi analysis` and verify report is auto-archived to `~/.oss-navi/state/reports/`
+**Goal**: ~~Implement automatic report archiving after generation~~
 
-### Tests for Archiver
+### Skipped Tasks
 
-- [ ] T082 [US1] Create `tests/unit/test_services/test_archiver.py` with archiver tests
-- [ ] T083 [US1] Add tests for archive naming format (YYYYMMDD_HHMMSS) in `tests/unit/test_services/test_archiver.py`
-- [ ] T084 [US1] Verify archiver tests fail (module not implemented)
-
-### Implementation for Archiver
-
-- [ ] T085 [US1] Create `src/oss_navi/services/archiver.py` module
-- [ ] T086 [US1] Implement `archive_report()` with timestamp naming in `src/oss_navi/services/archiver.py`
-- [ ] T087 [US1] Implement `update_memory_with_recommendations()` in `src/oss_navi/services/archiver.py`
-- [ ] T088 [US1] Integrate archiver into analysis command in `src/oss_navi/cli.py`
-- [ ] T089 [US1] Add `--no-archive` option to skip auto-archiving in `src/oss_navi/cli.py`
-- [ ] T090 [US1] Verify archiver tests pass
-
-**Checkpoint**: Reports should be automatically archived after generation
+- [~] T082-T090 - Skipped per user request (existing `publish` command handles archiving)
 
 ---
 
