@@ -141,6 +141,11 @@ A developer wants to share their OSS contribution journey. They run the publish 
 - **FR-025**: The system MUST persist long-term memory as a single JSON file in the state directory, containing skill evolution history and past recommendations
 - **FR-026**: The system MUST store cached data as JSON files for human readability and debugging
 
+**Proxy Support**
+- **FR-045**: The system MUST support HTTP/HTTPS proxy configuration via environment variables (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
+- **FR-046**: The system MUST support SOCKS proxies (socks5://) via the httpx[socks] dependency
+- **FR-047**: The system MUST allow disabling SSL verification via OSS_NAVI_VERIFY_SSL=false environment variable for proxies with self-signed certificates
+
 ### Testing Requirements
 
 - **FR-027**: The system MUST have unit tests for all core models (Config, UserProfile, Task, AnalysisReport, LongTermMemory)

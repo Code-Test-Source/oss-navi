@@ -41,6 +41,19 @@ def get_proxy_settings() -> dict[str, str]:
     }
 
 
+def should_verify_ssl() -> bool:
+    """Check if SSL verification should be enabled.
+
+    Set OSS_NAVI_VERIFY_SSL=false to disable SSL verification (useful for proxies
+    with self-signed certificates).
+
+    Returns:
+        True if SSL verification should be enabled, False otherwise
+    """
+    verify_ssl = os.environ.get("OSS_NAVI_VERIFY_SSL", "true").lower()
+    return verify_ssl not in ("false", "0", "no")
+
+
 class GitHubClient:
     """GitHub API client for fetching user profile data."""
 
@@ -59,28 +72,31 @@ class GitHubClient:
         """Create an httpx client with proxy support.
 
         Automatically uses proxy from environment variables (HTTP_PROXY, HTTPS_PROXY).
+        SSL verification can be disabled via OSS_NAVI_VERIFY_SSL=false env var.
 
         Returns:
             Configured httpx.Client instance
         """
         http_proxy = self._proxy_settings["http_proxy"]
         https_proxy = self._proxy_settings["https_proxy"]
+        verify_ssl = should_verify_ssl()
 
         if https_proxy and http_proxy:
             # Use mounts for different proxies per scheme
             return httpx.Client(
                 timeout=self.timeout,
+                verify=verify_ssl,
                 mounts={
-                    "http://": httpx.HTTPTransport(proxy=http_proxy),
-                    "https://": httpx.HTTPTransport(proxy=https_proxy),
+                    "http://": httpx.HTTPTransport(proxy=http_proxy, verify=verify_ssl),
+                    "https://": httpx.HTTPTransport(proxy=https_proxy, verify=verify_ssl),
                 }
             )
         elif https_proxy:
-            return httpx.Client(timeout=self.timeout, proxy=https_proxy)
+            return httpx.Client(timeout=self.timeout, verify=verify_ssl, proxy=https_proxy)
         elif http_proxy:
-            return httpx.Client(timeout=self.timeout, proxy=http_proxy)
+            return httpx.Client(timeout=self.timeout, verify=verify_ssl, proxy=http_proxy)
         else:
-            return httpx.Client(timeout=self.timeout)
+            return httpx.Client(timeout=self.timeout, verify=verify_ssl)
 
     def _get_headers(self) -> dict[str, str]:
         """Get headers for GitHub API requests."""

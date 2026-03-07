@@ -50,6 +50,19 @@ def get_proxy_settings() -> dict[str, str]:
     }
 
 
+def should_verify_ssl() -> bool:
+    """Check if SSL verification should be enabled.
+
+    Set OSS_NAVI_VERIFY_SSL=false to disable SSL verification (useful for proxies
+    with self-signed certificates).
+
+    Returns:
+        True if SSL verification should be enabled, False otherwise
+    """
+    verify_ssl = os.environ.get("OSS_NAVI_VERIFY_SSL", "true").lower()
+    return verify_ssl not in ("false", "0", "no")
+
+
 def create_http_client(timeout: float = DEFAULT_TIMEOUT) -> httpx.Client:
     """Create an httpx client with proxy support.
 
@@ -94,17 +107,19 @@ def create_async_http_client(timeout: float = DEFAULT_TIMEOUT) -> httpx.AsyncCli
 
     if https_proxy and http_proxy:
         # Use mounts for different proxies per scheme
+        verify_ssl = should_verify_ssl()
         return httpx.AsyncClient(
             timeout=timeout,
+            verify=verify_ssl,
             mounts={
-                "http://": httpx.HTTPTransport(proxy=http_proxy),
-                "https://": httpx.HTTPTransport(proxy=https_proxy),
+                "http://": httpx.AsyncHTTPTransport(proxy=http_proxy, verify=verify_ssl),
+                "https://": httpx.AsyncHTTPTransport(proxy=https_proxy, verify=verify_ssl),
             }
         )
     elif https_proxy:
-        return httpx.AsyncClient(timeout=timeout, proxy=https_proxy)
+        return httpx.AsyncClient(timeout=timeout, verify=should_verify_ssl(), proxy=https_proxy)
     elif http_proxy:
-        return httpx.AsyncClient(timeout=timeout, proxy=http_proxy)
+        return httpx.AsyncClient(timeout=timeout, verify=should_verify_ssl(), proxy=http_proxy)
     else:
         return httpx.AsyncClient(timeout=timeout)
 
@@ -811,9 +826,23 @@ def fetch_and_cache_tasks(
     Returns:
         Combined list of Task objects
     """
-    sources = sources or ["upforgrabs", "goodfirstissues"]
+    sources = sources or ["goodfirstissues", "upforgrabs"]
     all_tasks: list[Task] = []
 
+    # Fetch Good First Issues first (simpler single JSON fetch)
+    if "goodfirstissues" in sources:
+        try:
+            tasks = fetch_goodfirstissues_tasks(timeout)
+            all_tasks.extend(tasks)
+
+            # Cache Good First Issues tasks
+            tasks_data = [t.model_dump() for t in tasks]
+            write_json(GOODFIRSTISSUES_TASKS_CACHE, tasks_data)
+            update_cache_metadata("goodfirstissues_tasks", count=len(tasks))
+        except GoodFirstIssueUnavailableError:
+            pass
+
+    # Then fetch Up For Grabs (async parallel fetching of many YAML files)
     if "upforgrabs" in sources:
         try:
             # Use async version for parallel fetching (much faster)
@@ -825,18 +854,6 @@ def fetch_and_cache_tasks(
             write_json(UPFORGRABS_TASKS_CACHE, tasks_data)
             update_cache_metadata("upforgrabs_tasks", count=len(tasks))
         except UpForGrabsUnavailableError:
-            pass
-
-    if "goodfirstissues" in sources:
-        try:
-            tasks = fetch_goodfirstissues_tasks(timeout)
-            all_tasks.extend(tasks)
-
-            # Cache Good First Issues tasks
-            tasks_data = [t.model_dump() for t in tasks]
-            write_json(GOODFIRSTISSUES_TASKS_CACHE, tasks_data)
-            update_cache_metadata("goodfirstissues_tasks", count=len(tasks))
-        except GoodFirstIssueUnavailableError:
             pass
 
     return all_tasks

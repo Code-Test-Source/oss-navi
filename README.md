@@ -171,6 +171,22 @@ export HTTPS_PROXY=http://proxy:8080
 export NO_PROXY=localhost,127.0.0.1
 ```
 
+### SSL Verification
+
+If your proxy uses self-signed certificates (e.g., FastGitHub), disable SSL verification:
+
+```bash
+export OSS_NAVI_VERIFY_SSL=false
+oss-navi sync --force
+```
+
+Or inline:
+```bash
+OSS_NAVI_VERIFY_SSL=false oss-navi sync --force
+```
+
+> **Note**: SOCKS proxies (socks5://) are supported via the `httpx[socks]` dependency.
+
 ## Troubleshooting
 
 | Issue | Solution |
