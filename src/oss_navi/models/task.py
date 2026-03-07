@@ -69,13 +69,20 @@ class IssueStatus(BaseModel):
     assignee: Optional[str] = None
     is_closed: bool
     has_linked_pr: bool
+    has_open_pr: bool = False  # NEW: Has separate open PR linked via timeline
+    linked_pr_url: Optional[str] = None  # NEW: URL of linked PR if has_open_pr is true
     in_progress_labels: list[str] = Field(default_factory=list)
     checked_at: datetime
 
     @property
     def is_available(self) -> bool:
         """Check if issue is available for contribution."""
-        return not self.is_assigned and not self.is_closed and not self.has_linked_pr
+        return (
+            not self.is_assigned
+            and not self.is_closed
+            and not self.has_linked_pr
+            and not self.has_open_pr  # NEW condition
+        )
 
 
 class RatingBreakdown(BaseModel):

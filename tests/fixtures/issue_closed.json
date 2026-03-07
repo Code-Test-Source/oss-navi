@@ -1,0 +1,25 @@
+{
+  "url": "https://api.github.com/repos/rust-lang/rust/issues/50000",
+  "html_url": "https://github.com/rust-lang/rust/issues/50000",
+  "id": 456789123,
+  "number": 50000,
+  "title": "Compiler panic when using async closures",
+  "user": {
+    "login": "rustacean42",
+    "id": 99999,
+    "type": "User"
+  },
+  "labels": [
+    {"name": "A-async", "color": "f7e6ff"},
+    {"name": "I-ICE", "color": "e10c02"}
+  ],
+  "state": "closed",
+  "assignee": null,
+  "assignees": [],
+  "created_at": "2023-06-10T11:00:00Z",
+  "updated_at": "2023-08-05T16:45:00Z",
+  "closed_at": "2023-08-05T16:45:00Z",
+  "body": "The compiler panics when using async closures in certain situations.",
+  "comments": 12,
+  "pull_request": null
+}

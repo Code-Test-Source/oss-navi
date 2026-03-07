@@ -15,6 +15,15 @@ class SkillSnapshot(BaseModel):
     focus_areas: list[str] = Field(default_factory=list)
 
 
+class GitHubProfileSummary(BaseModel):
+    """Cached summary of user's GitHub profile for quick reference."""
+
+    username: str
+    primary_languages: dict[str, float] = Field(default_factory=dict)
+    total_repos: int = 0
+    last_fetched: datetime
+
+
 class PastRecommendation(BaseModel):
     """Record of a previous project recommendation."""
 
@@ -46,7 +55,7 @@ class FieldExploration(BaseModel):
 class LongTermMemory(BaseModel):
     """Accumulated insights about the user's OSS journey."""
 
-    version: int = Field(default=2, ge=1)
+    version: int = Field(default=3, ge=1)  # Version 3 with new fields
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     skill_history: list[SkillSnapshot] = Field(default_factory=list)
@@ -54,6 +63,10 @@ class LongTermMemory(BaseModel):
     learning_goals: list[str] = Field(default_factory=list)
     great_projects_discovered: list[GreatProjectSummary] = Field(default_factory=list)
     field_exploration_history: list[FieldExploration] = Field(default_factory=list)
+    # NEW fields for enhanced memory
+    github_profile: Optional[GitHubProfileSummary] = None
+    last_analysis_date: Optional[datetime] = None
+    analysis_count: int = 0
 
     def add_skill_snapshot(self, snapshot: SkillSnapshot) -> None:
         """Add a new skill snapshot to history."""

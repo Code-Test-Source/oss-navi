@@ -4,7 +4,12 @@ import re
 import subprocess
 from datetime import UTC, datetime
 
-from oss_navi.models.memory import LongTermMemory, PastRecommendation, SkillSnapshot
+from oss_navi.models.memory import (
+    GitHubProfileSummary,
+    LongTermMemory,
+    PastRecommendation,
+    SkillSnapshot,
+)
 from oss_navi.models.report import AnalysisReport
 from oss_navi.models.task import (
     GreatProject,
@@ -20,6 +25,22 @@ from oss_navi.utils.paths import MEMORY_FILE, TEMP_DIR
 # Constants
 CLAUDE_CODE_COMMAND = "claude"
 DEFAULT_TIMEOUT_SECONDS = 60
+
+
+def load_or_create_memory(memory_file: Path | None = None) -> LongTermMemory:
+    """Load existing memory or create new one if missing.
+
+    Args:
+        memory_file: Optional path to memory file (uses MEMORY_FILE if not provided)
+
+    Returns:
+        LongTermMemory object (existing or new)
+    """
+    file_path = memory_file or MEMORY_FILE
+    memory_data = read_json(file_path)
+    if memory_data:
+        return LongTermMemory(**memory_data)
+    return LongTermMemory()
 
 # Field adjacency mapping for suggestions
 ADJACENT_FIELDS = {
@@ -134,13 +155,77 @@ def build_prompt(
         ])
 
     if memory:
-        prompt_parts.extend([
-            "## Past Recommendations",
-            "The user has previously been recommended these projects:",
-            "",
-        ])
-        for rec in memory.get("past_recommendations", [])[:5]:
-            prompt_parts.append(f"- {rec.get('project', 'unknown')}")
+        # Include skill history
+        skill_history = memory.get("skill_history", [])
+        if skill_history:
+            prompt_parts.extend([
+                "",
+                "## Skill History",
+                "The user's skill progression over time:",
+                "",
+            ])
+            for snapshot in skill_history[-3:]:  # Last 3 snapshots
+                date_val = snapshot.get("date", "unknown")
+                # Handle both datetime objects and strings
+                if hasattr(date_val, "strftime"):
+                    date_str = date_val.strftime("%Y-%m-%d")
+                elif isinstance(date_val, str) and len(date_val) >= 10:
+                    date_str = date_val[:10]
+                else:
+                    date_str = str(date_val)
+                langs = snapshot.get("languages", {})
+                focus = snapshot.get("focus_areas", [])
+                prompt_parts.append(f"- **{date_str}**: {', '.join(f'{k} ({v:.0%})' for k, v in langs.items())}")
+                if focus:
+                    prompt_parts.append(f"  Focus: {', '.join(focus)}")
+
+        # Include past recommendations
+        past_recs = memory.get("past_recommendations", [])
+        if past_recs:
+            prompt_parts.extend([
+                "",
+                "## Past Recommendations",
+                "The user has previously been recommended these projects:",
+                "",
+            ])
+            for rec in past_recs[-5:]:  # Last 5 recommendations
+                prompt_parts.append(f"- {rec.get('project', 'unknown')}")
+
+        # Include great projects discovered
+        great_projects = memory.get("great_projects_discovered", [])
+        if great_projects:
+            prompt_parts.extend([
+                "",
+                "## Great Projects Discovered",
+                "High-quality projects shown to the user:",
+                "",
+            ])
+            for proj in great_projects[-3:]:
+                prompt_parts.append(f"- **{proj.get('name', 'unknown')}**: {proj.get('reason', '')}")
+
+        # Include field exploration history
+        field_history = memory.get("field_exploration_history", [])
+        if field_history:
+            prompt_parts.extend([
+                "",
+                "## Field Exploration History",
+                "Fields the user has been encouraged to explore:",
+                "",
+            ])
+            for exploration in field_history[-2:]:
+                prompt_parts.append(f"- From {exploration.get('current_interest', 'unknown')}: {', '.join(exploration.get('suggested_fields', []))}")
+
+        # Include learning goals
+        learning_goals = memory.get("learning_goals", [])
+        if learning_goals:
+            prompt_parts.extend([
+                "",
+                "## Learning Goals",
+                "The user has expressed interest in learning:",
+                "",
+            ])
+            for goal in learning_goals[-5:]:
+                prompt_parts.append(f"- {goal}")
 
     prompt_parts.extend([
         "",
@@ -304,25 +389,26 @@ def parse_recommendations_from_report(content: str) -> list[PastRecommendation]:
 def update_memory_from_report(
     content: str,
     learning_focus: str | None = None,
+    memory_file: Path | None = None,
 ) -> LongTermMemory | None:
     """Update long-term memory based on Claude Code analysis output.
+
+    This function ALWAYS updates memory (not just when learning_focus is provided).
 
     Args:
         content: Markdown content from Claude Code
         learning_focus: Optional learning focus from --learn flag
+        memory_file: Optional path to memory file (uses MEMORY_FILE if not provided)
 
     Returns:
-        Updated LongTermMemory object, or None if no updates
+        Updated LongTermMemory object
     """
-    from oss_navi.utils.cache import read_json, write_json
+    file_path = memory_file or MEMORY_FILE
 
     # Load existing memory or create new
-    memory_data = read_json(MEMORY_FILE)
-    if memory_data:
-        memory = LongTermMemory(**memory_data)
-    else:
-        memory = LongTermMemory()
+    memory = load_or_create_memory(file_path)
 
+    now = datetime.now(UTC)
     updated = False
 
     # Parse and add memory update
@@ -341,17 +427,14 @@ def update_memory_from_report(
             memory.past_recommendations.append(rec)
             updated = True
 
-    # Add learning focus if provided
+    # Add learning focus if provided (ALWAYS, not just with --learn)
     if learning_focus and learning_focus not in memory.learning_goals:
         memory.learning_goals.append(learning_focus)
         updated = True
 
     # Add skill snapshot (once per day max)
-    now = datetime.now(UTC)
     today = now.date()
     if not any(s.date.date() == today for s in memory.skill_history):
-        # Extract skills from the content if possible
-        # This is a simple heuristic - could be enhanced
         snapshot = SkillSnapshot(
             date=now,
             focus_areas=[learning_focus] if learning_focus else [],
@@ -359,12 +442,51 @@ def update_memory_from_report(
         memory.skill_history.append(snapshot)
         updated = True
 
+    # Always update these fields
+    memory.last_analysis_date = now
+    memory.analysis_count += 1
+    updated = True
+
     if updated:
         memory.updated_at = now
-        write_json(MEMORY_FILE, memory.model_dump())
+        write_json(file_path, memory.model_dump())
         return memory
 
     return None
+
+
+def update_memory_from_report_with_profile(
+    content: str,
+    profile: dict,
+    learning_focus: str | None = None,
+    memory_file: Path | None = None,
+) -> LongTermMemory | None:
+    """Update memory including GitHub profile summary.
+
+    Args:
+        content: Markdown content from Claude Code
+        profile: User's GitHub profile data
+        learning_focus: Optional learning focus
+        memory_file: Optional path to memory file
+
+    Returns:
+        Updated LongTermMemory object
+    """
+    file_path = memory_file or MEMORY_FILE
+    memory = update_memory_from_report(content, learning_focus, file_path)
+
+    if memory and profile:
+        # Create/update GitHub profile summary
+        memory.github_profile = GitHubProfileSummary(
+            username=profile.get("username", ""),
+            primary_languages=profile.get("languages", {}),
+            total_repos=profile.get("public_repos", 0),
+            last_fetched=datetime.now(UTC),
+        )
+        memory.updated_at = datetime.now(UTC)
+        write_json(file_path, memory.model_dump())
+
+    return memory
 
 
 def run_analysis(
