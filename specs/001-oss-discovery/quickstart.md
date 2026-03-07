@@ -96,24 +96,51 @@ oss-navi sync
 ### Step 3: Run Analysis (30-60 seconds)
 
 ```bash
-# Generate personalized recommendations
+# Generate personalized recommendations (interactive mode)
 oss-navi analysis
 
-# Or focus on a specific technology you're learning
-oss-navi analysis --learn rust
+# Or specify options directly
+oss-navi analysis --learn python --explore -n 5
+
+# Non-interactive mode for automation
+oss-navi analysis --no-interactive --learn rust
 ```
 
 **Expected output**:
 ```
 ✓ Analyzing profile... (12 languages, 245 repos)
 ✓ Filtering tasks... (47 matches from 359 total)
-✓ Generating recommendations via Claude Code...
-✓ Report saved: ~/.oss-navi/temp/current_report.md
 
-Top Recommendations:
-  1. rust-lang/rust - The Rust programming language
-  2. tokio-rs/tokio - Async runtime for Rust
+📚 Suggested fields to explore:
+  1. web development
+  2. data science
+  3. automation
+
+⭐ Great projects for learning:
+  - python/cpython (60,000 stars)
+    Highly popular with strong community.
+  - pallets/flask (65,000 stars)
+    Active community project.
+
+✓ Generating 7 recommendations...
+
+🎯 Top Recommendations:
+  1. Fix authentication bug in web framework...
+     Rating: 8.5/10 - matches your Python expertise.
+  2. Add CLI feature for data processing...
+     Rating: 7.8/10 - aligns with your learning goal.
+
+✓ Report saved: ~/.oss-navi/temp/current_report.md
 ```
+
+**Analysis Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--learn <tech>` | Focus recommendations on a technology |
+| `--explore` | Show adjacent field suggestions |
+| `-n, --recommendations <N>` | Number of recommendations (5-10) |
+| `--no-interactive` | Skip interactive prompts |
 
 ### Step 4: View Your Report
 
@@ -140,6 +167,19 @@ oss-navi analysis
 ```bash
 # Focus recommendations on your learning goal
 oss-navi analysis --learn python
+
+# Get field exploration suggestions
+oss-navi analysis --learn python --explore
+
+# Specify number of recommendations
+oss-navi analysis --learn python -n 10
+```
+
+### Quick Non-Interactive Analysis
+
+```bash
+# For CI/CD or automation scripts
+oss-navi analysis --no-interactive --learn rust -n 5
 ```
 
 ### Share Your Journey

@@ -9,10 +9,14 @@ OSS-Navi analyzes your GitHub profile, scrapes beginner-friendly issues from mul
 - **Profile Analysis**: Fetch and analyze your GitHub profile (commits, languages, activity)
 - **Task Discovery**: Scrape open source tasks from Up For Grabs and Good First Issues
 - **Smart Filtering**: Filter tasks by stars, recency, and compute a "hotness" score
+- **Enhanced Recommendations**: Get 5-10 scored recommendations with detailed ratings
+- **Issue Status Checking**: Verify recommended issues are still available (not assigned/closed)
+- **Great Projects Discovery**: Find high-quality projects for learning (not just beginner-friendly)
+- **Interactive Prompts**: Get suggestions for adjacent fields to explore
 - **Learning Focus**: Specify what you're currently learning with `--learn` flag
 - **AI Recommendations**: Generate personalized recommendations with Claude Code
 - **Report Archiving**: Archive and optionally publish reports to your blog
-- **Proxy Support**: Configure HTTP/HTTPS proxy for corporate firewalls
+- **Proxy Support**: Configure HTTP/HTTPS/SOCKS proxy for corporate firewalls
 
 ## Requirements
 
@@ -46,11 +50,14 @@ oss-navi config --github-token ghp_your_token_here
 # Sync your profile and available tasks
 oss-navi sync
 
-# Generate personalized recommendations
+# Generate personalized recommendations (interactive)
 oss-navi analysis
 
-# Focus on learning a specific technology
-oss-navi analysis --learn rust
+# Or specify options directly
+oss-navi analysis --learn python --explore -n 5
+
+# Non-interactive mode for automation
+oss-navi analysis --no-interactive --learn rust
 ```
 
 ## Commands
@@ -92,23 +99,63 @@ oss-navi sync --dry-run    # Preview without fetching
 
 ### `oss-navi analysis`
 
-Generate personalized project recommendations:
+Generate personalized project recommendations with enhanced features:
 
 ```bash
-oss-navi analysis                    # Generate recommendations
-oss-navi analysis --learn python     # Focus on a technology
-oss-navi analysis --output report.md # Save to custom location
-oss-navi analysis --no-cache         # Require fresh data
-oss-navi analysis --open             # Open report after generation
+oss-navi analysis                         # Generate recommendations (interactive)
+oss-navi analysis --learn python          # Focus on a technology
+oss-navi analysis -n 5                    # Get 5 recommendations (default: 7)
+oss-navi analysis --explore               # Show field exploration suggestions
+oss-navi analysis --no-interactive        # Skip interactive prompts
+oss-navi analysis --output report.md      # Save to custom location
+oss-navi analysis --no-cache              # Require fresh data
+oss-navi analysis --open                  # Open report after generation
 ```
 
-**Expected Output:**
+**Enhanced Analysis Output:**
 ```
 ✓ Analyzing profile... (12 languages, 245 repos)
 ✓ Filtering tasks... (47 matches from 359 total)
-✓ Generating recommendations via Claude Code...
+
+📚 Suggested fields to explore:
+  1. web development
+  2. data science
+  3. automation
+
+⭐ Great projects for learning:
+  - python/cpython (60,000 stars)
+    Highly popular with strong community.
+  - pallets/flask (65,000 stars)
+    Active community project.
+
+✓ Generating 7 recommendations...
+
+🎯 Top Recommendations:
+  1. Fix authentication bug in web framework...
+     Rating: 8.5/10 - matches your Python expertise and is beginner-friendly.
+  2. Add CLI feature for data processing...
+     Rating: 7.8/10 - aligns with your learning goal of Python.
+
 ✓ Report saved: ~/.oss-navi/temp/current_report.md
 ```
+
+**Recommendation Scoring (6 factors):**
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Language Match | 30% | How well it matches your known languages |
+| Hotness Score | 20% | Popularity vs. issue age |
+| Issue Availability | 15% | Is the issue unassigned and open? |
+| Learning Alignment | 15% | Does it match your learning focus? |
+| Skill Level Fit | 10% | Is it appropriate for your level? |
+| Topic Relevance | 10% | Do topics align with your interests? |
+
+**Issue Status Checking:**
+
+Before recommending, OSS-Navi checks if issues are:
+- ✅ Available (unassigned, open, no linked PR)
+- ⚠️ Partially available (has "in progress" labels)
+- ❌ Unavailable (assigned, closed, or has PR)
 
 ### `oss-navi publish`
 
@@ -144,10 +191,11 @@ All data is stored under `~/.oss-navi/`:
 │   └── metadata.json
 ├── state/              # Persistent data
 │   ├── config.json
-│   ├── memory.json
+│   ├── memory.json     # Long-term learning goals & past recommendations
 │   └── reports/
 └── temp/
-    └── current_report.md
+    ├── current_report.md
+    └── great_projects_cache.json  # Cached great projects (24h TTL)
 ```
 
 ## Task Sources
@@ -196,6 +244,8 @@ OSS_NAVI_VERIFY_SSL=false oss-navi sync --force
 | `No cached data` | Run `oss-navi sync` |
 | `Claude Code not found` | Install from https://claude.ai/code |
 | `Rate limit exceeded` | Wait 1 hour or use cached data |
+| `No matching tasks found` | Lower `--min-stars` or increase `--max-age` |
+| `All issues unavailable` | Issues may be assigned; wait for new tasks or try `--learn` for different projects |
 
 ## Development
 
