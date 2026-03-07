@@ -25,20 +25,20 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T041 [P] Create `tests/unit/test_models/test_issue_status.py` with IssueStatus model tests
-- [ ] T042 [P] Create `tests/unit/test_models/test_recommendation.py` with Recommendation and RatingBreakdown model tests
-- [ ] T043 [P] Create `tests/unit/test_models/test_great_project.py` with GreatProject model tests
-- [ ] T044 [P] Create `tests/unit/test_models/test_learning_session.py` with LearningSession model tests
-- [ ] T045 Verify model tests fail (models not yet implemented)
+- [x] T041 [P] Create `tests/unit/test_models/test_issue_status.py` with IssueStatus model tests
+- [x] T042 [P] Create `tests/unit/test_models/test_recommendation.py` with Recommendation and RatingBreakdown model tests
+- [x] T043 [P] Create `tests/unit/test_models/test_great_project.py` with GreatProject model tests
+- [x] T044 [P] Create `tests/unit/test_models/test_learning_session.py` with LearningSession model tests
+- [x] T045 Verify model tests fail (models not yet implemented)
 
 ### Implementation for Models
 
-- [ ] T046 [P] Add `IssueStatus` model to `src/oss_navi/models/task.py`
-- [ ] T047 [P] Add `Recommendation` and `RatingBreakdown` models to `src/oss_navi/models/task.py`
-- [ ] T048 [P] Add `GreatProject` model to `src/oss_navi/models/task.py`
-- [ ] T049 [P] Add `LearningSession` model to `src/oss_navi/models/task.py`
-- [ ] T050 Update `LongTermMemory` model with `great_projects_discovered` and `field_exploration_history` in `src/oss_navi/utils/memory.py`
-- [ ] T051 Verify model tests pass
+- [x] T046 [P] Add `IssueStatus` model to `src/oss_navi/models/task.py`
+- [x] T047 [P] Add `Recommendation` and `RatingBreakdown` models to `src/oss_navi/models/task.py`
+- [x] T048 [P] Add `GreatProject` model to `src/oss_navi/models/task.py`
+- [x] T049 [P] Add `LearningSession` model to `src/oss_navi/models/task.py`
+- [x] T050 Update `LongTermMemory` model with `great_projects_discovered` and `field_exploration_history` in `src/oss_navi/models/memory.py`
+- [x] T051 Verify model tests pass
 
 **Checkpoint**: All new models should be validated and tested
 

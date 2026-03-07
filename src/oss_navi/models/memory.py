@@ -22,18 +22,38 @@ class PastRecommendation(BaseModel):
     project: str  # Format: owner/repo
     issue_url: str
     reason: Optional[str] = None
+    rating: Optional[float] = Field(default=None, ge=1.0, le=10.0)
     status: Optional[str] = None  # "viewed", "attempted", "completed"
+
+
+class GreatProjectSummary(BaseModel):
+    """Brief record of a great project shown to user."""
+
+    name: str
+    shown_at: datetime
+    reason: str
+
+
+class FieldExploration(BaseModel):
+    """Record of field exploration advice given."""
+
+    date: datetime
+    current_interest: str
+    suggested_fields: list[str] = Field(default_factory=list)
+    rationale: str
 
 
 class LongTermMemory(BaseModel):
     """Accumulated insights about the user's OSS journey."""
 
-    version: int = Field(default=1, ge=1)
+    version: int = Field(default=2, ge=1)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     skill_history: list[SkillSnapshot] = Field(default_factory=list)
     past_recommendations: list[PastRecommendation] = Field(default_factory=list)
     learning_goals: list[str] = Field(default_factory=list)
+    great_projects_discovered: list[GreatProjectSummary] = Field(default_factory=list)
+    field_exploration_history: list[FieldExploration] = Field(default_factory=list)
 
     def add_skill_snapshot(self, snapshot: SkillSnapshot) -> None:
         """Add a new skill snapshot to history."""
@@ -50,3 +70,13 @@ class LongTermMemory(BaseModel):
         if goal and goal not in self.learning_goals:
             self.learning_goals.append(goal)
             self.updated_at = datetime.now()
+
+    def add_great_project(self, summary: GreatProjectSummary) -> None:
+        """Add a great project to discovered history."""
+        self.great_projects_discovered.append(summary)
+        self.updated_at = datetime.now()
+
+    def add_field_exploration(self, exploration: FieldExploration) -> None:
+        """Add field exploration advice to history."""
+        self.field_exploration_history.append(exploration)
+        self.updated_at = datetime.now()
