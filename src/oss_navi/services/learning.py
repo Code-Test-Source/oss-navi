@@ -1,6 +1,7 @@
 """Learning service for csdiy.wiki, LeetCode, and Codeforces integration."""
 
 import asyncio
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -16,6 +17,7 @@ from oss_navi.models.learning import (
 from oss_navi.models.preferences import SkillLevel
 from oss_navi.utils.cache import read_json, write_json
 from oss_navi.utils.paths import CACHE_DIR
+from oss_navi.utils.scraping import Scraper, ScrapingConfig
 
 if TYPE_CHECKING:
     from oss_navi.models.preferences import UserPreferences
@@ -29,6 +31,34 @@ CODEFORCES_CACHE = CACHE_DIR / "codeforces.json"
 GITHUB_RATE_LIMIT = 1.0
 LEETCODE_RATE_LIMIT = 2.0
 CODEFORCES_RATE_LIMIT = 0.2  # 5 requests per second
+
+# Data source URLs
+CSDIY_SITEMAP_URL = "https://csdiy.wiki/sitemap.xml"
+LEETCODE_API_URL = "https://leetcode.com/api/problems/algorithms/"
+CODEFORCES_API_URL = "https://codeforces.com/api/problemset.problems"
+
+
+def _parse_difficulty(diff_str: str | None) -> Difficulty:
+    """Parse difficulty string to Difficulty enum."""
+    if not diff_str:
+        return Difficulty.INTERMEDIATE
+    diff_lower = diff_str.lower()
+    if diff_lower in ("easy", "beginner", "basic"):
+        return Difficulty.BEGINNER
+    if diff_lower in ("hard", "advanced", "expert"):
+        return Difficulty.ADVANCED
+    return Difficulty.INTERMEDIATE
+
+
+def _parse_codeforces_rating(rating: int | None) -> Difficulty:
+    """Parse Codeforces rating to Difficulty enum."""
+    if rating is None:
+        return Difficulty.INTERMEDIATE
+    if rating <= 1200:
+        return Difficulty.BEGINNER
+    if rating >= 1800:
+        return Difficulty.ADVANCED
+    return Difficulty.INTERMEDIATE
 
 
 class LearningService:
@@ -46,6 +76,7 @@ class LearningService:
         """
         self.cache_dir = cache_dir or CACHE_DIR
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self._scraper = Scraper(ScrapingConfig(rate_limit=GITHUB_RATE_LIMIT))
 
     # ========== csdiy.wiki ==========
 
@@ -66,45 +97,151 @@ class LearningService:
         courses = self._scrape_csdiy()
 
         # Cache the results
-        write_json(CSDIY_CACHE, [c.model_dump(mode="json") for c in courses])
+        if courses:
+            write_json(CSDIY_CACHE, [c.model_dump(mode="json") for c in courses])
 
         return courses
 
     def _scrape_csdiy(self) -> list[Course]:
         """Scrape csdiy.wiki for course data.
 
-        Uses rate-limited requests with user agent rotation.
+        Parses the sitemap to find course pages.
         """
-        import uuid
+        courses: list[Course] = []
 
-        # For now, return sample courses
-        # Full implementation would scrape https://csdiy.wiki/
-        sample_courses = [
+        try:
+            # Fetch the sitemap
+            content = self._scraper.fetch_text(CSDIY_SITEMAP_URL)
+            if not content:
+                return self._get_fallback_csdiy_courses()
+
+            # Parse the sitemap to extract course URLs
+            courses = self._parse_csdiy_sitemap(content)
+
+            if not courses:
+                return self._get_fallback_csdiy_courses()
+
+            return courses
+
+        except Exception:
+            return self._get_fallback_csdiy_courses()
+
+    def _parse_csdiy_sitemap(self, content: str) -> list[Course]:
+        """Parse csdiy sitemap XML to extract courses."""
+        courses: list[Course] = []
+
+        # Extract URLs from sitemap
+        urls = re.findall(r'<loc>([^<]+)</loc>', content)
+
+        # Topic categories in Chinese to English mapping
+        topic_mapping = {
+            "编程入门": "programming",
+            "数据结构与算法": "algorithms",
+            "体系结构": "computer-architecture",
+            "操作系统": "operating-systems",
+            "计算机网络": "networking",
+            "数据库": "databases",
+            "分布式系统": "distributed-systems",
+            "人工智能": "artificial-intelligence",
+            "机器学习": "machine-learning",
+            "深度学习": "deep-learning",
+            "计算机视觉": "computer-vision",
+            "自然语言处理": "natural-language-processing",
+            "Web开发": "web-development",
+            "编译原理": "compilers",
+            "密码学": "cryptography",
+            "安全": "security",
+            "数学基础": "mathematics",
+            "并行与分布式系统": "parallel-computing",
+            "必学工具": "tools",
+        }
+
+        for i, url in enumerate(urls[1:], start=1):  # Skip the first URL (homepage)
+            # Parse the URL to extract topic and course name
+            # Format: https://csdiy.wiki/Category/CourseName/
+            parts = url.rstrip("/").split("/")[-2:]
+            if len(parts) >= 2:
+                category_encoded, course_encoded = parts
+            else:
+                continue
+
+            # URL decode
+            from urllib.parse import unquote
+            category = unquote(category_encoded)
+            course_name = unquote(course_encoded)
+
+            # Skip non-course pages (home, guides, etc.)
+            skip_categories = ["CS学习规划", "使用指南", "后记", "好书推荐", ""]
+            skip_course_names = ["CS学习规划", "使用指南", "后记", "好书推荐"]
+            if category in skip_categories or course_name in skip_course_names:
+                continue
+
+            # Skip category pages (where course_name matches category)
+            if course_name == category or not course_encoded:
+                continue
+
+            # Determine topic
+            topics: list[str] = []
+            for cn_topic, en_topic in topic_mapping.items():
+                if cn_topic in category:
+                    topics.append(en_topic)
+
+            # Determine difficulty from course name
+            difficulty = Difficulty.INTERMEDIATE
+            course_lower = course_name.lower()
+            if any(word in course_lower for word in ["intro", "beginner", "basic", "50", "61a", "61b"]):
+                difficulty = Difficulty.BEGINNER
+            elif any(word in course_lower for word in ["advanced", "graduate", "6.8", "6.9", "149", "186"]):
+                difficulty = Difficulty.ADVANCED
+
+            # Clean up course name
+            course_name = course_name.replace("-", " ").replace("_", " ")
+            if not course_name:
+                continue
+
+            course = Course(
+                resource_id=f"csdiy-{i:03d}",
+                title=course_name,
+                url=url,
+                source="csdiy",
+                topics=topics or ["general"],
+                difficulty=difficulty,
+                institution="",  # Will be filled when parsing individual pages
+                course_code=course_encoded,
+                prerequisites=[],
+            )
+            courses.append(course)
+
+        return courses[:200]  # Limit to 200 courses
+
+    def _get_fallback_csdiy_courses(self) -> list[Course]:
+        """Return fallback courses if scraping fails."""
+        return [
             Course(
-                resource_id=str(uuid.uuid4())[:8],
-                title="MIT 6.006 - Introduction to Algorithms",
+                resource_id="csdiy-001",
+                title="MIT 6.006: Introduction to Algorithms",
                 url="https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/",
                 source="csdiy",
                 topics=["algorithms", "data-structures"],
-                difficulty=Difficulty.INTERMEDIATE,
+                difficulty=Difficulty.BEGINNER,
                 institution="MIT",
                 course_code="6.006",
                 prerequisites=[],
             ),
             Course(
-                resource_id=str(uuid.uuid4())[:8],
-                title="MIT 6.824 - Distributed Systems",
+                resource_id="csdiy-002",
+                title="MIT 6.824: Distributed Systems",
                 url="https://pdos.csail.mit.edu/6.824/",
                 source="csdiy",
-                topics=["distributed-systems", "concurrency"],
+                topics=["distributed-systems", "systems"],
                 difficulty=Difficulty.ADVANCED,
                 institution="MIT",
                 course_code="6.824",
-                prerequisites=["6.006"],
+                prerequisites=[],
             ),
             Course(
-                resource_id=str(uuid.uuid4())[:8],
-                title="CS61A - Structure and Interpretation of Computer Programs",
+                resource_id="csdiy-003",
+                title="CS61A: Structure and Interpretation of Computer Programs",
                 url="https://cs61a.org/",
                 source="csdiy",
                 topics=["programming", "functional-programming"],
@@ -113,15 +250,34 @@ class LearningService:
                 course_code="CS61A",
                 prerequisites=[],
             ),
+            Course(
+                resource_id="csdiy-004",
+                title="CS61B: Data Structures",
+                url="https://sp24.datastructur.es/",
+                source="csdiy",
+                topics=["data-structures", "algorithms"],
+                difficulty=Difficulty.BEGINNER,
+                institution="UC Berkeley",
+                course_code="CS61B",
+                prerequisites=["CS61A"],
+            ),
+            Course(
+                resource_id="csdiy-005",
+                title="MIT 6.S081: Operating System Engineering",
+                url="https://pdos.csail.mit.edu/6.S081/2021/",
+                source="csdiy",
+                topics=["operating-systems", "systems"],
+                difficulty=Difficulty.ADVANCED,
+                institution="MIT",
+                course_code="6.S081",
+                prerequisites=["6.006"],
+            ),
         ]
-        return sample_courses
 
     # ========== LeetCode ==========
 
     def load_leetcode_problems(self, force: bool = False) -> list[PracticeProblem]:
-        """Load LeetCode problems from cache or third-party dataset.
-
-        Primary source: https://github.com/neenza/leetcode-problems
+        """Load LeetCode problems from cache or LeetCode API.
 
         Args:
             force: Force re-fetch even if cached
@@ -133,26 +289,95 @@ class LearningService:
         if cached and not force:
             return [PracticeProblem(**p) for p in cached]
 
-        # Load from third-party dataset
-        problems = self._load_leetcode_from_dataset()
+        # Load from LeetCode API
+        problems = self._load_leetcode_from_api()
 
         # Cache the results
-        write_json(LEETCODE_CACHE, [p.model_dump(mode="json") for p in problems])
+        if problems:
+            write_json(LEETCODE_CACHE, [p.model_dump(mode="json") for p in problems])
 
         return problems
 
-    def _load_leetcode_from_dataset(self) -> list[PracticeProblem]:
-        """Load LeetCode problems from neenza/leetcode-problems dataset.
+    def _load_leetcode_from_api(self) -> list[PracticeProblem]:
+        """Load LeetCode problems from the LeetCode API."""
+        problems: list[PracticeProblem] = []
 
-        This uses a GitHub-hosted dataset, not the LeetCode API.
-        """
-        import uuid
+        try:
+            # Fetch from LeetCode API
+            data = self._scraper.fetch_json(LEETCODE_API_URL)
 
-        # For now, return sample problems
-        # Full implementation would load from https://github.com/neenza/leetcode-problems
-        sample_problems = [
+            if not data:
+                return self._get_fallback_leetcode_problems()
+
+            # Parse the API response
+            stat_status_pairs = data.get("stat_status_pairs", [])
+
+            for i, item in enumerate(stat_status_pairs[:500]):  # Limit to 500 problems
+                problem = self._parse_leetcode_api_item(item, i)
+                if problem:
+                    problems.append(problem)
+
+            if not problems:
+                return self._get_fallback_leetcode_problems()
+
+            return problems
+
+        except Exception:
+            return self._get_fallback_leetcode_problems()
+
+    def _parse_leetcode_api_item(self, item: dict, index: int) -> PracticeProblem | None:
+        """Parse a LeetCode problem item from the API response."""
+        try:
+            stat = item.get("stat", {})
+            title = stat.get("question__title", "")
+            title_slug = stat.get("question__title_slug", "")
+
+            if not title or not title_slug:
+                return None
+
+            # Parse difficulty
+            difficulty_level = item.get("difficulty", {}).get("level", 2)
+            if difficulty_level == 1:
+                difficulty = Difficulty.BEGINNER
+            elif difficulty_level == 3:
+                difficulty = Difficulty.ADVANCED
+            else:
+                difficulty = Difficulty.INTERMEDIATE
+
+            # Parse acceptance rate
+            total_acs = stat.get("total_acs", 0)
+            total_submitted = stat.get("total_submitted", 1)
+            acceptance_rate = total_acs / total_submitted if total_submitted > 0 else 0.0
+
+            # Parse tags
+            tags = item.get("tags", [])
+            topics: list[str] = []
+            for tag in tags:
+                if isinstance(tag, dict):
+                    tag_name = tag.get("name", "")
+                    if tag_name:
+                        topics.append(tag_name.lower().replace(" ", "-"))
+                elif isinstance(tag, str):
+                    topics.append(tag.lower().replace(" ", "-"))
+
+            return PracticeProblem(
+                resource_id=f"lc-{index:04d}",
+                title=title,
+                url=f"https://leetcode.com/problems/{title_slug}/",
+                source="leetcode",
+                topics=topics or ["general"],
+                difficulty=difficulty,
+                problem_id=title_slug,
+                acceptance_rate=round(acceptance_rate, 2),
+            )
+        except Exception:
+            return None
+
+    def _get_fallback_leetcode_problems(self) -> list[PracticeProblem]:
+        """Return fallback LeetCode problems if dataset fails."""
+        return [
             PracticeProblem(
-                resource_id=str(uuid.uuid4())[:8],
+                resource_id="lc-0001",
                 title="Two Sum",
                 url="https://leetcode.com/problems/two-sum/",
                 source="leetcode",
@@ -162,7 +387,7 @@ class LearningService:
                 acceptance_rate=0.49,
             ),
             PracticeProblem(
-                resource_id=str(uuid.uuid4())[:8],
+                resource_id="lc-0002",
                 title="Add Two Numbers",
                 url="https://leetcode.com/problems/add-two-numbers/",
                 source="leetcode",
@@ -172,7 +397,17 @@ class LearningService:
                 acceptance_rate=0.40,
             ),
             PracticeProblem(
-                resource_id=str(uuid.uuid4())[:8],
+                resource_id="lc-0003",
+                title="Longest Substring Without Repeating Characters",
+                url="https://leetcode.com/problems/longest-substring-without-repeating-characters/",
+                source="leetcode",
+                topics=["hash-table", "string", "sliding-window"],
+                difficulty=Difficulty.INTERMEDIATE,
+                problem_id="longest-substring-without-repeating-characters",
+                acceptance_rate=0.33,
+            ),
+            PracticeProblem(
+                resource_id="lc-0004",
                 title="Median of Two Sorted Arrays",
                 url="https://leetcode.com/problems/median-of-two-sorted-arrays/",
                 source="leetcode",
@@ -181,17 +416,72 @@ class LearningService:
                 problem_id="median-of-two-sorted-arrays",
                 acceptance_rate=0.35,
             ),
+            PracticeProblem(
+                resource_id="lc-0005",
+                title="Valid Parentheses",
+                url="https://leetcode.com/problems/valid-parentheses/",
+                source="leetcode",
+                topics=["string", "stack"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="valid-parentheses",
+                acceptance_rate=0.40,
+            ),
+            PracticeProblem(
+                resource_id="lc-0006",
+                title="Merge Two Sorted Lists",
+                url="https://leetcode.com/problems/merge-two-sorted-lists/",
+                source="leetcode",
+                topics=["linked-list", "recursion"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="merge-two-sorted-lists",
+                acceptance_rate=0.61,
+            ),
+            PracticeProblem(
+                resource_id="lc-0007",
+                title="Best Time to Buy and Sell Stock",
+                url="https://leetcode.com/problems/best-time-to-buy-and-sell-stock/",
+                source="leetcode",
+                topics=["array", "dynamic-programming"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="best-time-to-buy-and-sell-stock",
+                acceptance_rate=0.53,
+            ),
+            PracticeProblem(
+                resource_id="lc-0008",
+                title="Binary Search",
+                url="https://leetcode.com/problems/binary-search/",
+                source="leetcode",
+                topics=["array", "binary-search"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="binary-search",
+                acceptance_rate=0.56,
+            ),
+            PracticeProblem(
+                resource_id="lc-0009",
+                title="Maximum Subarray",
+                url="https://leetcode.com/problems/maximum-subarray/",
+                source="leetcode",
+                topics=["array", "divide-and-conquer", "dynamic-programming"],
+                difficulty=Difficulty.INTERMEDIATE,
+                problem_id="maximum-subarray",
+                acceptance_rate=0.49,
+            ),
+            PracticeProblem(
+                resource_id="lc-0010",
+                title="Binary Tree Level Order Traversal",
+                url="https://leetcode.com/problems/binary-tree-level-order-traversal/",
+                source="leetcode",
+                topics=["tree", "breadth-first-search", "binary-tree"],
+                difficulty=Difficulty.INTERMEDIATE,
+                problem_id="binary-tree-level-order-traversal",
+                acceptance_rate=0.63,
+            ),
         ]
-        return sample_problems
 
     # ========== Codeforces ==========
 
     def load_codeforces_problems(self, force: bool = False) -> list[PracticeProblem]:
-        """Load Codeforces problems from cache or third-party dataset.
-
-        Primary sources:
-        - Kaggle: lborgav/codeforces-problems
-        - HuggingFace: DenCT/codeforces-problems-7k
+        """Load Codeforces problems from cache or Codeforces API.
 
         Args:
             force: Force re-fetch even if cached
@@ -203,22 +493,85 @@ class LearningService:
         if cached and not force:
             return [PracticeProblem(**p) for p in cached]
 
-        # Load from third-party dataset
-        problems = self._load_codeforces_from_dataset()
+        # Load from Codeforces API
+        problems = self._load_codeforces_from_api()
 
         # Cache the results
-        write_json(CODEFORCES_CACHE, [p.model_dump(mode="json") for p in problems])
+        if problems:
+            write_json(CODEFORCES_CACHE, [p.model_dump(mode="json") for p in problems])
 
         return problems
 
-    def _load_codeforces_from_dataset(self) -> list[PracticeProblem]:
-        """Load Codeforces problems from Kaggle/HuggingFace dataset."""
-        import uuid
+    def _load_codeforces_from_api(self) -> list[PracticeProblem]:
+        """Load Codeforces problems from the Codeforces API."""
+        problems: list[PracticeProblem] = []
 
-        # For now, return sample problems
-        sample_problems = [
+        try:
+            # Use a scraper with lower rate limit for Codeforces API
+            scraper = Scraper(ScrapingConfig(rate_limit=CODEFORCES_RATE_LIMIT))
+            data = scraper.fetch_json(CODEFORCES_API_URL)
+
+            if not data or data.get("status") != "OK":
+                return self._get_fallback_codeforces_problems()
+
+            result = data.get("result", {})
+            problem_list = result.get("problems", [])
+
+            for i, prob in enumerate(problem_list[:500]):  # Limit to 500 problems
+                problem = self._parse_codeforces_item(prob, i)
+                if problem:
+                    problems.append(problem)
+
+            if not problems:
+                return self._get_fallback_codeforces_problems()
+
+            return problems
+
+        except Exception:
+            return self._get_fallback_codeforces_problems()
+
+    def _parse_codeforces_item(self, item: dict, index: int) -> PracticeProblem | None:
+        """Parse a Codeforces problem item from the API."""
+        try:
+            contest_id = item.get("contestId")
+            index_letter = item.get("index", "")
+            name = item.get("name", "")
+
+            if not contest_id or not name:
+                return None
+
+            problem_id = f"{contest_id}{index_letter}"
+            url = f"https://codeforces.com/problemset/problem/{contest_id}/{index_letter}"
+
+            # Parse rating to difficulty
+            rating = item.get("rating")
+            difficulty = _parse_codeforces_rating(rating)
+
+            # Parse tags
+            tags = item.get("tags", [])
+            topics: list[str] = []
+            for tag in tags:
+                if isinstance(tag, str):
+                    topics.append(tag.lower().replace(" ", "-"))
+
+            return PracticeProblem(
+                resource_id=f"cf-{index:04d}",
+                title=name,
+                url=url,
+                source="codeforces",
+                topics=topics or ["general"],
+                difficulty=difficulty,
+                problem_id=problem_id,
+                rating=rating,
+            )
+        except Exception:
+            return None
+
+    def _get_fallback_codeforces_problems(self) -> list[PracticeProblem]:
+        """Return fallback Codeforces problems if API fails."""
+        return [
             PracticeProblem(
-                resource_id=str(uuid.uuid4())[:8],
+                resource_id="cf-0001",
                 title="Watermelon",
                 url="https://codeforces.com/problemset/problem/4/A",
                 source="codeforces",
@@ -228,7 +581,7 @@ class LearningService:
                 rating=800,
             ),
             PracticeProblem(
-                resource_id=str(uuid.uuid4())[:8],
+                resource_id="cf-0002",
                 title="Way Too Long Words",
                 url="https://codeforces.com/problemset/problem/71/A",
                 source="codeforces",
@@ -238,7 +591,7 @@ class LearningService:
                 rating=800,
             ),
             PracticeProblem(
-                resource_id=str(uuid.uuid4())[:8],
+                resource_id="cf-0003",
                 title="Team",
                 url="https://codeforces.com/problemset/problem/231/A",
                 source="codeforces",
@@ -247,8 +600,77 @@ class LearningService:
                 problem_id="231A",
                 rating=800,
             ),
+            PracticeProblem(
+                resource_id="cf-0004",
+                title="Next Round",
+                url="https://codeforces.com/problemset/problem/158/A",
+                source="codeforces",
+                topics=["implementation"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="158A",
+                rating=800,
+            ),
+            PracticeProblem(
+                resource_id="cf-0005",
+                title="String Task",
+                url="https://codeforces.com/problemset/problem/118/A",
+                source="codeforces",
+                topics=["strings"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="118A",
+                rating=1000,
+            ),
+            PracticeProblem(
+                resource_id="cf-0006",
+                title="Bit++",
+                url="https://codeforces.com/problemset/problem/282/A",
+                source="codeforces",
+                topics=["implementation"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="282A",
+                rating=800,
+            ),
+            PracticeProblem(
+                resource_id="cf-0007",
+                title="Beautiful Matrix",
+                url="https://codeforces.com/problemset/problem/263/A",
+                source="codeforces",
+                topics=["implementation"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="263A",
+                rating=800,
+            ),
+            PracticeProblem(
+                resource_id="cf-0008",
+                title="Petya and Strings",
+                url="https://codeforces.com/problemset/problem/112/A",
+                source="codeforces",
+                topics=["strings"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="112A",
+                rating=800,
+            ),
+            PracticeProblem(
+                resource_id="cf-0009",
+                title="Soldier and Bananas",
+                url="https://codeforces.com/problemset/problem/546/A",
+                source="codeforces",
+                topics=["math"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="546A",
+                rating=800,
+            ),
+            PracticeProblem(
+                resource_id="cf-0010",
+                title="Nearly Lucky Number",
+                url="https://codeforces.com/problemset/problem/110/A",
+                source="codeforces",
+                topics=["implementation"],
+                difficulty=Difficulty.BEGINNER,
+                problem_id="110A",
+                rating=800,
+            ),
         ]
-        return sample_problems
 
     # ========== Automatic Learning Resource Matching ==========
 
