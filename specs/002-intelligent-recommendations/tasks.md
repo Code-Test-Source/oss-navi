@@ -18,7 +18,24 @@
 | US5 (P3) | 5 | 2 | Detailed code analysis |
 | Polish | 4 | 2 | Documentation, final verification |
 
-**Total**: 56 tasks
+**Total**: 72 tasks (including data source tasks)
+
+---
+
+## Data Source Strategy
+
+**Primary Sources** (no rate limits):
+- LeetCode: https://github.com/neenza/leetcode-problems
+- Codeforces: Kaggle (lborgav/codeforces-problems) or HuggingFace (DenCT/codeforces-problems-7k)
+- GitHub Archive: https://www.gharchive.org/
+- csdiy.wiki: Single page scrape
+
+**API Usage** (verification only):
+- GitHub: 1 request/second
+- LeetCode: 1 request/2 seconds
+- Codeforces: 5 requests/second
+
+**Principle**: Use third-party datasets for bulk data, API calls only for verifying specific recommendations.
 
 ---
 
@@ -164,11 +181,12 @@
 - [ ] T052 [P] [US4] Create Course model (csdiy.wiki) in src/oss_navi/models/learning.py
 - [ ] T053 [P] [US4] Create PracticeProblem model (LeetCode/Codeforces) in src/oss_navi/models/learning.py
 
-#### Learning Service
+#### Learning Service (Third-Party Datasets)
 
-- [ ] T054 [US4] Implement LearningService with csdiy.wiki scraper in src/oss_navi/services/learning.py
-- [ ] T055 [US4] Implement LeetCode API client in src/oss_navi/services/learning.py
-- [ ] T056 [US4] Implement Codeforces API client in src/oss_navi/services/learning.py
+- [ ] T054 [US4] Implement LearningService with csdiy.wiki scraper (rate-limited 1/s) in src/oss_navi/services/learning.py
+- [ ] T055 [US4] Implement LeetCode dataset loader (neenza/leetcode-problems) in src/oss_navi/services/learning.py
+- [ ] T056 [US4] Implement Codeforces dataset loader (Kaggle/HuggingFace) in src/oss_navi/services/learning.py
+- [ ] T056a [US4] Implement rate-limited API verification module in src/oss_navi/services/learning.py
 - [ ] T057 [US4] Implement automatic learning resource matching in src/oss_navi/services/learning.py
 
 #### CLI Integration

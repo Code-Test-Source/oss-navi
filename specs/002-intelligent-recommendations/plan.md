@@ -35,6 +35,14 @@ Enhance OSS-Navi with intelligent recommendation algorithms integrated into the 
   - Hundreds of user sessions
   - Learning resource catalog (csdiy courses, LeetCode/Codeforces problems)
 
+**Data Source Strategy**:
+  - Primary: Third-party datasets (avoid rate limits)
+  - Secondary: API calls for verification only
+  - LeetCode: https://github.com/neenza/leetcode-problems
+  - Codeforces: Kaggle/HuggingFace datasets or minimal API
+  - GitHub: GitHub Archive (https://www.gharchive.org/)
+  - Rate limiting enforced: GitHub 1/s, LeetCode 1/2s, Codeforces 5/s
+
 ## Recommendation Modes
 
 ### Fast Mode

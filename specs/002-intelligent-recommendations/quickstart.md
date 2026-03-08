@@ -165,8 +165,36 @@ oss-navi session delete abc123
 ## Performance Tips
 
 1. **Choose the right mode**: Use `--mode fast` for quick exploration, `--mode thinking` for important decisions
-2. **Sync learning resources separately**: Run `oss-navi sync --learning` during off-peak times
+2. **Sync learning resources once**: Data is cached from third-party datasets (no API rate limits)
 3. **Use cached data**: Non-interactive mode is faster for repeated queries
+4. **Limit rounds**: Use `--rounds 2` for quicker sessions
+5. **Resume sessions**: Don't re-analyze; resume existing sessions
+
+## Data Sources & Rate Limits
+
+OSS-Navi uses third-party datasets to avoid API rate limits:
+
+| Data | Primary Source | Rate Limit |
+|------|---------------|------------|
+| LeetCode | neenza/leetcode-problems (GitHub) | None |
+| Codeforces | Kaggle/HuggingFace datasets | None |
+| GitHub | GitHub Archive | None |
+| csdiy.wiki | Single page scrape | 1/s |
+
+**API calls are reserved for**:
+- Verifying specific recommendations after user selects them
+- User explicitly requests `--verify` flag
+
+**Rate limits enforced**:
+- GitHub: 1 request/second
+- LeetCode: 1 request/2 seconds
+- Codeforces: 5 requests/second
+
+This approach:
+- Avoids hitting rate limits (GitHub: 5000/hour)
+- Doesn't use your account for large scraping
+- Prevents appearing as DDoS attack
+- Works offline after initial sync
 4. **Limit rounds**: Use `--rounds 2` for quicker sessions
 5. **Resume sessions**: Don't re-analyze; resume existing sessions
 

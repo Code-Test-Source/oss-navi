@@ -145,54 +145,270 @@ def content_based_recommend(user_profile: dict, projects: list[dict]) -> list[Re
 
 ---
 
-## External API Research
+## External Data Source Research
+
+### Data Source Strategy
+
+**Decision**: Use third-party datasets as primary data source, API calls only for verification.
+
+**Rationale**:
+- Avoid rate limits (GitHub: 5000/hour, LeetCode/Codeforces also limited)
+- Prevent appearing as DDoS attack
+- Don't use user's account for large-scale scraping
+- Only need minimal metadata for recommendations
+- API calls reserved for verifying specific recommendations exist
+
+**Data Flow**:
+1. **Primary**: Load from third-party datasets during sync
+2. **Secondary**: API calls only when user selects specific recommendations
+3. **Verification**: Direct API call to confirm item exists before display
+
+---
+
+### LeetCode Data Sources
+
+**Primary Dataset**: https://github.com/neenza/leetcode-problems
+
+**Decision**: Clone/use this repository as primary LeetCode data source.
+
+**Metadata to Extract** (minimal):
+- Problem ID (titleSlug)
+- Title
+- Difficulty (Easy/Medium/Hard)
+- Topics/Tags
+- URL pattern: `https://leetcode.com/problems/{titleSlug}/`
+
+**Alternative**: https://github.com/zhantong/leetcode-spider
+- Can be used for more comprehensive scraping if needed
+- Use sparingly to avoid rate limiting
+
+**API Usage** (verification only):
+- GraphQL endpoint: `https://leetcode.com/graphql`
+- Only call when user requests specific problem details
+- Use rate limiting: 1 request per 2 seconds
+
+**Implementation**:
+```python
+# During sync: Load from dataset
+def load_leetcode_dataset():
+    # Clone or download from neenza/leetcode-problems
+    # Parse JSON files
+    # Extract: id, title, difficulty, tags
+    # Cache to ~/.oss-navi/cache/leetcode.json
+    pass
+
+# During recommendation: Verify specific problem
+def verify_leetcode_problem(title_slug: str) -> bool:
+    # Single GraphQL query to verify problem exists
+    # Rate limit: 1 per 2 seconds
+    pass
+```
+
+---
+
+### Codeforces Data Sources
+
+**Primary Datasets**:
+
+1. **Kaggle**: https://www.kaggle.com/datasets/lborgav/codeforces-problems
+   - Comprehensive problem dataset
+   - Includes: problem ID, rating, tags, difficulty
+
+2. **Hugging Face**: https://huggingface.co/datasets/DenCT/codeforces-problems-7k
+   - 7K problems with metadata
+   - Easy to load with `datasets` library
+
+**API Usage** (minimal metadata only):
+- Endpoint: `https://codeforces.com/api/problemset.problems`
+- Rate limit: 5 requests per second
+- Only call once during sync for problem list (minimal data)
+- No user-specific data needed
+
+**Implementation**:
+```python
+# During sync: Load from dataset
+def load_codeforces_dataset():
+    # Option 1: Load from Kaggle dataset (if downloaded)
+    # Option 2: Load from Hugging Face datasets library
+    # Option 3: Single API call to problemset.problems
+    # Extract: contestId, index, name, rating, tags
+    # Cache to ~/.oss-navi/cache/codeforces.json
+    pass
+
+# API for minimal sync (once per sync, not per recommendation)
+def sync_codeforces_problems():
+    # Single GET request to problemset.problems
+    # Returns all problems with minimal metadata
+    # No authentication needed
+    pass
+```
+
+---
+
+### GitHub Data Sources
+
+**Primary Dataset**: GitHub Archive - https://www.gharchive.org/
+
+**Decision**: Use GitHub Archive for historical project data instead of live API.
+
+**Rationale**:
+- GitHub API rate limit: 5000 requests/hour (authenticated)
+- GitHub Archive provides historical data without rate limits
+- Can process offline at any time
+
+**Data Available**:
+- Repository events (stars, forks, issues)
+- Commit activity
+- Contributor patterns
+
+**Implementation**:
+```python
+# During sync: Load from GitHub Archive
+def load_github_archive_data(date_range: str):
+    # Download hourly archives
+    # Parse for project metadata
+    # Extract: repo name, stars, language, topics
+    # Cache to ~/.oss-navi/cache/github_archive.json
+    pass
+```
+
+**API Usage** (verification only):
+- When user selects a recommendation
+- Verify repository still exists
+- Get current issue count
+- Rate limit: 1 request per second
+
+---
 
 ### csdiy.wiki Integration
 
-**Decision**: Scrape csdiy.wiki course catalog and cache locally.
+**Decision**: Scrape csdiy.wiki course catalog once and cache locally.
 
 **Implementation Approach**:
-1. Fetch csdiy.wiki main page during sync
+1. Fetch csdiy.wiki main page during sync (once)
 2. Parse course categories and links
 3. Extract course metadata (name, topic, difficulty, link)
 4. Cache as JSON in `~/.oss-navi/cache/csdiy.json`
 5. Match courses to skill gaps during analysis
 
+**Rate Limiting**:
+- Single request per sync
+- Use cached data for all subsequent analysis
+- Add 2-second delay between requests if multiple pages needed
+
 **Error Handling**:
 - Graceful degradation if site unavailable
 - Use cached data if available
 
-### LeetCode API
+---
 
-**Decision**: Use LeetCode's GraphQL API for problem recommendations.
+### Data Sync Strategy
 
-**API Endpoint**: `https://leetcode.com/graphql`
+**Decision**: Implement staged sync with dataset priority.
 
-**Sample Query**:
-```graphql
-query {
-  problemsetQuestionList(
-    categorySlug: ""
-    limit: 50
-    filters: { difficulty: EASY, tags: ["array"] }
-  ) {
-    questions {
-      title
-      titleSlug
-      difficulty
-      topicTags { name }
+**Sync Flow**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SYNC COMMAND                              │
+├─────────────────────────────────────────────────────────────┤
+│  1. Load Third-Party Datasets (no rate limits)              │
+│     ├── LeetCode: neenza/leetcode-problems                  │
+│     ├── Codeforces: Kaggle or HuggingFace dataset           │
+│     └── GitHub: GitHub Archive (optional)                   │
+│                                                              │
+│  2. Minimal API Calls (rate-limited)                        │
+│     ├── Codeforces: problemset.problems (1 call)            │
+│     └── csdiy.wiki: main page (1 call)                      │
+│                                                              │
+│  3. Cache to ~/.oss-navi/cache/                             │
+│                                                              │
+│  4. NO direct GitHub API calls during sync                   │
+│     └── GitHub API reserved for verification only           │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                 RECOMMENDATION PHASE                         │
+├─────────────────────────────────────────────────────────────┤
+│  1. Generate recommendations from cached data                │
+│                                                              │
+│  2. User selects specific recommendation                     │
+│                                                              │
+│  3. Verify via API (rate-limited, 1 per 2 sec)              │
+│     ├── LeetCode: Verify problem exists                      │
+│     ├── Codeforces: Verify problem exists                    │
+│     └── GitHub: Verify repo exists                           │
+│                                                              │
+│  4. Display verified recommendation                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Rate Limiting Configuration
+
+```python
+# Rate limits enforced in code
+RATE_LIMITS = {
+    "github": {
+        "requests_per_hour": 5000,
+        "min_delay_seconds": 1.0,  # Conservative
+        "burst_limit": 100,
+    },
+    "leetcode": {
+        "requests_per_minute": 30,
+        "min_delay_seconds": 2.0,  # Conservative
+    },
+    "codeforces": {
+        "requests_per_second": 5,
+        "min_delay_seconds": 0.2,
+    },
+    "general": {
+        "min_delay_seconds": 2.0,  # Default for any API
     }
-  }
 }
 ```
 
-### Codeforces API
+---
 
-**Decision**: Use Codeforces REST API for problem recommendations.
+### Cached Data Structure
 
-**API Endpoints**:
-- `https://codeforces.com/api/problemset.problems` - Get all problems
-- Rate limit: 5 requests per second
+**LeetCode Cache** (`~/.oss-navi/cache/leetcode.json`):
+```json
+{
+  "version": "1.0",
+  "updated_at": "2026-03-08T...",
+  "source": "neenza/leetcode-problems",
+  "problems": [
+    {
+      "id": "two-sum",
+      "title": "Two Sum",
+      "difficulty": "Easy",
+      "tags": ["array", "hash-table"],
+      "url": "https://leetcode.com/problems/two-sum/"
+    }
+  ]
+}
+```
+
+**Codeforces Cache** (`~/.oss-navi/cache/codeforces.json`):
+```json
+{
+  "version": "1.0",
+  "updated_at": "2026-03-08T...",
+  "source": "kaggle/codeforces-problems",
+  "problems": [
+    {
+      "contest_id": 4,
+      "index": "A",
+      "name": "Watermelon",
+      "rating": 800,
+      "tags": ["brute force", "math"],
+      "url": "https://codeforces.com/problemset/problem/4/A"
+    }
+  ]
+}
+```
 
 ---
 

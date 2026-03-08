@@ -14,6 +14,7 @@
 - Q: When should LeetCode/Codeforces recommendations appear? → A: LeetCode and Codeforces problems appear AUTOMATICALLY based on user's skill level and csdiy courses, even without explicit user request. If the user explicitly requests practice problems, refer to their specific requests.
 - Q: What level of control should users have over the report during interactive sessions? → A: Users can ALWAYS determine where to stop, add items to report, delete parts of report, modify parts of report, or do another round of conversation.
 - Q: Should there be a separate recommend command? → A: No. Recommendations are INTEGRATED into the existing `analysis` command. Recommendation logic is separated into `services/recommender.py` for clean architecture. Users run `oss-navi analysis` with recommendation options.
+- Q: How should external APIs be used to avoid rate limits? → A: Use third-party datasets as PRIMARY data source (neenza/leetcode-problems, Kaggle/HuggingFace Codeforces datasets, GitHub Archive). API calls only for VERIFICATION after user selects specific recommendations. Rate limits enforced: GitHub 1/s, LeetCode 1/2s, Codeforces 5/s. Don't use user's account for large-scale scraping.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -148,8 +149,10 @@ A developer wants to select specific repositories from recommendations for detai
 
 **Learning Path Integration**
 - **FR-020**: The system MUST integrate with csdiy.wiki for course recommendations organized by topic and difficulty
-- **FR-021**: The system MUST integrate with LeetCode API for algorithm practice problem recommendations
-- **FR-022**: The system MUST integrate with Codeforces API for competitive programming problem recommendations
+- **FR-021**: The system MUST load LeetCode problems from third-party datasets (https://github.com/neenza/leetcode-problems) as primary data source
+- **FR-022**: The system MUST load Codeforces problems from third-party datasets (Kaggle/HuggingFace) or minimal API call (problemset.problems) as primary data source
+- **FR-022a**: The system MUST use direct API calls ONLY for verification after user selects specific recommendations
+- **FR-022b**: The system MUST enforce rate limits: GitHub 1 request/s, LeetCode 1 request/2s, Codeforces 5 requests/s
 - **FR-023**: The system MUST automatically include LeetCode/Codeforces problems in reports based on user's skill level and csdiy courses, even without explicit user request
 - **FR-024**: The system MUST use explicit user requests for practice problems when provided, falling back to automatic skill-based recommendations otherwise
 - **FR-025**: The system MUST suggest prerequisites when recommending projects requiring unfamiliar skills

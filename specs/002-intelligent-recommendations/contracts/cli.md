@@ -279,25 +279,78 @@ Options:
 
 ## Command: `oss-navi sync --learning`
 
-Sync learning resources (csdiy.wiki, LeetCode, Codeforces).
+Sync learning resources from third-party datasets (avoids API rate limits).
 
 ### Usage
 
 ```
 oss-navi sync --learning [OPTIONS]
-
-Options:
-  --csdiy        Sync csdiy.wiki courses
-  --leetcode     Sync LeetCode problems
-  --codeforces   Sync Codeforces problems
-  --all          Sync all sources  [default]
-  --force        Force re-sync even if cached
 ```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--csdiy` | Sync csdiy.wiki courses (single page scrape) |
+| `--leetcode` | Sync LeetCode problems from neenza/leetcode-problems dataset |
+| `--codeforces` | Sync Codeforces problems from Kaggle/HuggingFace dataset |
+| `--all` | Sync all sources [default] |
+| `--force` | Force re-sync even if cached |
+| `--verify` | Verify cached data against APIs (rate-limited) |
+
+### Data Sources (Primary)
+
+| Source | Dataset | Rate Limit |
+|--------|---------|------------|
+| LeetCode | https://github.com/neenza/leetcode-problems | None (dataset) |
+| Codeforces | Kaggle: lborgav/codeforces-problems | None (dataset) |
+| Codeforces | HuggingFace: DenCT/codeforces-problems-7k | None (dataset) |
+| csdiy.wiki | Direct scrape | 1 request/s |
+
+### API Usage (Verification Only)
+
+APIs are only called when:
+1. User requests `--verify` flag
+2. User selects specific recommendation for details
+
+Rate limits enforced:
+- GitHub: 1 request/second
+- LeetCode: 1 request/2 seconds
+- Codeforces: 5 requests/second
 
 ### Example
 
 ```bash
-oss-navi sync --learning --leetcode --codeforces
+# Sync all learning resources from datasets (no API calls)
+oss-navi sync --learning
+
+# Sync specific sources
+oss-navi sync --learning --leetcode
+
+# Force re-sync with verification (uses APIs, rate-limited)
+oss-navi sync --learning --force --verify
+```
+
+### Output
+
+```
+🔄 Syncing learning resources...
+
+✓ LeetCode: Loaded 2,500 problems from neenza/leetcode-problems
+  → Cached to ~/.oss-navi/cache/leetcode.json
+
+✓ Codeforces: Loaded 7,000 problems from HuggingFace dataset
+  → Cached to ~/.oss-navi/cache/codeforces.json
+
+✓ csdiy.wiki: Scraped 150 courses
+  → Cached to ~/.oss-navi/cache/csdiy.json
+
+📊 Summary:
+  - LeetCode problems: 2,500
+  - Codeforces problems: 7,000
+  - csdiy courses: 150
+  - Total time: 12 seconds
+  - API calls: 1 (csdiy.wiki only)
 ```
 
 ---
