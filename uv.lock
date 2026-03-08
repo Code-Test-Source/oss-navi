@@ -580,7 +580,6 @@ dev = [
 recommend = [
     { name = "lightfm-next" },
     { name = "numpy" },
-    { name = "scikit-surprise" },
 ]
 scrape = [
     { name = "fake-useragent" },
@@ -592,7 +591,7 @@ requires-dist = [
     { name = "fake-useragent", marker = "extra == 'scrape'", specifier = ">=2.0.0" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.27.0" },
     { name = "lightfm-next", marker = "extra == 'recommend'", specifier = ">=1.19.0" },
-    { name = "numpy", marker = "extra == 'recommend'", specifier = ">=2.4.0" },
+    { name = "numpy", marker = "extra == 'recommend'", specifier = ">=1.24.0" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.7.0" },
     { name = "pydantic", specifier = ">=2.12.0" },
     { name = "pydantic-settings", specifier = ">=2.13.0" },
@@ -601,7 +600,6 @@ requires-dist = [
     { name = "pytest-httpx", marker = "extra == 'dev'", specifier = ">=0.30.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.2.0" },
-    { name = "scikit-surprise", marker = "extra == 'recommend'", specifier = ">=1.1.0" },
 ]
 provides-extras = ["dev", "recommend", "scrape"]
 
@@ -1061,17 +1059,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/35/4d/748c9e2872637a57981a04adc038dacaa16ba8ca887b23e34953f0b3f742/scikit_learn-1.8.0-cp314-cp314t-win_amd64.whl", hash = "sha256:00d6f1d66fbcf4eba6e356e1420d33cc06c70a45bb1363cd6f6a8e4ebbbdece2", size = 8774395, upload-time = "2025-12-10T07:08:49.337Z" },
     { url = "https://files.pythonhosted.org/packages/60/22/d7b2ebe4704a5e50790ba089d5c2ae308ab6bb852719e6c3bd4f04c3a363/scikit_learn-1.8.0-cp314-cp314t-win_arm64.whl", hash = "sha256:f28dd15c6bb0b66ba09728cf09fd8736c304be29409bd8445a080c1280619e8c", size = 8002647, upload-time = "2025-12-10T07:08:51.601Z" },
 ]
-
-[[package]]
-name = "scikit-surprise"
-version = "1.1.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "joblib" },
-    { name = "numpy" },
-    { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d9/8d/40ac32e703f3808159f9e2b33760cfbd6224cc7783eb663091eddc9581c2/scikit_surprise-1.1.4.tar.gz", hash = "sha256:130c45feaee9de4b8cba0aff413ad9b51b2d5c5c90d41aee4759e00059913752", size = 154434, upload-time = "2024-05-19T14:25:59.527Z" }
 
 [[package]]
 name = "scipy"

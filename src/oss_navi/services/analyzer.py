@@ -26,7 +26,7 @@ from oss_navi.utils.paths import MEMORY_FILE, TEMP_DIR
 
 # Constants
 CLAUDE_CODE_COMMAND = "claude"
-DEFAULT_TIMEOUT_SECONDS = 60
+DEFAULT_TIMEOUT_SECONDS = 180  # Increased to 3 minutes for LLM processing
 
 
 def load_or_create_memory(memory_file: Path | None = None) -> LongTermMemory:

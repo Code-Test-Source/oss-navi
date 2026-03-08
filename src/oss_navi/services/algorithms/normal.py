@@ -107,8 +107,11 @@ class NormalRecommender(BaseRecommender):
             )
 
             # Blend content score with similarity
+            # original_score is 1-10, similarity is 0-1
+            # Weight: 70% original, 30% similarity (scaled to 1-10)
             original_score = rec.relevance_score
-            blended_score = int(original_score * 0.7 + similarity * 0.3 * 10) / 10
+            similarity_scaled = similarity * 10  # Convert 0-1 to 0-10
+            blended_score = original_score * 0.7 + similarity_scaled * 0.3
             rec.relevance_score = max(1, min(10, round(blended_score)))
 
             # Update confidence based on similarity
