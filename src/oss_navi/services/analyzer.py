@@ -657,7 +657,11 @@ def build_prompt(
         skill_level=skill_level,
     )
 
-    if learning_resources.get("courses") or learning_resources.get("practice_problems"):
+    # Always include learning resources if any exist
+    if (learning_resources.get("courses") or
+        learning_resources.get("leetcode_problems") or
+        learning_resources.get("codeforces_problems") or
+        learning_resources.get("learning_path")):
         prompt_parts.extend(format_learning_resources_for_prompt(learning_resources))
 
     if memory:
@@ -752,16 +756,23 @@ def build_prompt(
         "- Code reading hints (files to start with)",
         "- Issue availability status (if known)",
         "",
-        "### 4. Great Projects for Learning",
+        "### 4. Learning Resources",
+        "Include the recommended courses, LeetCode problems, and Codeforces problems from the input data.",
+        "Present them in a clear, actionable format:",
+        "- Courses: List with institution, topics, and links",
+        "- LeetCode: Group by difficulty, include acceptance rates and links",
+        "- Codeforces: Group by rating, include contest info and links",
+        "",
+        "### 5. Great Projects for Learning",
         "Highlight 2-3 high-quality projects that demonstrate excellent patterns:",
         "- Architecture overview",
         "- Key patterns to learn from",
         "- How it relates to user's skills",
         "",
-        "### 5. Field Exploration",
+        "### 6. Field Exploration",
         "Suggest 2-3 adjacent fields the user might explore based on their interests.",
         "",
-        "### 6. Long-term Memory Update",
+        "### 7. Long-term Memory Update",
         "A brief note to add to the user's memory for future sessions.",
     ])
 
