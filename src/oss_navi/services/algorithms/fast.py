@@ -115,7 +115,7 @@ class FastRecommender(BaseRecommender):
         language_tasks = []
         for task in cached_tasks:
             repo = task.get("repository", task)
-            task_lang = str(repo.get("language", "")).lower()
+            task_lang = (repo.get("language") or "").lower()
             if any(lang.lower() == task_lang for lang in languages):
                 language_tasks.append(task)
 
