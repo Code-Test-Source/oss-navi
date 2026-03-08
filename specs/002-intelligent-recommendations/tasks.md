@@ -128,21 +128,21 @@
 
 #### Session Models
 
-- [ ] T030 [P] [US2] Create FeedbackType enum and UserFeedback model in src/oss_navi/models/session.py
-- [ ] T031 [P] [US2] Create RecommendationRound model in src/oss_navi/models/session.py
-- [ ] T032 [US2] Create RecommendationSession model with methods in src/oss_navi/models/session.py
-- [ ] T033 [US2] Create ReportSection model with to_markdown() method in src/oss_navi/models/session.py
+- [x] T030 [P] [US2] Create FeedbackType enum and UserFeedback model in src/oss_navi/models/session.py
+- [x] T031 [P] [US2] Create RecommendationRound model in src/oss_navi/models/session.py
+- [x] T032 [US2] Create RecommendationSession model with methods in src/oss_navi/models/session.py
+- [x] T033 [US2] Create ReportSection model with to_markdown() method in src/oss_navi/models/session.py
 
 #### Session Service
 
-- [ ] T034 [US2] Implement SessionService for session CRUD in src/oss_navi/services/session.py
-- [ ] T035 [US2] Implement session persistence (JSON storage) in src/oss_navi/services/session.py
+- [x] T034 [US2] Implement SessionService for session CRUD in src/oss_navi/services/session.py
+- [x] T035 [US2] Implement session persistence (JSON storage) in src/oss_navi/services/session.py
 
 #### CLI Integration
 
-- [ ] T036 [US2] Implement interactive mode prompts in src/oss_navi/cli.py
-- [ ] T037 [US2] Implement report modification (delete, edit, reorder) in src/oss_navi/cli.py
-- [ ] T038 [US2] Add --session option to resume sessions in src/oss_navi/cli.py
+- [x] T036 [US2] Implement interactive mode prompts in src/oss_navi/cli.py
+- [x] T037 [US2] Implement report modification (delete, edit, reorder) in src/oss_navi/cli.py
+- [x] T038 [US2] Add --session option to resume sessions in src/oss_navi/cli.py
 
 ### Tests
 
@@ -160,12 +160,12 @@
 
 ### Tasks
 
-- [ ] T042 [US2] Implement preferences persistence (JSON storage) in src/oss_navi/services/session.py
-- [ ] T043 [US3] Add prefs set-language subcommand in src/oss_navi/cli.py
-- [ ] T044 [US3] Add prefs remove-language subcommand in src/oss_navi/cli.py
-- [ ] T045 [US3] Add prefs block/unblock subcommands in src/oss_navi/cli.py
-- [ ] T046 [US3] Add prefs show/export/import subcommands in src/oss_navi/cli.py
-- [ ] T047 [US3] Integrate blocking rules into RecommenderService in src/oss_navi/services/recommender.py
+- [x] T042 [US2] Implement preferences persistence (JSON storage) in src/oss_navi/services/session.py
+- [x] T043 [US3] Add prefs set-language subcommand in src/oss_navi/cli.py
+- [x] T044 [US3] Add prefs remove-language subcommand in src/oss_navi/cli.py
+- [x] T045 [US3] Add prefs block/unblock subcommands in src/oss_navi/cli.py
+- [x] T046 [US3] Add prefs show/export/import subcommands in src/oss_navi/cli.py
+- [x] T047 [US3] Integrate blocking rules into RecommenderService in src/oss_navi/services/recommender.py
 
 ### Tests
 
@@ -184,24 +184,24 @@
 
 #### Learning Models
 
-- [ ] T050 [P] [US4] Create ResourceType and Difficulty enums in src/oss_navi/models/learning.py
-- [ ] T051 [P] [US4] Create LearningResource base model with to_markdown() in src/oss_navi/models/learning.py
-- [ ] T052 [P] [US4] Create Course model (csdiy.wiki) in src/oss_navi/models/learning.py
-- [ ] T053 [P] [US4] Create PracticeProblem model (LeetCode/Codeforces) in src/oss_navi/models/learning.py
+- [x] T050 [P] [US4] Create ResourceType and Difficulty enums in src/oss_navi/models/learning.py
+- [x] T051 [P] [US4] Create LearningResource base model with to_markdown() in src/oss_navi/models/learning.py
+- [x] T052 [P] [US4] Create Course model (csdiy.wiki) in src/oss_navi/models/learning.py
+- [x] T053 [P] [US4] Create PracticeProblem model (LeetCode/Codeforces) in src/oss_navi/models/learning.py
 
 #### Learning Service (Third-Party Datasets)
 
-- [ ] T054 [US4] Implement LearningService with csdiy.wiki scraper (rate-limited 1/s) in src/oss_navi/services/learning.py
-- [ ] T055 [US4] Implement LeetCode dataset loader (neenza/leetcode-problems) in src/oss_navi/services/learning.py
-- [ ] T056 [US4] Implement Codeforces dataset loader (Kaggle/HuggingFace) in src/oss_navi/services/learning.py
-- [ ] T056a [US4] Implement rate-limited API verification module in src/oss_navi/services/learning.py
-- [ ] T056b [US4] Implement scraping utilities with fake_useragent and proxy support in src/oss_navi/utils/scraping.py
-- [ ] T057 [US4] Implement automatic learning resource matching in src/oss_navi/services/learning.py
+- [x] T054 [US4] Implement LearningService with csdiy.wiki scraper (rate-limited 1/s) in src/oss_navi/services/learning.py
+- [x] T055 [US4] Implement LeetCode dataset loader (neenza/leetcode-problems) in src/oss_navi/services/learning.py
+- [x] T056 [US4] Implement Codeforces dataset loader (Kaggle/HuggingFace) in src/oss_navi/services/learning.py
+- [x] T056a [US4] Implement rate-limited API verification module in src/oss_navi/services/learning.py
+- [x] T056b [US4] Implement scraping utilities with fake_useragent and proxy support in src/oss_navi/utils/scraping.py
+- [x] T057 [US4] Implement automatic learning resource matching in src/oss_navi/services/learning.py
 
 #### CLI Integration
 
-- [ ] T058 [US4] Add sync --learning command in src/oss_navi/cli.py
-- [ ] T059 [US4] Integrate learning resources into report output in src/oss_navi/cli.py
+- [x] T058 [US4] Add sync --learning command in src/oss_navi/cli.py
+- [x] T059 [US4] Integrate learning resources into report output in src/oss_navi/cli.py
 
 ### Tests
 
@@ -221,13 +221,13 @@
 
 #### Analysis Models
 
-- [ ] T063 [P] [US5] Create KeyFile and ContributionArea models in src/oss_navi/models/analysis.py
-- [ ] T064 [US5] Create CodeAnalysis model with to_markdown() in src/oss_navi/models/analysis.py
+- [x] T063 [P] [US5] Create KeyFile and ContributionArea models in src/oss_navi/models/analysis.py
+- [x] T064 [US5] Create CodeAnalysis model with to_markdown() in src/oss_navi/models/analysis.py
 
 #### CLI Integration
 
-- [ ] T065 [US5] Implement detailed analysis trigger in interactive mode in src/oss_navi/cli.py
-- [ ] T066 [US5] Integrate code analysis into report sections in src/oss_navi/cli.py
+- [x] T065 [US5] Implement detailed analysis trigger in interactive mode in src/oss_navi/cli.py
+- [x] T066 [US5] Integrate code analysis into report sections in src/oss_navi/cli.py
 
 ### Tests
 

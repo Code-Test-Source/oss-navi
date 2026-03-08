@@ -333,13 +333,26 @@ def analysis(
 @main.command()
 @click.option("--github", is_flag=True, help="Sync GitHub profile only")
 @click.option("--tasks", is_flag=True, help="Sync task sources only")
+@click.option("--learning", is_flag=True, help="Sync learning resources (csdiy, LeetCode, Codeforces)")
+@click.option("--csdiy", is_flag=True, help="Sync csdiy.wiki courses only")
+@click.option("--leetcode", is_flag=True, help="Sync LeetCode problems only")
+@click.option("--codeforces", is_flag=True, help="Sync Codeforces problems only")
 @click.option("--force", is_flag=True, help="Force refresh ignoring cache")
 @click.option("--dry-run", is_flag=True, help="Show what would be fetched")
-def sync(github: bool, tasks: bool, force: bool, dry_run: bool) -> None:
-    """Fetch and cache GitHub profile and task data.
+def sync(
+    github: bool,
+    tasks: bool,
+    learning: bool,
+    csdiy: bool,
+    leetcode: bool,
+    codeforces: bool,
+    force: bool,
+    dry_run: bool,
+) -> None:
+    """Fetch and cache GitHub profile, task data, and learning resources.
 
-    By default, syncs both GitHub profile and task sources.
-    Use --github or --tasks to sync only specific sources.
+    By default, syncs GitHub profile and task sources.
+    Use --learning to sync learning resources from third-party datasets.
     """
     from oss_navi.services.github import (
         GitHubAuthError,
@@ -353,9 +366,10 @@ def sync(github: bool, tasks: bool, force: bool, dry_run: bool) -> None:
     )
     from oss_navi.utils.cache import is_cache_valid
 
-    # If neither flag is set, sync both
-    sync_github = github or (not github and not tasks)
-    sync_tasks = tasks or (not github and not tasks)
+    # Determine what to sync
+    sync_github = github or (not github and not tasks and not learning and not csdiy and not leetcode and not codeforces)
+    sync_tasks = tasks or (not github and not tasks and not learning and not csdiy and not leetcode and not codeforces)
+    sync_learning = learning or csdiy or leetcode or codeforces
 
     if dry_run:
         click.echo("Would fetch:")
@@ -364,6 +378,14 @@ def sync(github: bool, tasks: bool, force: bool, dry_run: bool) -> None:
         if sync_tasks:
             click.echo("  - Up For Grabs tasks")
             click.echo("  - Good First Issue tasks")
+        if sync_learning:
+            click.echo("  - Learning resources:")
+            if csdiy or learning:
+                click.echo("    - csdiy.wiki courses")
+            if leetcode or learning:
+                click.echo("    - LeetCode problems (neenza/leetcode-problems dataset)")
+            if codeforces or learning:
+                click.echo("    - Codeforces problems (Kaggle/HuggingFace dataset)")
         return
 
     # Sync GitHub profile
@@ -418,7 +440,56 @@ def sync(github: bool, tasks: bool, force: bool, dry_run: bool) -> None:
             except (UpForGrabsUnavailableError, GoodFirstIssueUnavailableError) as e:
                 click.echo(f"⚠ {e}", err=True)
 
-    click.echo("✓ Sync complete")
+    # Sync learning resources
+    if sync_learning:
+        from oss_navi.services.learning import LearningService
+        from oss_navi.utils.cache import is_cache_valid
+
+        learning_service = LearningService()
+        click.echo("\n🔄 Syncing learning resources...")
+
+        total_courses = 0
+        total_problems = 0
+
+        # Sync csdiy.wiki
+        if csdiy or learning:
+            if force or not is_cache_valid("csdiy"):
+                click.echo("  - csdiy.wiki: Scraping courses...")
+                courses = learning_service.load_csdiy_courses(force=True)
+                total_courses = len(courses)
+                click.echo(f"    ✓ Loaded {total_courses} courses")
+            else:
+                click.echo("  - csdiy.wiki: Cache valid (use --force to refresh)")
+
+        # Sync LeetCode
+        if leetcode or learning:
+            if force or not is_cache_valid("leetcode"):
+                click.echo("  - LeetCode: Loading from neenza/leetcode-problems dataset...")
+                problems = learning_service.load_leetcode_problems(force=True)
+                leetcode_count = len(problems)
+                total_problems += leetcode_count
+                click.echo(f"    ✓ Loaded {leetcode_count} problems")
+            else:
+                click.echo("  - LeetCode: Cache valid (use --force to refresh)")
+
+        # Sync Codeforces
+        if codeforces or learning:
+            if force or not is_cache_valid("codeforces"):
+                click.echo("  - Codeforces: Loading from Kaggle/HuggingFace dataset...")
+                problems = learning_service.load_codeforces_problems(force=True)
+                codeforces_count = len(problems)
+                total_problems += codeforces_count
+                click.echo(f"    ✓ Loaded {codeforces_count} problems")
+            else:
+                click.echo("  - Codeforces: Cache valid (use --force to refresh)")
+
+        click.echo(f"\n📊 Summary:")
+        if total_courses > 0:
+            click.echo(f"  - Courses: {total_courses}")
+        click.echo(f"  - Practice problems: {total_problems}")
+        click.echo("  - API calls: Minimal (datasets used for bulk data)")
+
+    click.echo("\n✓ Sync complete")
 
 
 @main.command()
@@ -926,6 +997,120 @@ def prefs_import(file: str) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     shutil.copy(source_path, STATE_DIR / "preferences.json")
     click.echo(f"✓ Preferences imported from: {file}")
+
+
+@main.group()
+def session() -> None:
+    """Manage recommendation sessions.
+
+    List, show, export, or delete previous analysis sessions.
+    """
+    pass
+
+
+@session.command("list")
+@click.option("--status", type=click.Choice(["active", "completed", "all"]), default="active")
+def session_list(status: str) -> None:
+    """List all sessions."""
+    from oss_navi.models.session import SessionStatus
+    from oss_navi.services.session import get_session_service
+
+    svc = get_session_service()
+
+    status_filter = None if status == "all" else SessionStatus(status)
+    sessions = svc.list_sessions(status=status_filter)
+
+    if not sessions:
+        click.echo("No sessions found")
+        return
+
+    click.echo(f"Sessions ({len(sessions)}):\n")
+    for s in sessions:
+        rounds = len(s.rounds)
+        created = s.created_at.strftime("%Y-%m-%d %H:%M")
+        click.echo(f"  {s.session_id} [{s.status.value}] {rounds} rounds - {created}")
+
+
+@session.command("show")
+@click.argument("session_id")
+def session_show(session_id: str) -> None:
+    """Show session details."""
+    from oss_navi.services.session import get_session_service
+
+    svc = get_session_service()
+    session = svc.get_session(session_id)
+
+    if not session:
+        click.echo(f"✗ Session not found: {session_id}", err=True)
+        raise SystemExit(1)
+
+    click.echo(f"Session: {session.session_id}")
+    click.echo(f"Status: {session.status.value}")
+    click.echo(f"Mode: {session.mode.value}")
+    click.echo(f"Rounds: {len(session.rounds)}")
+    click.echo(f"Created: {session.created_at}")
+
+    if session.rounds:
+        click.echo("\nRounds:")
+        for r in session.rounds:
+            accepted = sum(1 for f in r.user_feedback if f.feedback_type.value == "accept")
+            rejected = sum(1 for f in r.user_feedback if f.feedback_type.value == "reject")
+            click.echo(f"  Round {r.round_number}: {len(r.recommendations)} recs, {accepted} accepted, {rejected} rejected")
+
+
+@session.command("export")
+@click.argument("session_id")
+@click.option("--output", "-o", type=click.Path(), help="Output file path")
+@click.option("--format", "-f", type=click.Choice(["markdown", "json"]), default="markdown")
+def session_export(session_id: str, output: str | None, format: str) -> None:
+    """Export session report."""
+    from pathlib import Path
+
+    from oss_navi.services.session import get_session_service
+
+    svc = get_session_service()
+    session = svc.get_session(session_id)
+
+    if not session:
+        click.echo(f"✗ Session not found: {session_id}", err=True)
+        raise SystemExit(1)
+
+    if format == "json":
+        import json
+        content = json.dumps(session.model_dump(mode="json"), indent=2, default=str)
+    else:
+        content = session.to_markdown_report()
+
+    if output:
+        Path(output).write_text(content)
+        click.echo(f"✓ Report exported to: {output}")
+    else:
+        click.echo(content)
+
+
+@session.command("delete")
+@click.argument("session_id")
+@click.option("--force", is_flag=True, help="Skip confirmation")
+def session_delete(session_id: str, force: bool) -> None:
+    """Delete a session."""
+    from oss_navi.services.session import get_session_service
+
+    svc = get_session_service()
+    session = svc.get_session(session_id)
+
+    if not session:
+        click.echo(f"✗ Session not found: {session_id}", err=True)
+        raise SystemExit(1)
+
+    if not force:
+        if not click.confirm(f"Delete session {session_id}?"):
+            click.echo("Cancelled")
+            return
+
+    if svc.delete_session(session_id):
+        click.echo(f"✓ Session deleted: {session_id}")
+    else:
+        click.echo(f"✗ Failed to delete session", err=True)
 
 
 if __name__ == "__main__":
