@@ -39,6 +39,14 @@ dev = [
     "ruff>=0.2.0",
     "pip-audit>=2.7.0",
 ]
+recommend = [
+    "scikit-surprise>=1.1.0",
+    "lightfm>=1.17",
+    "numpy>=1.24.0",
+]
+scrape = [
+    "fake-useragent>=1.4.0",
+]
 
 [project.scripts]
 oss-navi = "oss_navi.cli:main"

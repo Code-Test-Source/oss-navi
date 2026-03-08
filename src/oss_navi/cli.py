@@ -63,6 +63,15 @@ def prompt_learning_interests() -> str | None:
 @click.option("--explore", is_flag=True, help="Suggest adjacent fields to explore")
 @click.option("-n", "--recommendations", type=int, default=7, help="Number of recommendations (5-10)")
 @click.option("--skip-status", is_flag=True, help="Skip issue status checks (avoids GitHub API rate limits)")
+@click.option(
+    "--mode", "-m",
+    type=click.Choice(["fast", "normal", "thinking"], case_sensitive=False),
+    default="normal",
+    help="Recommendation mode: fast (<30s), normal (<90s), thinking (<180s)",
+)
+@click.option("--language", type=str, help="Primary language for recommendations")
+@click.option("--rounds", type=int, default=3, help="Maximum recommendation rounds (interactive mode)")
+@click.option("--session", type=str, help="Resume existing session by ID")
 def analysis(
     learn: str | None,
     output_path: str | None,
@@ -72,12 +81,23 @@ def analysis(
     explore: bool,
     recommendations: int,
     skip_status: bool,
+    mode: str,
+    language: str | None,
+    rounds: int,
+    session: str | None,
 ) -> None:
     """Generate personalized project recommendations.
 
     Analyzes your GitHub profile and available tasks to recommend
     the best open source projects for you to contribute to.
+
+    \b
+    Recommendation Modes:
+      fast     Content-based filtering only (<30s, <50MB)
+      normal   Surprise SVD/KNN collaborative filtering (<90s, <200MB)
+      thinking LightFM + Apriori pattern mining (<180s, <500MB)
     """
+    from oss_navi.models.recommendation import check_mode_availability, RecommendationMode
     from oss_navi.services.analyzer import (
         ClaudeCodeError,
         find_great_projects,
@@ -85,6 +105,7 @@ def analysis(
         run_analysis,
         suggest_adjacent_fields,
     )
+    from oss_navi.services.recommender import create_recommender_service
     from oss_navi.utils.cache import read_json
     from oss_navi.utils.paths import (
         GITHUB_PROFILE_CACHE,
@@ -96,6 +117,19 @@ def analysis(
     recommendations = max(5, min(10, recommendations))
 
     click.echo("✓ Analyzing profile...")
+
+    # Check mode availability
+    mode_enum = RecommendationMode(mode.lower())
+    is_available, missing = check_mode_availability(mode_enum)
+    if not is_available:
+        click.echo(
+            f"⚠ Mode '{mode}' requires: {', '.join(missing)}\n"
+            f"  Install with: pip install oss-navi[recommend]\n"
+            f"  Falling back to fast mode",
+            err=True,
+        )
+        mode = "fast"
+        mode_enum = RecommendationMode.FAST
 
     # Load cached profile data
     profile = read_json(GITHUB_PROFILE_CACHE)
@@ -130,6 +164,72 @@ def analysis(
             continue  # Skip malformed tasks
 
     click.echo(f"✓ Filtering tasks... ({len(tasks)} matches)")
+    click.echo(f"✓ Mode: {mode} ({'Surprise SVD/KNN' if mode == 'normal' else 'LightFM + Apriori' if mode == 'thinking' else 'Content-based'})")
+
+    # Load or create user preferences
+    from oss_navi.models.preferences import UserPreferences, LanguageProfile, LanguageType, SkillLevel
+    from oss_navi.utils.paths import STATE_DIR
+    from pathlib import Path
+
+    prefs_path = STATE_DIR / "preferences.json"
+    user_prefs = None
+    if prefs_path.exists():
+        prefs_data = read_json(prefs_path)
+        if prefs_data:
+            try:
+                user_prefs = UserPreferences(**prefs_data)
+            except Exception:
+                pass
+
+    # Create preferences from profile if not set
+    if not user_prefs:
+        user_prefs = UserPreferences()
+        user_languages = profile.get("languages", {})
+        for i, (lang, bytes_count) in enumerate(user_languages.items()):
+            lang_type = LanguageType.PRIMARY if i == 0 else LanguageType.SECONDARY
+            skill = SkillLevel.ADVANCED if bytes_count > 100000 else SkillLevel.INTERMEDIATE if bytes_count > 10000 else SkillLevel.BEGINNER
+            user_prefs.languages.append(LanguageProfile(
+                language=lang,
+                type=lang_type,
+                skill_level=skill,
+            ))
+
+    # Override language if specified
+    if language:
+        user_prefs.languages = [
+            lp for lp in user_prefs.languages
+            if lp.language.lower() != language.lower()
+        ]
+        user_prefs.languages.insert(0, LanguageProfile(
+            language=language,
+            type=LanguageType.PRIMARY,
+            skill_level=SkillLevel.INTERMEDIATE,
+        ))
+
+    # Use intelligent recommender service
+    click.echo(f"\n✓ Generating {recommendations} recommendations using {mode} mode...")
+    recommender = create_recommender_service(mode=mode, max_recommendations=recommendations)
+
+    # Convert tasks to dict format for recommender
+    tasks_dicts = [t.model_dump() for t in tasks]
+
+    # Generate recommendations
+    intelligent_recs = recommender.recommend(
+        user_preferences=user_prefs,
+        cached_tasks=tasks_dicts,
+    )
+
+    # Display intelligent recommendations
+    if intelligent_recs:
+        click.echo("\n🎯 Intelligent Recommendations:")
+        for i, rec in enumerate(intelligent_recs[:recommendations], 1):
+            click.echo(f"\n  {i}. {rec.project_name} (Score: {rec.relevance_score}/10)")
+            click.echo(f"     Language: {rec.language} | Stars: {rec.stars:,}")
+            click.echo(f"     Why: {rec.reasoning}")
+            if rec.skill_gap_analysis:
+                click.echo(f"     Skills to develop: {', '.join(rec.skill_gap_analysis)}")
+            if rec.issue_url:
+                click.echo(f"     Issue: {rec.issue_url}")
 
     # Get memory if available
     from oss_navi.utils.paths import MEMORY_FILE
@@ -165,8 +265,7 @@ def analysis(
             click.echo(f"  - {proj.name} ({proj.stars:,} stars)")
             click.echo(f"    {proj.why_great}")
 
-    # Generate scored recommendations
-    click.echo(f"\n✓ Generating {recommendations} recommendations...")
+    # Generate scored recommendations (legacy for compatibility)
     scored_recommendations = generate_recommendations(
         tasks=tasks,
         user_languages=user_languages,
@@ -177,7 +276,7 @@ def analysis(
 
     # Show top recommendations with ratings
     if scored_recommendations:
-        click.echo("\n🎯 Top Recommendations:")
+        click.echo("\n📋 Additional Recommendations:")
         for i, rec in enumerate(scored_recommendations[:recommendations], 1):
             status_icon = "✓" if rec.status.is_available else "⚠"
             click.echo(f"  {i}. {rec.task.title[:50]}...")
@@ -528,6 +627,305 @@ def publish(push: bool, message: str | None, show_list: bool, report: str | None
         except GitOperationError as e:
             click.echo(f"✗ {e}", err=True)
             raise SystemExit(1)
+
+
+@main.group()
+def prefs() -> None:
+    """Manage user preferences for recommendations.
+
+    Configure your languages, skill levels, and blocking rules.
+    """
+    pass
+
+
+@prefs.command("set-language")
+@click.argument("language")
+@click.option("--type", "-t", "lang_type",
+    type=click.Choice(["primary", "secondary", "learning"], case_sensitive=False),
+    default="primary",
+    help="Language type (default: primary)",
+)
+@click.option("--level", "-l",
+    type=click.Choice(["beginner", "intermediate", "advanced"], case_sensitive=False),
+    default="intermediate",
+    help="Skill level (default: intermediate)",
+)
+def prefs_set_language(language: str, lang_type: str, level: str) -> None:
+    """Set a language in your profile.
+
+    Example: oss-navi prefs set-language python --type primary --level advanced
+    """
+    from oss_navi.models.preferences import (
+        LanguageProfile,
+        LanguageType,
+        SkillLevel,
+        UserPreferences,
+    )
+    from oss_navi.utils.paths import STATE_DIR
+    from pathlib import Path
+    import json
+
+    prefs_path = STATE_DIR / "preferences.json"
+
+    # Load existing preferences
+    user_prefs = None
+    if prefs_path.exists():
+        try:
+            with open(prefs_path) as f:
+                prefs_data = json.load(f)
+            user_prefs = UserPreferences(**prefs_data)
+        except Exception:
+            pass
+
+    if not user_prefs:
+        user_prefs = UserPreferences()
+
+    # Remove existing entry for this language
+    user_prefs.languages = [
+        lp for lp in user_prefs.languages
+        if lp.language.lower() != language.lower()
+    ]
+
+    # Add new language profile
+    user_prefs.languages.append(LanguageProfile(
+        language=language.lower(),
+        type=LanguageType(lang_type.lower()),
+        skill_level=SkillLevel(level.lower()),
+    ))
+
+    # Save preferences
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(prefs_path, "w") as f:
+        json.dump(user_prefs.model_dump(mode="json"), f, indent=2, default=str)
+
+    click.echo(f"✓ Language set: {language} ({lang_type}, {level})")
+
+
+@prefs.command("remove-language")
+@click.argument("language")
+def prefs_remove_language(language: str) -> None:
+    """Remove a language from your profile."""
+    from oss_navi.models.preferences import UserPreferences
+    from oss_navi.utils.paths import STATE_DIR
+    from pathlib import Path
+    import json
+
+    prefs_path = STATE_DIR / "preferences.json"
+
+    if not prefs_path.exists():
+        click.echo("✗ No preferences file found", err=True)
+        raise SystemExit(1)
+
+    try:
+        with open(prefs_path) as f:
+            prefs_data = json.load(f)
+        user_prefs = UserPreferences(**prefs_data)
+    except Exception:
+        click.echo("✗ Failed to load preferences", err=True)
+        raise SystemExit(1)
+
+    # Remove language
+    original_count = len(user_prefs.languages)
+    user_prefs.languages = [
+        lp for lp in user_prefs.languages
+        if lp.language.lower() != language.lower()
+    ]
+
+    if len(user_prefs.languages) == original_count:
+        click.echo(f"✗ Language not found: {language}", err=True)
+        raise SystemExit(1)
+
+    # Save preferences
+    with open(prefs_path, "w") as f:
+        json.dump(user_prefs.model_dump(mode="json"), f, indent=2, default=str)
+
+    click.echo(f"✓ Language removed: {language}")
+
+
+@prefs.command("block")
+@click.argument("block_type", type=click.Choice(["project", "maintainer", "organization", "topic", "language"]))
+@click.argument("value")
+@click.option("--reason", "-r", help="Reason for blocking")
+def prefs_block(block_type: str, value: str, reason: str | None) -> None:
+    """Add a blocking rule.
+
+    Example: oss-navi prefs block language typescript --reason "Not interested"
+    """
+    from oss_navi.models.preferences import BlockType, BlockingRule, UserPreferences
+    from oss_navi.utils.paths import STATE_DIR
+    from pathlib import Path
+    import json
+
+    prefs_path = STATE_DIR / "preferences.json"
+
+    # Load existing preferences
+    user_prefs = None
+    if prefs_path.exists():
+        try:
+            with open(prefs_path) as f:
+                prefs_data = json.load(f)
+            user_prefs = UserPreferences(**prefs_data)
+        except Exception:
+            pass
+
+    if not user_prefs:
+        user_prefs = UserPreferences()
+
+    # Check for duplicate
+    for rule in user_prefs.blocking_rules:
+        if rule.block_type.value == block_type.lower() and rule.value.lower() == value.lower():
+            click.echo(f"✗ Already blocking: {block_type} = {value}", err=True)
+            raise SystemExit(1)
+
+    # Add blocking rule
+    user_prefs.blocking_rules.append(BlockingRule(
+        block_type=BlockType(block_type.lower()),
+        value=value,
+        reason=reason,
+    ))
+
+    # Save preferences
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(prefs_path, "w") as f:
+        json.dump(user_prefs.model_dump(mode="json"), f, indent=2, default=str)
+
+    click.echo(f"✓ Blocked: {block_type} = {value}")
+
+
+@prefs.command("unblock")
+@click.argument("block_type", type=click.Choice(["project", "maintainer", "organization", "topic", "language"]))
+@click.argument("value")
+def prefs_unblock(block_type: str, value: str) -> None:
+    """Remove a blocking rule."""
+    from oss_navi.models.preferences import UserPreferences
+    from oss_navi.utils.paths import STATE_DIR
+    from pathlib import Path
+    import json
+
+    prefs_path = STATE_DIR / "preferences.json"
+
+    if not prefs_path.exists():
+        click.echo("✗ No preferences file found", err=True)
+        raise SystemExit(1)
+
+    try:
+        with open(prefs_path) as f:
+            prefs_data = json.load(f)
+        user_prefs = UserPreferences(**prefs_data)
+    except Exception:
+        click.echo("✗ Failed to load preferences", err=True)
+        raise SystemExit(1)
+
+    # Remove blocking rule
+    original_count = len(user_prefs.blocking_rules)
+    user_prefs.blocking_rules = [
+        r for r in user_prefs.blocking_rules
+        if not (r.block_type.value == block_type.lower() and r.value.lower() == value.lower())
+    ]
+
+    if len(user_prefs.blocking_rules) == original_count:
+        click.echo(f"✗ Blocking rule not found: {block_type} = {value}", err=True)
+        raise SystemExit(1)
+
+    # Save preferences
+    with open(prefs_path, "w") as f:
+        json.dump(user_prefs.model_dump(mode="json"), f, indent=2, default=str)
+
+    click.echo(f"✓ Unblocked: {block_type} = {value}")
+
+
+@prefs.command("show")
+def prefs_show() -> None:
+    """Display current preferences."""
+    from oss_navi.models.preferences import UserPreferences
+    from oss_navi.utils.paths import STATE_DIR
+    from pathlib import Path
+    import json
+
+    prefs_path = STATE_DIR / "preferences.json"
+
+    if not prefs_path.exists():
+        click.echo("No preferences configured yet.")
+        click.echo("\nTo get started:")
+        click.echo("  oss-navi prefs set-language python --type primary --level advanced")
+        return
+
+    try:
+        with open(prefs_path) as f:
+            prefs_data = json.load(f)
+        user_prefs = UserPreferences(**prefs_data)
+    except Exception as e:
+        click.echo(f"✗ Failed to load preferences: {e}", err=True)
+        raise SystemExit(1)
+
+    click.echo("Current Preferences:\n")
+
+    if user_prefs.languages:
+        click.echo("Languages:")
+        for lp in user_prefs.languages:
+            click.echo(f"  - {lp.language}: {lp.type.value} ({lp.skill_level.value})")
+    else:
+        click.echo("Languages: (none configured)")
+
+    if user_prefs.domain_interests:
+        click.echo("\nDomain Interests:")
+        for di in user_prefs.domain_interests:
+            click.echo(f"  - {di.domain}: {di.interest_level}/10")
+
+    if user_prefs.blocking_rules:
+        click.echo("\nBlocking Rules:")
+        for rule in user_prefs.blocking_rules:
+            reason = f" ({rule.reason})" if rule.reason else ""
+            click.echo(f"  - {rule.block_type.value}: {rule.value}{reason}")
+    else:
+        click.echo("\nBlocking Rules: (none)")
+
+
+@prefs.command("export")
+@click.argument("file", default="preferences.json")
+def prefs_export(file: str) -> None:
+    """Export preferences to a JSON file."""
+    from oss_navi.utils.paths import STATE_DIR
+    import shutil
+
+    prefs_path = STATE_DIR / "preferences.json"
+
+    if not prefs_path.exists():
+        click.echo("✗ No preferences to export", err=True)
+        raise SystemExit(1)
+
+    shutil.copy(prefs_path, file)
+    click.echo(f"✓ Preferences exported to: {file}")
+
+
+@prefs.command("import")
+@click.argument("file")
+def prefs_import(file: str) -> None:
+    """Import preferences from a JSON file."""
+    from oss_navi.models.preferences import UserPreferences
+    from oss_navi.utils.paths import STATE_DIR
+    from pathlib import Path
+    import shutil
+
+    source_path = Path(file)
+    if not source_path.exists():
+        click.echo(f"✗ File not found: {file}", err=True)
+        raise SystemExit(1)
+
+    # Validate the file
+    try:
+        import json
+        with open(source_path) as f:
+            data = json.load(f)
+        UserPreferences(**data)
+    except Exception as e:
+        click.echo(f"✗ Invalid preferences file: {e}", err=True)
+        raise SystemExit(1)
+
+    # Copy to preferences
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    shutil.copy(source_path, STATE_DIR / "preferences.json")
+    click.echo(f"✓ Preferences imported from: {file}")
 
 
 if __name__ == "__main__":

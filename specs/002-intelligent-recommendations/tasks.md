@@ -52,12 +52,12 @@
 
 ### Tasks
 
-- [ ] T001 Add new dependencies to pyproject.toml (scikit-surprise>=1.1.0, lightfm>=1.17, numpy>=1.24.0, fake-useragent>=1.4.0)
-- [ ] T001a Add optional `[scrape]` extras to pyproject.toml with fake-useragent
-- [ ] T002 [P] Create services/algorithms/ directory structure at src/oss_navi/services/algorithms/
-- [ ] T003 [P] Create tests/unit/test_models/ directory for model tests
-- [ ] T004 [P] Create tests/unit/test_services/ directory for service tests
-- [ ] T005 Create tests/integration/ directory for integration tests
+- [x] T001 Add new dependencies to pyproject.toml (scikit-surprise>=1.1.0, lightfm>=1.17, numpy>=1.24.0, fake-useragent>=1.4.0)
+- [x] T001a Add optional `[scrape]` extras to pyproject.toml with fake-useragent
+- [x] T002 [P] Create services/algorithms/ directory structure at src/oss_navi/services/algorithms/
+- [x] T003 [P] Create tests/unit/test_models/ directory for model tests
+- [x] T004 [P] Create tests/unit/test_services/ directory for service tests
+- [x] T005 Create tests/integration/ directory for integration tests
 
 ---
 
@@ -69,14 +69,14 @@
 
 ### Tasks
 
-- [ ] T006 Create RecommendationMode and ModeConfig in src/oss_navi/models/recommendation.py
-- [ ] T007 [P] Create SkillLevel, LanguageType, LanguageProfile enums/models in src/oss_navi/models/preferences.py
-- [ ] T008 [P] Create BlockType enum and BlockingRule model in src/oss_navi/models/preferences.py
-- [ ] T009 [P] Create DomainInterest model in src/oss_navi/models/preferences.py
-- [ ] T010 Create UserPreferences model with methods in src/oss_navi/models/preferences.py
-- [ ] T011 Create Recommendation model with to_markdown() method in src/oss_navi/models/recommendation.py
-- [ ] T012 Create RecommendationPattern model in src/oss_navi/models/recommendation.py
-- [ ] T013 Create abstract BaseRecommender class in src/oss_navi/services/algorithms/base.py
+- [x] T006 Create RecommendationMode and ModeConfig in src/oss_navi/models/recommendation.py
+- [x] T007 [P] Create SkillLevel, LanguageType, LanguageProfile enums/models in src/oss_navi/models/preferences.py
+- [x] T008 [P] Create BlockType enum and BlockingRule model in src/oss_navi/models/preferences.py
+- [x] T009 [P] Create DomainInterest model in src/oss_navi/models/preferences.py
+- [x] T010 Create UserPreferences model with methods in src/oss_navi/models/preferences.py
+- [x] T011 Create Recommendation model with to_markdown() method in src/oss_navi/models/recommendation.py
+- [x] T012 Create RecommendationPattern model in src/oss_navi/models/recommendation.py
+- [x] T013 Create abstract BaseRecommender class in src/oss_navi/services/algorithms/base.py
 
 ---
 
@@ -90,24 +90,24 @@
 
 #### Algorithm Implementations
 
-- [ ] T014 [P] [US1] Implement content-based filtering algorithm in src/oss_navi/services/algorithms/content_based.py
-- [ ] T015 [P] [US1] Implement FastRecommender class (content-based only) in src/oss_navi/services/algorithms/fast.py
-- [ ] T016 [US1] Implement NormalRecommender class (Surprise SVD/KNN) in src/oss_navi/services/algorithms/normal.py
-- [ ] T017 [US1] Implement Apriori pattern mining algorithm in src/oss_navi/services/algorithms/apriori.py
-- [ ] T018 [US1] Implement ThinkingRecommender class (LightFM + Apriori) in src/oss_navi/services/algorithms/thinking.py
+- [x] T014 [P] [US1] Implement content-based filtering algorithm in src/oss_navi/services/algorithms/content_based.py
+- [x] T015 [P] [US1] Implement FastRecommender class (content-based only) in src/oss_navi/services/algorithms/fast.py
+- [x] T016 [US1] Implement NormalRecommender class (Surprise SVD/KNN) in src/oss_navi/services/algorithms/normal.py
+- [x] T017 [US1] Implement Apriori pattern mining algorithm in src/oss_navi/services/algorithms/apriori.py
+- [x] T018 [US1] Implement ThinkingRecommender class (LightFM + Apriori) in src/oss_navi/services/algorithms/thinking.py
 
 #### Recommendation Orchestration
 
-- [ ] T019 [US1] Implement RecommenderService with mode-based algorithm selection in src/oss_navi/services/recommender.py
-- [ ] T020 [US1] Implement two-round language matching logic in src/oss_navi/services/recommender.py
-- [ ] T021 [US1] Implement relevance score computation with reasoning in src/oss_navi/services/recommender.py
-- [ ] T022 [US1] Implement skill gap analysis in src/oss_navi/services/recommender.py
+- [x] T019 [US1] Implement RecommenderService with mode-based algorithm selection in src/oss_navi/services/recommender.py
+- [x] T020 [US1] Implement two-round language matching logic in src/oss_navi/services/recommender.py
+- [x] T021 [US1] Implement relevance score computation with reasoning in src/oss_navi/services/recommender.py
+- [x] T022 [US1] Implement skill gap analysis in src/oss_navi/services/recommender.py
 
 #### CLI Integration
 
-- [ ] T023 [US1] Add --mode option to analysis command in src/oss_navi/cli.py
-- [ ] T024 [US1] Add --language and --learn options to analysis command in src/oss_navi/cli.py
-- [ ] T025 [US1] Integrate RecommenderService into analysis command in src/oss_navi/cli.py
+- [x] T023 [US1] Add --mode option to analysis command in src/oss_navi/cli.py
+- [x] T024 [US1] Add --language and --learn options to analysis command in src/oss_navi/cli.py
+- [x] T025 [US1] Integrate RecommenderService into analysis command in src/oss_navi/cli.py
 
 ### Tests
 
