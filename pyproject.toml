@@ -39,15 +39,9 @@ dev = [
     "ruff>=0.2.0",
     "pip-audit>=2.7.0",
 ]
-# Note: recommend extras require Python 3.11-3.13 (not 3.14+)
-# scikit-surprise and lightfm-next don't support Python 3.14 yet
+# ML dependencies for advanced recommendation modes
+# lightfm-next provides hybrid collaborative + content-based filtering
 recommend = [
-    "lightfm-next>=1.19.0",
-    "numpy>=1.24.0",
-]
-recommend-full = [
-    # Full ML support (Python 3.11-3.13 only)
-    "scikit-surprise>=1.1.0",
     "lightfm-next>=1.19.0",
     "numpy>=1.24.0",
 ]
@@ -85,9 +79,6 @@ omit = [
     "*/__init__.py",
     # CLI module - tested via integration tests
     "src/oss_navi/cli.py",
-    # ML modules requiring dependencies not available on Python 3.14
-    "src/oss_navi/services/algorithms/normal.py",
-    "src/oss_navi/services/algorithms/thinking.py",
 ]
 
 [tool.coverage.report]

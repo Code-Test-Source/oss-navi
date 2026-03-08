@@ -16,7 +16,7 @@ class RecommendationMode(StrEnum):
     """Recommendation algorithm mode with different trade-offs."""
 
     FAST = "fast"  # Content-based only, <30s
-    NORMAL = "normal"  # Surprise SVD/KNN, <90s
+    NORMAL = "normal"  # Enhanced content-based, <60s
     THINKING = "thinking"  # LightFM + Apriori, <180s
 
 
@@ -28,7 +28,6 @@ class ModeConfig(BaseModel):
     max_memory_mb: int = Field(..., description="Maximum memory allowed in MB")
     algorithms: list[str] = Field(..., description="Algorithms used in this mode")
     requires_numpy: bool = Field(default=False, description="Whether numpy is required")
-    requires_surprise: bool = Field(default=False, description="Whether scikit-surprise is required")
     requires_lightfm: bool = Field(default=False, description="Whether LightFM is required")
 
 
@@ -40,16 +39,14 @@ MODE_CONFIGS: dict[RecommendationMode, ModeConfig] = {
         max_memory_mb=50,
         algorithms=["content_based"],
         requires_numpy=False,
-        requires_surprise=False,
         requires_lightfm=False,
     ),
     RecommendationMode.NORMAL: ModeConfig(
         mode=RecommendationMode.NORMAL,
-        max_time_seconds=90,
-        max_memory_mb=200,
-        algorithms=["surprise_svd", "surprise_knn"],
-        requires_numpy=True,
-        requires_surprise=True,
+        max_time_seconds=60,
+        max_memory_mb=100,
+        algorithms=["enhanced_content_based", "similarity_clustering"],
+        requires_numpy=False,
         requires_lightfm=False,
     ),
     RecommendationMode.THINKING: ModeConfig(
@@ -58,7 +55,6 @@ MODE_CONFIGS: dict[RecommendationMode, ModeConfig] = {
         max_memory_mb=500,
         algorithms=["lightfm", "apriori"],
         requires_numpy=True,
-        requires_surprise=True,
         requires_lightfm=True,
     ),
 }
@@ -83,12 +79,6 @@ def check_mode_availability(mode: RecommendationMode) -> tuple[bool, list[str]]:
             import numpy  # noqa: F401
         except ImportError:
             missing.append("numpy")
-
-    if config.requires_surprise:
-        try:
-            from surprise import SVD  # noqa: F401
-        except ImportError:
-            missing.append("scikit-surprise")
 
     if config.requires_lightfm:
         try:

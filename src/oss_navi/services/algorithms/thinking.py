@@ -1,4 +1,4 @@
-"""Thinking mode recommender combining LightFM and Apriori patterns."""
+"""Thinking mode recommender using LightFM hybrid model and Apriori patterns."""
 
 from typing import TYPE_CHECKING
 
@@ -17,13 +17,13 @@ class ThinkingRecommender(BaseRecommender):
     Characteristics:
     - Time: <180 seconds
     - Memory: <500MB
-    - Requires: numpy, scikit-surprise, lightfm
+    - Requires: numpy, lightfm-next
     - Highest recommendation quality
 
     Combines:
     1. Content-based filtering (project attributes)
-    2. Collaborative filtering (similar users/projects)
-    3. Pattern mining (skill associations)
+    2. Pattern mining (skill associations with Apriori)
+    3. LightFM hybrid model (collaborative + content filtering)
     """
 
     def __init__(self, config: RecommenderConfig | None = None):
@@ -36,6 +36,7 @@ class ThinkingRecommender(BaseRecommender):
         self._content_based = ContentBasedRecommender(config)
         self._apriori = AprioriMiner(min_support=0.05, min_confidence=0.3)
         self._lightfm_available = self._check_lightfm()
+        self._lightfm_model = None
 
     def _check_lightfm(self) -> bool:
         """Check if LightFM library is available."""
@@ -304,6 +305,8 @@ class ThinkingRecommender(BaseRecommender):
     ) -> list[Recommendation]:
         """Enhance recommendations using LightFM model.
 
+        Uses LightFM for hybrid collaborative + content-based filtering.
+
         Args:
             recommendations: Current recommendations
             user_preferences: User preferences
@@ -312,28 +315,101 @@ class ThinkingRecommender(BaseRecommender):
         Returns:
             Enhanced recommendations
         """
-        # This would use LightFM for hybrid recommendations
-        # For now, use a simplified enhancement
+        try:
+            import numpy as np
+            from lightfm import LightFM
+            from lightfm.data import Dataset
+        except ImportError:
+            return recommendations
+
+        if not recommendations:
+            return recommendations
 
         # Build user feature vector
         user_features = self._build_user_features(user_preferences)
 
-        # Adjust scores based on user-project similarity
-        for rec in recommendations:
-            # Simple similarity enhancement
-            similarity = self._compute_user_project_similarity(
-                user_features, rec, cached_tasks
+        # Create LightFM dataset
+        dataset = Dataset()
+        all_languages = set()
+        all_topics = set()
+
+        for task in cached_tasks:
+            if task.get("language"):
+                all_languages.add(task["language"].lower())
+            for topic in task.get("topics", []):
+                all_topics.add(topic.lower())
+
+        # Fit dataset
+        dataset.fit(
+            users=[0],  # Single user
+            items=[f"{t.get('owner', '')}/{t.get('name', '')}" for t in cached_tasks],
+            user_features=list(user_features.keys()),
+            item_features=list(all_languages | all_topics),
+        )
+
+        # Build feature matrices
+        user_features_matrix = dataset.build_user_features(
+            [(0, user_features)], normalize=True
+        )
+
+        item_features_list = []
+        for task in cached_tasks:
+            name = f"{task.get('owner', '')}/{task.get('name', '')}"
+            features = set()
+            if task.get("language"):
+                features.add(task["language"].lower())
+            for topic in task.get("topics", []):
+                features.add(topic.lower())
+            item_features_list.append((name, features))
+
+        item_features_matrix = dataset.build_item_features(
+            item_features_list, normalize=True
+        )
+
+        # Create or reuse model
+        if self._lightfm_model is None:
+            self._lightfm_model = LightFM(
+                no_components=30,
+                learning_rate=0.05,
+                loss="warp",  # Weighted Approximate-Rank Pairwise
+            )
+            # Fit on item features (unsupervised for cold start)
+            self._lightfm_model.fit_partial(
+                interactions=None,
+                user_features=user_features_matrix,
+                item_features=item_features_matrix,
+                epochs=10,
+                verbose=False,
             )
 
-            # Blend current score with similarity
-            original_score = rec.relevance_score
-            blended = int(original_score * 0.6 + similarity * 0.4)
-            rec.relevance_score = max(1, min(10, blended))
+        # Predict scores for recommendations
+        name_to_idx = {
+            f"{t.get('owner', '')}/{t.get('name', '')}": i
+            for i, t in enumerate(cached_tasks)
+        }
 
-            if rec.confidence_score is not None:
-                rec.confidence_score = (
-                    rec.confidence_score * 0.6 + similarity / 10 * 0.4
-                )
+        for rec in recommendations:
+            if rec.project_name in name_to_idx:
+                item_idx = name_to_idx[rec.project_name]
+                try:
+                    score = self._lightfm_model.predict(
+                        0, np.array([item_idx]),
+                        user_features=user_features_matrix,
+                        item_features=item_features_matrix,
+                    )[0]
+
+                    # Normalize LightFM score to 0-10 range
+                    normalized_score = max(1, min(10, int((score + 1) * 5)))
+
+                    # Blend with original score
+                    blended = int(rec.relevance_score * 0.5 + normalized_score * 0.5)
+                    rec.relevance_score = max(1, min(10, blended))
+
+                    # Update algorithm source
+                    rec.algorithm_source = "lightfm_hybrid"
+
+                except Exception:
+                    pass
 
         return recommendations
 
@@ -346,45 +422,23 @@ class ThinkingRecommender(BaseRecommender):
         Returns:
             User feature dictionary
         """
-        return {
-            "languages": {lang.lower() for lang in user_preferences.get_all_languages()},
-            "domains": {
-                domain.domain.lower() for domain in user_preferences.domain_interests
-            },
-            "skill_levels": {
-                lp.language.lower(): lp.skill_level.value
-                for lp in user_preferences.languages
-            },
-        }
+        features = {}
 
-    def _compute_user_project_similarity(
-        self,
-        user_features: dict,
-        rec: Recommendation,
-        cached_tasks: list[dict],
-    ) -> int:
-        """Compute similarity between user and project.
+        # Add language features
+        for lang in user_preferences.get_all_languages():
+            features[lang.lower()] = 1.0
 
-        Args:
-            user_features: User feature dictionary
-            rec: Recommendation
-            cached_tasks: Cached tasks
+        # Add domain features
+        for domain in user_preferences.domain_interests:
+            features[domain.domain.lower()] = domain.interest_level / 10.0
 
-        Returns:
-            Similarity score (0-10)
-        """
-        score = 5
+        # Add skill level features
+        for lp in user_preferences.languages:
+            level_map = {"beginner": 0.3, "intermediate": 0.6, "advanced": 1.0}
+            skill_feature = f"skill_{lp.language.lower()}"
+            features[skill_feature] = level_map.get(lp.skill_level.value, 0.5)
 
-        # Language match
-        if rec.language.lower() in user_features["languages"]:
-            score += 2
-
-        # Domain interest match would require project topics
-        # For now, use simple heuristic
-        if rec.relevance_score >= 7:
-            score += 1
-
-        return min(10, score)
+        return features
 
 
 def create_lightfm_model():

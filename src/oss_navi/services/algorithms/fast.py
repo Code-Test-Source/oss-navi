@@ -16,7 +16,7 @@ class FastRecommender(BaseRecommender):
     Characteristics:
     - Time: <30 seconds
     - Memory: <50MB
-    - No external ML dependencies (numpy, surprise, lightfm)
+    - No external ML dependencies
     - Suitable for quick exploration and CI/CD
 
     Uses pure content-based matching on:

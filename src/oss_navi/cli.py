@@ -94,7 +94,7 @@ def analysis(
     \b
     Recommendation Modes:
       fast     Content-based filtering only (<30s, <50MB)
-      normal   Surprise SVD/KNN collaborative filtering (<90s, <200MB)
+      normal   Enhanced content-based with similarity (<60s, <100MB)
       thinking LightFM + Apriori pattern mining (<180s, <500MB)
     """
     from oss_navi.models.recommendation import RecommendationMode, check_mode_availability
@@ -164,7 +164,7 @@ def analysis(
             continue  # Skip malformed tasks
 
     click.echo(f"✓ Filtering tasks... ({len(tasks)} matches)")
-    click.echo(f"✓ Mode: {mode} ({'Surprise SVD/KNN' if mode == 'normal' else 'LightFM + Apriori' if mode == 'thinking' else 'Content-based'})")
+    click.echo(f"✓ Mode: {mode} ({'Enhanced content-based' if mode == 'normal' else 'LightFM + Apriori' if mode == 'thinking' else 'Content-based'})")
 
     # Load or create user preferences
 
