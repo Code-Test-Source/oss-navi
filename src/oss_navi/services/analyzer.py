@@ -22,11 +22,184 @@ from oss_navi.models.task import (
 )
 from oss_navi.services.github import GitHubClient
 from oss_navi.utils.cache import read_json, write_json
-from oss_navi.utils.paths import MEMORY_FILE, TEMP_DIR
+from oss_navi.utils.paths import CACHE_DIR, MEMORY_FILE, TEMP_DIR
 
 # Constants
 CLAUDE_CODE_COMMAND = "claude"
 DEFAULT_TIMEOUT_SECONDS = 180  # Increased to 3 minutes for LLM processing
+
+# Learning resource cache files
+CSDIY_CACHE = CACHE_DIR / "csdiy.json"
+LEETCODE_CACHE = CACHE_DIR / "leetcode.json"
+CODEFORCES_CACHE = CACHE_DIR / "codeforces.json"
+
+
+def load_learning_resources(
+    user_languages: dict[str, float],
+    learning_focus: str | None = None,
+    skill_level: str = "intermediate",
+) -> dict:
+    """Load and filter learning resources based on user profile.
+
+    Args:
+        user_languages: User's languages with usage percentages
+        learning_focus: Optional learning focus language/topic
+        skill_level: User's skill level (beginner/intermediate/advanced)
+
+    Returns:
+        Dictionary with courses, problems, and learning path suggestions
+    """
+    resources = {
+        "courses": [],
+        "practice_problems": [],
+        "learning_paths": [],
+    }
+
+    # Map languages to topics
+    lang_to_topics = {
+        "python": ["python", "programming", "data-science", "machine-learning", "web-development"],
+        "javascript": ["javascript", "web-development", "frontend", "nodejs"],
+        "typescript": ["typescript", "web-development", "frontend"],
+        "rust": ["rust", "systems-programming"],
+        "go": ["go", "golang", "systems-programming", "backend"],
+        "java": ["java", "backend", "enterprise"],
+        "c++": ["cpp", "c++", "systems-programming"],
+        "c": ["c", "systems-programming"],
+    }
+
+    # Determine target topics
+    target_topics = set()
+    for lang in user_languages.keys():
+        lang_lower = lang.lower()
+        target_topics.add(lang_lower)
+        if lang_lower in lang_to_topics:
+            target_topics.update(lang_to_topics[lang_lower])
+
+    if learning_focus:
+        target_topics.add(learning_focus.lower())
+
+    # Load csdiy courses
+    csdiy_data = read_json(CSDIY_CACHE) or []
+    for course in csdiy_data:
+        course_topics = [t.lower() for t in course.get("topics", [])]
+        # Check if course matches user's interests
+        if target_topics & set(course_topics):
+            resources["courses"].append({
+                "title": course.get("title", "Unknown"),
+                "url": course.get("url", ""),
+                "topics": course.get("topics", []),
+                "difficulty": course.get("difficulty", "intermediate"),
+                "institution": course.get("institution", ""),
+            })
+        if len(resources["courses"]) >= 5:
+            break
+
+    # Load LeetCode problems
+    leetcode_data = read_json(LEETCODE_CACHE) or []
+    difficulty_filter = {
+        "beginner": ["beginner"],
+        "intermediate": ["beginner", "intermediate"],
+        "advanced": ["intermediate", "advanced"],
+    }
+    valid_difficulties = difficulty_filter.get(skill_level, ["beginner", "intermediate"])
+
+    for problem in leetcode_data:
+        if problem.get("difficulty", "").lower() in valid_difficulties:
+            resources["practice_problems"].append({
+                "title": problem.get("title", "Unknown"),
+                "url": problem.get("url", ""),
+                "difficulty": problem.get("difficulty", "intermediate"),
+                "acceptance_rate": problem.get("acceptance_rate", 0),
+            })
+        if len(resources["practice_problems"]) >= 10:
+            break
+
+    # Load Codeforces problems
+    codeforces_data = read_json(CODEFORCES_CACHE) or []
+    rating_range = {
+        "beginner": (800, 1200),
+        "intermediate": (1200, 1600),
+        "advanced": (1600, 2200),
+    }
+    min_rating, max_rating = rating_range.get(skill_level, (800, 1600))
+
+    for problem in codeforces_data:
+        rating = problem.get("rating") or problem.get("metadata", {}).get("rating")
+        if rating and min_rating <= rating <= max_rating:
+            resources["practice_problems"].append({
+                "title": problem.get("title", "Unknown"),
+                "url": problem.get("url", ""),
+                "difficulty": "advanced" if rating >= 1600 else "intermediate",
+                "rating": rating,
+            })
+        if len(resources["practice_problems"]) >= 15:
+            break
+
+    # Generate learning path suggestions
+    if learning_focus:
+        resources["learning_paths"].append({
+            "focus": learning_focus,
+            "description": f"Recommended path for learning {learning_focus}",
+            "steps": [
+                "Start with beginner tutorials and documentation",
+                "Complete practice problems to build fundamentals",
+                "Contribute to open source projects using " + learning_focus,
+            ],
+        })
+
+    return resources
+
+
+def format_learning_resources_for_prompt(resources: dict) -> list[str]:
+    """Format learning resources for inclusion in the analysis prompt.
+
+    Args:
+        resources: Dictionary with courses, problems, and learning paths
+
+    Returns:
+        List of formatted strings for the prompt
+    """
+    parts = []
+
+    if resources.get("courses"):
+        parts.extend([
+            "",
+            "## Recommended Courses (from csdiy.wiki)",
+            "",
+        ])
+        for course in resources["courses"][:5]:
+            parts.append(f"- **{course['title']}** - {course.get('institution', 'Self-study')}")
+            parts.append(f"  Topics: {', '.join(course.get('topics', []))}")
+            parts.append(f"  Difficulty: {course.get('difficulty', 'intermediate')}")
+            if course.get("url"):
+                parts.append(f"  URL: {course['url']}")
+            parts.append("")
+
+    if resources.get("practice_problems"):
+        parts.extend([
+            "",
+            "## Practice Problems (LeetCode & Codeforces)",
+            "",
+        ])
+        for i, problem in enumerate(resources["practice_problems"][:10], 1):
+            parts.append(f"{i}. {problem['title']} ({problem.get('difficulty', 'intermediate')})")
+            if problem.get("url"):
+                parts.append(f"   URL: {problem['url']}")
+
+    if resources.get("learning_paths"):
+        parts.extend([
+            "",
+            "## Suggested Learning Paths",
+            "",
+        ])
+        for path in resources["learning_paths"]:
+            parts.append(f"### {path['focus']}")
+            parts.append(path.get("description", ""))
+            for step in path.get("steps", []):
+                parts.append(f"- {step}")
+            parts.append("")
+
+    return parts
 
 
 def load_or_create_memory(memory_file: Path | None = None) -> LongTermMemory:
@@ -155,6 +328,19 @@ def build_prompt(
             f"- **Hotness Score**: {task.hotness_score}",
             "",
         ])
+
+    # Add learning resources section
+    user_languages = profile.get("languages", {})
+    skill_level = "intermediate"  # Default, could be inferred from profile
+
+    learning_resources = load_learning_resources(
+        user_languages=user_languages,
+        learning_focus=learning_focus,
+        skill_level=skill_level,
+    )
+
+    if learning_resources.get("courses") or learning_resources.get("practice_problems"):
+        prompt_parts.extend(format_learning_resources_for_prompt(learning_resources))
 
     if memory:
         # Include skill history
