@@ -5,7 +5,7 @@
 
 ## Summary
 
-Enhance OSS-Navi with intelligent recommendation algorithms using Surprise (scikit-surprise) and LightFM libraries. The system provides three recommendation modes (fast, normal, thinking) with varying algorithm complexity. Features include multi-round interactive sessions with full report control, automatic learning resource integration (csdiy.wiki, LeetCode, Codeforces), and comprehensive user personalization with blocking rules.
+Enhance OSS-Navi with intelligent recommendation algorithms integrated into the existing `analysis` command. The system uses Surprise (scikit-surprise) and LightFM libraries with three recommendation modes (fast, normal, thinking) of varying algorithm complexity. Recommendation logic is separated into `services/recommender.py` for clean architecture. Features include multi-round interactive sessions with full report control, automatic learning resource integration (csdiy.wiki, LeetCode, Codeforces), and comprehensive user personalization with blocking rules.
 
 ## Technical Context
 

@@ -5,16 +5,16 @@
 
 ## Overview
 
-This document defines the CLI command contracts for the intelligent recommendations feature. Commands extend the existing `oss-navi` CLI.
+This document defines the CLI command contracts for the intelligent recommendations feature. Recommendations are integrated into the existing `analysis` command, with logic in a separate `services/recommender.py` module.
 
-## Command: `oss-navi recommend`
+## Command: `oss-navi analysis` (Extended)
 
-Start an interactive recommendation session.
+The existing `analysis` command is extended with intelligent recommendations and interactive sessions.
 
 ### Usage
 
 ```
-oss-navi recommend [OPTIONS]
+oss-navi analysis [OPTIONS]
 ```
 
 ### Options
@@ -25,11 +25,11 @@ oss-navi recommend [OPTIONS]
 | `--learn` | TEXT | None | Learning focus (language or skill) |
 | `--mode`, `-m` | TEXT | normal | Recommendation mode: fast, normal, thinking |
 | `--interactive`, `-i` | FLAG | True | Enable interactive mode |
-| `--non-interactive` | FLAG | False | Disable interactive mode (one-shot) |
+| `--no-interactive` | FLAG | False | Disable interactive mode (one-shot) |
 | `--rounds` | INT | 3 | Maximum recommendation rounds |
 | `--output`, `-o` | PATH | stdout | Output file for final report |
 | `--session` | TEXT | None | Resume existing session by ID |
-| `--list-sessions` | FLAG | - | List active sessions |
+| `--force` | FLAG | False | Force refresh cached data |
 
 ### Recommendation Modes
 
@@ -42,26 +42,26 @@ oss-navi recommend [OPTIONS]
 ### Examples
 
 ```bash
-# Start interactive recommendation session (normal mode)
-oss-navi recommend
+# Start interactive analysis with recommendations (normal mode)
+oss-navi analysis
 
 # Fast mode for quick exploration
-oss-navi recommend --mode fast
+oss-navi analysis --mode fast
 
 # Thinking mode for best recommendations
-oss-navi recommend --mode thinking
+oss-navi analysis --mode thinking
 
 # Specify language focus
-oss-navi recommend --language go
+oss-navi analysis --language go
 
 # Resume previous session
-oss-navi recommend --session abc123
+oss-navi analysis --session abc123
 
 # Non-interactive (one-shot) mode
-oss-navi recommend --non-interactive --output report.md
+oss-navi analysis --no-interactive --output report.md
 
-# Learning-focused recommendations with thinking mode
-oss-navi recommend --learn rust --mode thinking
+# Learning-focused analysis with thinking mode
+oss-navi analysis --learn rust --mode thinking
 ```
 
 ### Exit Codes
@@ -79,32 +79,51 @@ oss-navi recommend --learn rust --mode thinking
 Interactive mode produces markdown report to stdout or file:
 
 ```markdown
-# OSS-Navi Recommendations
+# OSS-Navi Analysis Report
 
 ## Session: {session_id}
+## Mode: {mode}
 
-### Round 1: Language Match (Go)
+### Your Profile Summary
+
+- Primary languages: Python, Go
+- Skill level: Advanced
+- Learning focus: Rust
+
+---
+
+### Round 1: Language Match (Python)
 
 #### Recommended Projects
 
-1. **project-name** (Score: 8/10)
-   - URL: https://github.com/owner/repo
-   - Language: Go
-   - Why: Matches your Go expertise and interests in distributed systems
-   - Skills you'll develop: concurrency, microservices
-   - [Issue: Fix handler timeout](https://github.com/...)
+1. **fastapi/fastapi** (Score: 9/10, Confidence: 0.85)
+   - URL: https://github.com/fastapi/fastapi
+   - Language: Python | Stars: 75.2k
+   - Why: Matches your Python expertise and web development interests
+   - Skills you'll develop: async patterns, API design, type hints
+   - Issue: Add OpenAPI validation for edge cases
+   - 🔗 https://github.com/fastapi/fastapi/issues/12345
+
+2. **django/django** (Score: 8/10, Confidence: 0.78)
+   - URL: https://github.com/django/django
+   - Language: Python | Stars: 78.1k
+   - Why: Popular framework matching your skill level
+   - Skills you'll develop: ORM patterns, migrations, authentication
+   - Issue: Improve queryset performance
+
+---
 
 #### Learning Resources (Auto-suggested)
 
-- LeetCode: Two Sum (Easy) - Arrays
-- Codeforces: Problem 1234 (Rating 800) - Basics
-- csdiy.wiki: MIT 6.006 - Introduction to Algorithms
+- **LeetCode**: Two Sum (Easy) - Arrays
+- **Codeforces**: Problem 4A (Rating 800) - Basics
+- **csdiy.wiki**: MIT 6.006 - Introduction to Algorithms
 
 ---
 
 ### What would you like to do?
-[A] Accept recommendation  [R] Reject  [D] Detailed analysis
-[S] Request alternatives   [N] Next round   [F] Finalize report
+[A] Accept  [R] Reject  [D] Detailed analysis  [S] Alternatives
+[M] Modify report  [N] Next round  [F] Finalize
 ```
 
 ---
@@ -207,7 +226,7 @@ oss-navi prefs import FILE
 
 ## Command: `oss-navi session`
 
-Manage recommendation sessions.
+Manage analysis sessions.
 
 ### Usage
 
@@ -254,62 +273,6 @@ oss-navi session export SESSION_ID [OPTIONS]
 Options:
   --format, -f    markdown|json  [default: markdown]
   --output, -o    Output file (default: stdout)
-```
-
----
-
-## Command: `oss-navi analyze`
-
-Request detailed code analysis for a specific repository.
-
-### Usage
-
-```
-oss-navi analyze REPO [OPTIONS]
-
-Arguments:
-  REPO    Repository in owner/repo format
-
-Options:
-  --output, -o    Output file for analysis
-  --add-to-session    Add to current/recent session
-```
-
-### Example
-
-```bash
-oss-navi analyze golang/go --output go-analysis.md
-```
-
-### Output Format
-
-```markdown
-# Code Analysis: golang/go
-
-## Architecture Overview
-
-The Go project is organized into...
-
-## Key Files
-
-| File | Purpose | Lines |
-|------|---------|-------|
-| src/cmd/compile/main.go | Compiler entry point | ~500 |
-| src/runtime/proc.go | Scheduler implementation | ~2000 |
-
-## Contribution Areas
-
-| Area | Difficulty | Beginner-friendly |
-|------|------------|-------------------|
-| Documentation | Easy | Yes |
-| Standard library | Medium | Yes |
-| Compiler | Hard | No |
-
-## Code Reading Hints
-
-1. Start with `src/cmd/go/main.go` to understand the CLI
-2. The runtime scheduler is in `src/runtime/`
-3. ...
 ```
 
 ---
@@ -429,7 +392,30 @@ Preferences are stored in `~/.oss-navi/state/preferences.json`:
   "blocking_rules": [
     {"block_type": "language", "value": "typescript", "reason": "Not interested"}
   ],
+  "default_mode": "normal",
   "created_at": "2026-03-08T...",
   "updated_at": "2026-03-08T..."
 }
 ```
+
+---
+
+## Code Organization
+
+The recommendation logic is separated into a dedicated module:
+
+```
+src/oss_navi/
+├── cli.py                    # CLI entry point (extends existing)
+├── services/
+│   ├── recommender.py        # NEW - Main recommendation orchestration
+│   │                         # Called by cli.py analysis command
+│   └── algorithms/           # NEW - Algorithm implementations
+│       ├── __init__.py
+│       ├── base.py           # Abstract base class
+│       ├── fast.py           # Fast mode (content-based)
+│       ├── normal.py         # Normal mode (Surprise)
+│       └── thinking.py       # Thinking mode (LightFM + Apriori)
+```
+
+The `cli.py` analysis command calls `services/recommender.py` which orchestrates the recommendation process based on the selected mode.

@@ -42,21 +42,21 @@ OSS-Navi offers three recommendation modes with different trade-offs:
 - **Fast mode**: Works with minimal installation
 - **Normal/Thinking modes**: Requires `pip install oss-navi[recommend]`
 
-### Interactive Recommendations (Recommended)
+### Interactive Analysis (Recommended)
 
 ```bash
-# Start interactive recommendation session (normal mode)
-oss-navi recommend
+# Start interactive analysis with recommendations (normal mode)
+oss-navi analysis
 
 # Fast mode for quick results
-oss-navi recommend --mode fast
+oss-navi analysis --mode fast
 
 # Thinking mode for best quality
-oss-navi recommend --mode thinking
+oss-navi analysis --mode thinking
 
 # The system will:
 # 1. Analyze your GitHub profile + preferences
-# 2. Generate initial recommendations with scores
+# 2. Generate intelligent recommendations with scores
 # 3. Suggest learning resources automatically
 # 4. Let you accept/reject/request alternatives
 # 5. Allow multiple rounds of refinement
@@ -66,17 +66,17 @@ oss-navi recommend --mode thinking
 
 ```bash
 # Generate recommendations without interaction
-oss-navi recommend --non-interactive --output report.md
+oss-navi analysis --no-interactive --output report.md
 
 # Fast one-shot for CI/CD
-oss-navi recommend --mode fast --non-interactive
+oss-navi analysis --mode fast --no-interactive
 ```
 
 ### Learning Focus
 
 ```bash
 # Focus on learning a specific technology
-oss-navi recommend --learn rust
+oss-navi analysis --learn rust
 
 # The system will:
 # 1. Mark rust as learning prerequisite (if no Rust tasks found)
@@ -88,25 +88,26 @@ oss-navi recommend --learn rust
 ## Interactive Session Flow
 
 ```
-$ oss-navi recommend
+$ oss-navi analysis
 
 🔍 Analyzing your profile...
 ✓ Found 3 primary languages: Python, Go, JavaScript
 ✓ Loaded 1,247 cached tasks
 ✓ Synced learning resources
+✓ Mode: normal (Surprise SVD/KNN)
 
 ═══════════════════════════════════════════════════════════
 ROUND 1: Language Match (Python)
 ═══════════════════════════════════════════════════════════
 
-📦 fastapi/fastapi (Score: 9/10)
+📦 fastapi/fastapi (Score: 9/10, Confidence: 0.85)
    Language: Python | Stars: 75.2k
    Why: Matches your Python expertise and web development interests
    Skills: async patterns, API design, type hints
    Issue: Add OpenAPI validation for edge cases
    🔗 https://github.com/fastapi/fastapi/issues/12345
 
-📦 django/django (Score: 8/10)
+📦 django/django (Score: 8/10, Confidence: 0.78)
    Language: Python | Stars: 78.1k
    Why: Popular framework matching your skill level
    Skills: ORM patterns, migrations, authentication
@@ -152,23 +153,13 @@ oss-navi prefs import my-prefs.json
 oss-navi session list
 
 # Resume a session
-oss-navi recommend --session abc123
+oss-navi analysis --session abc123
 
 # Export session report
 oss-navi session export abc123 --output my-report.md
 
 # Delete old session
 oss-navi session delete abc123
-```
-
-## Detailed Code Analysis
-
-```bash
-# Analyze a specific repository
-oss-navi analyze fastapi/fastapi
-
-# Add analysis to current session
-oss-navi analyze django/django --add-to-session
 ```
 
 ## Performance Tips
@@ -224,7 +215,7 @@ pip install -e ".[dev,recommend]"
 
 ## Next Steps
 
-1. Run `oss-navi recommend` to start your first session
+1. Run `oss-navi analysis` to start your first session
 2. Accept/reject recommendations to train the system
 3. Request detailed analysis for promising projects
 4. Finalize your report and start contributing!

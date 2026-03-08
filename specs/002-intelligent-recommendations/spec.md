@@ -13,6 +13,7 @@
 - Q: How should language matching work when no exact matches exist? → A: First scan the cached JSON for exact language matches. If found, recommend those projects. If not found, mark the language as a learning prerequisite. Then conduct a SECOND ROUND analysis recommending projects where language is NOT a prerequisite (adjacent technologies). Great project recommendations follow this same rule.
 - Q: When should LeetCode/Codeforces recommendations appear? → A: LeetCode and Codeforces problems appear AUTOMATICALLY based on user's skill level and csdiy courses, even without explicit user request. If the user explicitly requests practice problems, refer to their specific requests.
 - Q: What level of control should users have over the report during interactive sessions? → A: Users can ALWAYS determine where to stop, add items to report, delete parts of report, modify parts of report, or do another round of conversation.
+- Q: Should there be a separate recommend command? → A: No. Recommendations are INTEGRATED into the existing `analysis` command. Recommendation logic is separated into `services/recommender.py` for clean architecture. Users run `oss-navi analysis` with recommendation options.
 
 ## User Scenarios & Testing *(mandatory)*
 
