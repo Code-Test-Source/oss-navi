@@ -270,7 +270,7 @@ def fetch_upforgrabs_tasks(timeout: float = DEFAULT_TIMEOUT) -> list[Task]:
                 )
 
         except httpx.RequestError as e:
-            raise UpForGrabsUnavailableError(f"Failed to fetch Up For Grabs: {e}") from e
+            raise UpForGrabsUnavailableError(f"Failed to fetch Up For Grabs: {e}")
 
         # Step 2: Fetch and parse each project YAML file (sorted alphabetically)
         # Sort project files by name for consistent ordering
@@ -517,7 +517,7 @@ async def fetch_upforgrabs_tasks_async(
                 )
 
         except httpx.RequestError as e:
-            raise UpForGrabsUnavailableError(f"Failed to fetch Up For Grabs: {e}") from e
+            raise UpForGrabsUnavailableError(f"Failed to fetch Up For Grabs: {e}")
 
         # Step 2: Fetch YAML files in parallel with semaphore for rate limiting
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
@@ -587,7 +587,7 @@ def fetch_goodfirstissues_tasks(
                 )
 
         except httpx.RequestError as e:
-            raise GoodFirstIssueUnavailableError(f"Failed to fetch Good First Issues: {e}") from e
+            raise GoodFirstIssueUnavailableError(f"Failed to fetch Good First Issues: {e}")
 
         # Sort by repo name alphabetically for consistent ordering
         def get_repo_name(issue_data: dict) -> str:

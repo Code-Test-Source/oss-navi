@@ -63,15 +63,6 @@ def prompt_learning_interests() -> str | None:
 @click.option("--explore", is_flag=True, help="Suggest adjacent fields to explore")
 @click.option("-n", "--recommendations", type=int, default=7, help="Number of recommendations (5-10)")
 @click.option("--skip-status", is_flag=True, help="Skip issue status checks (avoids GitHub API rate limits)")
-@click.option(
-    "--mode", "-m",
-    type=click.Choice(["fast", "normal", "thinking"], case_sensitive=False),
-    default="normal",
-    help="Recommendation mode: fast (<30s), normal (<90s), thinking (<180s)",
-)
-@click.option("--language", type=str, help="Primary language for recommendations")
-@click.option("--rounds", type=int, default=3, help="Maximum recommendation rounds (interactive mode)")
-@click.option("--session", type=str, help="Resume existing session by ID")
 def analysis(
     learn: str | None,
     output_path: str | None,
@@ -81,23 +72,12 @@ def analysis(
     explore: bool,
     recommendations: int,
     skip_status: bool,
-    mode: str,
-    language: str | None,
-    rounds: int,
-    session: str | None,
 ) -> None:
     """Generate personalized project recommendations.
 
     Analyzes your GitHub profile and available tasks to recommend
     the best open source projects for you to contribute to.
-
-    \b
-    Recommendation Modes:
-      fast     Content-based filtering only (<30s, <50MB)
-      normal   Enhanced content-based with similarity (<60s, <100MB)
-      thinking LightFM + Apriori pattern mining (<180s, <500MB)
     """
-    from oss_navi.models.recommendation import RecommendationMode, check_mode_availability
     from oss_navi.services.analyzer import (
         ClaudeCodeError,
         find_great_projects,
@@ -105,7 +85,6 @@ def analysis(
         run_analysis,
         suggest_adjacent_fields,
     )
-    from oss_navi.services.recommender import create_recommender_service
     from oss_navi.utils.cache import read_json
     from oss_navi.utils.paths import (
         GITHUB_PROFILE_CACHE,
@@ -117,19 +96,6 @@ def analysis(
     recommendations = max(5, min(10, recommendations))
 
     click.echo("✓ Analyzing profile...")
-
-    # Check mode availability
-    mode_enum = RecommendationMode(mode.lower())
-    is_available, missing = check_mode_availability(mode_enum)
-    if not is_available:
-        click.echo(
-            f"⚠ Mode '{mode}' requires: {', '.join(missing)}\n"
-            f"  Install with: pip install oss-navi[recommend]\n"
-            f"  Falling back to fast mode",
-            err=True,
-        )
-        mode = "fast"
-        mode_enum = RecommendationMode.FAST
 
     # Load cached profile data
     profile = read_json(GITHUB_PROFILE_CACHE)
@@ -164,77 +130,6 @@ def analysis(
             continue  # Skip malformed tasks
 
     click.echo(f"✓ Filtering tasks... ({len(tasks)} matches)")
-    click.echo(f"✓ Mode: {mode} ({'Enhanced content-based' if mode == 'normal' else 'LightFM + Apriori' if mode == 'thinking' else 'Content-based'})")
-
-    # Load or create user preferences
-
-    from oss_navi.models.preferences import (
-        LanguageProfile,
-        LanguageType,
-        SkillLevel,
-        UserPreferences,
-    )
-    from oss_navi.utils.paths import STATE_DIR
-
-    prefs_path = STATE_DIR / "preferences.json"
-    user_prefs = None
-    if prefs_path.exists():
-        prefs_data = read_json(prefs_path)
-        if prefs_data:
-            try:
-                user_prefs = UserPreferences(**prefs_data)
-            except Exception:
-                pass
-
-    # Create preferences from profile if not set
-    if not user_prefs:
-        user_prefs = UserPreferences()
-        user_languages = profile.get("languages", {})
-        for i, (lang, bytes_count) in enumerate(user_languages.items()):
-            lang_type = LanguageType.PRIMARY if i == 0 else LanguageType.SECONDARY
-            skill = SkillLevel.ADVANCED if bytes_count > 100000 else SkillLevel.INTERMEDIATE if bytes_count > 10000 else SkillLevel.BEGINNER
-            user_prefs.languages.append(LanguageProfile(
-                language=lang,
-                type=lang_type,
-                skill_level=skill,
-            ))
-
-    # Override language if specified
-    if language:
-        user_prefs.languages = [
-            lp for lp in user_prefs.languages
-            if lp.language.lower() != language.lower()
-        ]
-        user_prefs.languages.insert(0, LanguageProfile(
-            language=language,
-            type=LanguageType.PRIMARY,
-            skill_level=SkillLevel.INTERMEDIATE,
-        ))
-
-    # Use intelligent recommender service
-    click.echo(f"\n✓ Generating {recommendations} recommendations using {mode} mode...")
-    recommender = create_recommender_service(mode=mode, max_recommendations=recommendations)
-
-    # Convert tasks to dict format for recommender
-    tasks_dicts = [t.model_dump() for t in tasks]
-
-    # Generate recommendations
-    intelligent_recs = recommender.recommend(
-        user_preferences=user_prefs,
-        cached_tasks=tasks_dicts,
-    )
-
-    # Display intelligent recommendations
-    if intelligent_recs:
-        click.echo("\n🎯 Intelligent Recommendations:")
-        for i, rec in enumerate(intelligent_recs[:recommendations], 1):
-            click.echo(f"\n  {i}. {rec.project_name} (Score: {rec.relevance_score}/10)")
-            click.echo(f"     Language: {rec.language} | Stars: {rec.stars:,}")
-            click.echo(f"     Why: {rec.reasoning}")
-            if rec.skill_gap_analysis:
-                click.echo(f"     Skills to develop: {', '.join(rec.skill_gap_analysis)}")
-            if rec.issue_url:
-                click.echo(f"     Issue: {rec.issue_url}")
 
     # Get memory if available
     from oss_navi.utils.paths import MEMORY_FILE
@@ -270,7 +165,8 @@ def analysis(
             click.echo(f"  - {proj.name} ({proj.stars:,} stars)")
             click.echo(f"    {proj.why_great}")
 
-    # Generate scored recommendations (legacy for compatibility)
+    # Generate scored recommendations
+    click.echo(f"\n✓ Generating {recommendations} recommendations...")
     scored_recommendations = generate_recommendations(
         tasks=tasks,
         user_languages=user_languages,
@@ -281,7 +177,7 @@ def analysis(
 
     # Show top recommendations with ratings
     if scored_recommendations:
-        click.echo("\n📋 Additional Recommendations:")
+        click.echo("\n🎯 Top Recommendations:")
         for i, rec in enumerate(scored_recommendations[:recommendations], 1):
             status_icon = "✓" if rec.status.is_available else "⚠"
             click.echo(f"  {i}. {rec.task.title[:50]}...")
@@ -329,35 +225,22 @@ def analysis(
 
     except ClaudeCodeError as e:
         click.echo(f"✗ {e}", err=True)
-        raise SystemExit(3) from None
+        raise SystemExit(3)
     except ValueError as e:
         click.echo(f"✗ {e}", err=True)
-        raise SystemExit(5) from None
+        raise SystemExit(5)
 
 
 @main.command()
 @click.option("--github", is_flag=True, help="Sync GitHub profile only")
 @click.option("--tasks", is_flag=True, help="Sync task sources only")
-@click.option("--learning", is_flag=True, help="Sync learning resources (csdiy, LeetCode, Codeforces)")
-@click.option("--csdiy", is_flag=True, help="Sync csdiy.wiki courses only")
-@click.option("--leetcode", is_flag=True, help="Sync LeetCode problems only")
-@click.option("--codeforces", is_flag=True, help="Sync Codeforces problems only")
 @click.option("--force", is_flag=True, help="Force refresh ignoring cache")
 @click.option("--dry-run", is_flag=True, help="Show what would be fetched")
-def sync(
-    github: bool,
-    tasks: bool,
-    learning: bool,
-    csdiy: bool,
-    leetcode: bool,
-    codeforces: bool,
-    force: bool,
-    dry_run: bool,
-) -> None:
-    """Fetch and cache GitHub profile, task data, and learning resources.
+def sync(github: bool, tasks: bool, force: bool, dry_run: bool) -> None:
+    """Fetch and cache GitHub profile and task data.
 
-    By default, syncs GitHub profile and task sources.
-    Use --learning to sync learning resources from third-party datasets.
+    By default, syncs both GitHub profile and task sources.
+    Use --github or --tasks to sync only specific sources.
     """
     from oss_navi.services.github import (
         GitHubAuthError,
@@ -371,10 +254,9 @@ def sync(
     )
     from oss_navi.utils.cache import is_cache_valid
 
-    # Determine what to sync
-    sync_github = github or (not github and not tasks and not learning and not csdiy and not leetcode and not codeforces)
-    sync_tasks = tasks or (not github and not tasks and not learning and not csdiy and not leetcode and not codeforces)
-    sync_learning = learning or csdiy or leetcode or codeforces
+    # If neither flag is set, sync both
+    sync_github = github or (not github and not tasks)
+    sync_tasks = tasks or (not github and not tasks)
 
     if dry_run:
         click.echo("Would fetch:")
@@ -383,14 +265,6 @@ def sync(
         if sync_tasks:
             click.echo("  - Up For Grabs tasks")
             click.echo("  - Good First Issue tasks")
-        if sync_learning:
-            click.echo("  - Learning resources:")
-            if csdiy or learning:
-                click.echo("    - csdiy.wiki courses")
-            if leetcode or learning:
-                click.echo("    - LeetCode problems (neenza/leetcode-problems dataset)")
-            if codeforces or learning:
-                click.echo("    - Codeforces problems (Kaggle/HuggingFace dataset)")
         return
 
     # Sync GitHub profile
@@ -445,56 +319,7 @@ def sync(
             except (UpForGrabsUnavailableError, GoodFirstIssueUnavailableError) as e:
                 click.echo(f"⚠ {e}", err=True)
 
-    # Sync learning resources
-    if sync_learning:
-        from oss_navi.services.learning import LearningService
-        from oss_navi.utils.cache import is_cache_valid
-
-        learning_service = LearningService()
-        click.echo("\n🔄 Syncing learning resources...")
-
-        total_courses = 0
-        total_problems = 0
-
-        # Sync csdiy.wiki
-        if csdiy or learning:
-            if force or not is_cache_valid("csdiy"):
-                click.echo("  - csdiy.wiki: Scraping courses...")
-                courses = learning_service.load_csdiy_courses(force=True)
-                total_courses = len(courses)
-                click.echo(f"    ✓ Loaded {total_courses} courses")
-            else:
-                click.echo("  - csdiy.wiki: Cache valid (use --force to refresh)")
-
-        # Sync LeetCode
-        if leetcode or learning:
-            if force or not is_cache_valid("leetcode"):
-                click.echo("  - LeetCode: Loading from neenza/leetcode-problems dataset...")
-                problems = learning_service.load_leetcode_problems(force=True)
-                leetcode_count = len(problems)
-                total_problems += leetcode_count
-                click.echo(f"    ✓ Loaded {leetcode_count} problems")
-            else:
-                click.echo("  - LeetCode: Cache valid (use --force to refresh)")
-
-        # Sync Codeforces
-        if codeforces or learning:
-            if force or not is_cache_valid("codeforces"):
-                click.echo("  - Codeforces: Loading from Kaggle/HuggingFace dataset...")
-                problems = learning_service.load_codeforces_problems(force=True)
-                codeforces_count = len(problems)
-                total_problems += codeforces_count
-                click.echo(f"    ✓ Loaded {codeforces_count} problems")
-            else:
-                click.echo("  - Codeforces: Cache valid (use --force to refresh)")
-
-        click.echo("\n📊 Summary:")
-        if total_courses > 0:
-            click.echo(f"  - Courses: {total_courses}")
-        click.echo(f"  - Practice problems: {total_problems}")
-        click.echo("  - API calls: Minimal (datasets used for bulk data)")
-
-    click.echo("\n✓ Sync complete")
+    click.echo("✓ Sync complete")
 
 
 @main.command()
@@ -584,7 +409,7 @@ def config(
             click.echo("✓ GitHub token saved securely")
         except ValueError as e:
             click.echo(f"✗ {e}", err=True)
-            raise SystemExit(1) from None
+            raise SystemExit(1)
 
     # Update blog repo
     if blog_repo is not None:
@@ -699,425 +524,10 @@ def publish(push: bool, message: str | None, show_list: bool, report: str | None
             click.echo(f"✓ Pushed to blog (commit: {commit_hash[:7]})")
         except BlogRepoNotConfiguredError as e:
             click.echo(f"✗ {e}", err=True)
-            raise SystemExit(1) from None
+            raise SystemExit(1)
         except GitOperationError as e:
             click.echo(f"✗ {e}", err=True)
-            raise SystemExit(1) from None
-
-
-@main.group()
-def prefs() -> None:
-    """Manage user preferences for recommendations.
-
-    Configure your languages, skill levels, and blocking rules.
-    """
-    pass
-
-
-@prefs.command("set-language")
-@click.argument("language")
-@click.option("--type", "-t", "lang_type",
-    type=click.Choice(["primary", "secondary", "learning"], case_sensitive=False),
-    default="primary",
-    help="Language type (default: primary)",
-)
-@click.option("--level", "-l",
-    type=click.Choice(["beginner", "intermediate", "advanced"], case_sensitive=False),
-    default="intermediate",
-    help="Skill level (default: intermediate)",
-)
-def prefs_set_language(language: str, lang_type: str, level: str) -> None:
-    """Set a language in your profile.
-
-    Example: oss-navi prefs set-language python --type primary --level advanced
-    """
-    import json
-
-    from oss_navi.models.preferences import (
-        LanguageProfile,
-        LanguageType,
-        SkillLevel,
-        UserPreferences,
-    )
-    from oss_navi.utils.paths import STATE_DIR
-
-    prefs_path = STATE_DIR / "preferences.json"
-
-    # Load existing preferences
-    user_prefs = None
-    if prefs_path.exists():
-        try:
-            with open(prefs_path) as f:
-                prefs_data = json.load(f)
-            user_prefs = UserPreferences(**prefs_data)
-        except Exception:
-            pass
-
-    if not user_prefs:
-        user_prefs = UserPreferences()
-
-    # Remove existing entry for this language
-    user_prefs.languages = [
-        lp for lp in user_prefs.languages
-        if lp.language.lower() != language.lower()
-    ]
-
-    # Add new language profile
-    user_prefs.languages.append(LanguageProfile(
-        language=language.lower(),
-        type=LanguageType(lang_type.lower()),
-        skill_level=SkillLevel(level.lower()),
-    ))
-
-    # Save preferences
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    with open(prefs_path, "w") as f:
-        json.dump(user_prefs.model_dump(mode="json"), f, indent=2, default=str)
-
-    click.echo(f"✓ Language set: {language} ({lang_type}, {level})")
-
-
-@prefs.command("remove-language")
-@click.argument("language")
-def prefs_remove_language(language: str) -> None:
-    """Remove a language from your profile."""
-    import json
-
-    from oss_navi.models.preferences import UserPreferences
-    from oss_navi.utils.paths import STATE_DIR
-
-    prefs_path = STATE_DIR / "preferences.json"
-
-    if not prefs_path.exists():
-        click.echo("✗ No preferences file found", err=True)
-        raise SystemExit(1)
-
-    try:
-        with open(prefs_path) as f:
-            prefs_data = json.load(f)
-        user_prefs = UserPreferences(**prefs_data)
-    except Exception:
-        click.echo("✗ Failed to load preferences", err=True)
-        raise SystemExit(1) from None
-
-    # Remove language
-    original_count = len(user_prefs.languages)
-    user_prefs.languages = [
-        lp for lp in user_prefs.languages
-        if lp.language.lower() != language.lower()
-    ]
-
-    if len(user_prefs.languages) == original_count:
-        click.echo(f"✗ Language not found: {language}", err=True)
-        raise SystemExit(1)
-
-    # Save preferences
-    with open(prefs_path, "w") as f:
-        json.dump(user_prefs.model_dump(mode="json"), f, indent=2, default=str)
-
-    click.echo(f"✓ Language removed: {language}")
-
-
-@prefs.command("block")
-@click.argument("block_type", type=click.Choice(["project", "maintainer", "organization", "topic", "language"]))
-@click.argument("value")
-@click.option("--reason", "-r", help="Reason for blocking")
-def prefs_block(block_type: str, value: str, reason: str | None) -> None:
-    """Add a blocking rule.
-
-    Example: oss-navi prefs block language typescript --reason "Not interested"
-    """
-    import json
-
-    from oss_navi.models.preferences import BlockingRule, BlockType, UserPreferences
-    from oss_navi.utils.paths import STATE_DIR
-
-    prefs_path = STATE_DIR / "preferences.json"
-
-    # Load existing preferences
-    user_prefs = None
-    if prefs_path.exists():
-        try:
-            with open(prefs_path) as f:
-                prefs_data = json.load(f)
-            user_prefs = UserPreferences(**prefs_data)
-        except Exception:
-            pass
-
-    if not user_prefs:
-        user_prefs = UserPreferences()
-
-    # Check for duplicate
-    for rule in user_prefs.blocking_rules:
-        if rule.block_type.value == block_type.lower() and rule.value.lower() == value.lower():
-            click.echo(f"✗ Already blocking: {block_type} = {value}", err=True)
             raise SystemExit(1)
-
-    # Add blocking rule
-    user_prefs.blocking_rules.append(BlockingRule(
-        block_type=BlockType(block_type.lower()),
-        value=value,
-        reason=reason,
-    ))
-
-    # Save preferences
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    with open(prefs_path, "w") as f:
-        json.dump(user_prefs.model_dump(mode="json"), f, indent=2, default=str)
-
-    click.echo(f"✓ Blocked: {block_type} = {value}")
-
-
-@prefs.command("unblock")
-@click.argument("block_type", type=click.Choice(["project", "maintainer", "organization", "topic", "language"]))
-@click.argument("value")
-def prefs_unblock(block_type: str, value: str) -> None:
-    """Remove a blocking rule."""
-    import json
-
-    from oss_navi.models.preferences import UserPreferences
-    from oss_navi.utils.paths import STATE_DIR
-
-    prefs_path = STATE_DIR / "preferences.json"
-
-    if not prefs_path.exists():
-        click.echo("✗ No preferences file found", err=True)
-        raise SystemExit(1)
-
-    try:
-        with open(prefs_path) as f:
-            prefs_data = json.load(f)
-        user_prefs = UserPreferences(**prefs_data)
-    except Exception:
-        click.echo("✗ Failed to load preferences", err=True)
-        raise SystemExit(1) from None
-
-    # Remove blocking rule
-    original_count = len(user_prefs.blocking_rules)
-    user_prefs.blocking_rules = [
-        r for r in user_prefs.blocking_rules
-        if not (r.block_type.value == block_type.lower() and r.value.lower() == value.lower())
-    ]
-
-    if len(user_prefs.blocking_rules) == original_count:
-        click.echo(f"✗ Blocking rule not found: {block_type} = {value}", err=True)
-        raise SystemExit(1)
-
-    # Save preferences
-    with open(prefs_path, "w") as f:
-        json.dump(user_prefs.model_dump(mode="json"), f, indent=2, default=str)
-
-    click.echo(f"✓ Unblocked: {block_type} = {value}")
-
-
-@prefs.command("show")
-def prefs_show() -> None:
-    """Display current preferences."""
-    import json
-
-    from oss_navi.models.preferences import UserPreferences
-    from oss_navi.utils.paths import STATE_DIR
-
-    prefs_path = STATE_DIR / "preferences.json"
-
-    if not prefs_path.exists():
-        click.echo("No preferences configured yet.")
-        click.echo("\nTo get started:")
-        click.echo("  oss-navi prefs set-language python --type primary --level advanced")
-        return
-
-    try:
-        with open(prefs_path) as f:
-            prefs_data = json.load(f)
-        user_prefs = UserPreferences(**prefs_data)
-    except Exception as e:
-        click.echo(f"✗ Failed to load preferences: {e}", err=True)
-        raise SystemExit(1) from None
-
-    click.echo("Current Preferences:\n")
-
-    if user_prefs.languages:
-        click.echo("Languages:")
-        for lp in user_prefs.languages:
-            click.echo(f"  - {lp.language}: {lp.type.value} ({lp.skill_level.value})")
-    else:
-        click.echo("Languages: (none configured)")
-
-    if user_prefs.domain_interests:
-        click.echo("\nDomain Interests:")
-        for di in user_prefs.domain_interests:
-            click.echo(f"  - {di.domain}: {di.interest_level}/10")
-
-    if user_prefs.blocking_rules:
-        click.echo("\nBlocking Rules:")
-        for rule in user_prefs.blocking_rules:
-            reason = f" ({rule.reason})" if rule.reason else ""
-            click.echo(f"  - {rule.block_type.value}: {rule.value}{reason}")
-    else:
-        click.echo("\nBlocking Rules: (none)")
-
-
-@prefs.command("export")
-@click.argument("file", default="preferences.json")
-def prefs_export(file: str) -> None:
-    """Export preferences to a JSON file."""
-    import shutil
-
-    from oss_navi.utils.paths import STATE_DIR
-
-    prefs_path = STATE_DIR / "preferences.json"
-
-    if not prefs_path.exists():
-        click.echo("✗ No preferences to export", err=True)
-        raise SystemExit(1)
-
-    shutil.copy(prefs_path, file)
-    click.echo(f"✓ Preferences exported to: {file}")
-
-
-@prefs.command("import")
-@click.argument("file")
-def prefs_import(file: str) -> None:
-    """Import preferences from a JSON file."""
-    import shutil
-    from pathlib import Path
-
-    from oss_navi.models.preferences import UserPreferences
-    from oss_navi.utils.paths import STATE_DIR
-
-    source_path = Path(file)
-    if not source_path.exists():
-        click.echo(f"✗ File not found: {file}", err=True)
-        raise SystemExit(1)
-
-    # Validate the file
-    try:
-        import json
-        with open(source_path) as f:
-            data = json.load(f)
-        UserPreferences(**data)
-    except Exception as e:
-        click.echo(f"✗ Invalid preferences file: {e}", err=True)
-        raise SystemExit(1) from None
-
-    # Copy to preferences
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    shutil.copy(source_path, STATE_DIR / "preferences.json")
-    click.echo(f"✓ Preferences imported from: {file}")
-
-
-@main.group()
-def session() -> None:
-    """Manage recommendation sessions.
-
-    List, show, export, or delete previous analysis sessions.
-    """
-    pass
-
-
-@session.command("list")
-@click.option("--status", type=click.Choice(["active", "completed", "all"]), default="active")
-def session_list(status: str) -> None:
-    """List all sessions."""
-    from oss_navi.models.session import SessionStatus
-    from oss_navi.services.session import get_session_service
-
-    svc = get_session_service()
-
-    status_filter = None if status == "all" else SessionStatus(status)
-    sessions = svc.list_sessions(status=status_filter)
-
-    if not sessions:
-        click.echo("No sessions found")
-        return
-
-    click.echo(f"Sessions ({len(sessions)}):\n")
-    for s in sessions:
-        rounds = len(s.rounds)
-        created = s.created_at.strftime("%Y-%m-%d %H:%M")
-        click.echo(f"  {s.session_id} [{s.status.value}] {rounds} rounds - {created}")
-
-
-@session.command("show")
-@click.argument("session_id")
-def session_show(session_id: str) -> None:
-    """Show session details."""
-    from oss_navi.services.session import get_session_service
-
-    svc = get_session_service()
-    session = svc.get_session(session_id)
-
-    if not session:
-        click.echo(f"✗ Session not found: {session_id}", err=True)
-        raise SystemExit(1)
-
-    click.echo(f"Session: {session.session_id}")
-    click.echo(f"Status: {session.status.value}")
-    click.echo(f"Mode: {session.mode.value}")
-    click.echo(f"Rounds: {len(session.rounds)}")
-    click.echo(f"Created: {session.created_at}")
-
-    if session.rounds:
-        click.echo("\nRounds:")
-        for r in session.rounds:
-            accepted = sum(1 for f in r.user_feedback if f.feedback_type.value == "accept")
-            rejected = sum(1 for f in r.user_feedback if f.feedback_type.value == "reject")
-            click.echo(f"  Round {r.round_number}: {len(r.recommendations)} recs, {accepted} accepted, {rejected} rejected")
-
-
-@session.command("export")
-@click.argument("session_id")
-@click.option("--output", "-o", type=click.Path(), help="Output file path")
-@click.option("--format", "-f", type=click.Choice(["markdown", "json"]), default="markdown")
-def session_export(session_id: str, output: str | None, format: str) -> None:
-    """Export session report."""
-    from pathlib import Path
-
-    from oss_navi.services.session import get_session_service
-
-    svc = get_session_service()
-    session = svc.get_session(session_id)
-
-    if not session:
-        click.echo(f"✗ Session not found: {session_id}", err=True)
-        raise SystemExit(1)
-
-    if format == "json":
-        import json
-        content = json.dumps(session.model_dump(mode="json"), indent=2, default=str)
-    else:
-        content = session.to_markdown_report()
-
-    if output:
-        Path(output).write_text(content)
-        click.echo(f"✓ Report exported to: {output}")
-    else:
-        click.echo(content)
-
-
-@session.command("delete")
-@click.argument("session_id")
-@click.option("--force", is_flag=True, help="Skip confirmation")
-def session_delete(session_id: str, force: bool) -> None:
-    """Delete a session."""
-    from oss_navi.services.session import get_session_service
-
-    svc = get_session_service()
-    session = svc.get_session(session_id)
-
-    if not session:
-        click.echo(f"✗ Session not found: {session_id}", err=True)
-        raise SystemExit(1)
-
-    if not force:
-        if not click.confirm(f"Delete session {session_id}?"):
-            click.echo("Cancelled")
-            return
-
-    if svc.delete_session(session_id):
-        click.echo(f"✓ Session deleted: {session_id}")
-    else:
-        click.echo("✗ Failed to delete session", err=True)
 
 
 if __name__ == "__main__":
