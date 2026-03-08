@@ -33,6 +33,176 @@ CSDIY_CACHE = CACHE_DIR / "csdiy.json"
 LEETCODE_CACHE = CACHE_DIR / "leetcode.json"
 CODEFORCES_CACHE = CACHE_DIR / "codeforces.json"
 
+# Comprehensive topic mapping for languages
+LANGUAGE_TOPIC_MAP = {
+    "python": ["programming", "algorithms", "machine-learning", "artificial-intelligence", "databases", "web-development", "deep-learning"],
+    "javascript": ["programming", "web-development", "algorithms"],
+    "typescript": ["programming", "web-development", "algorithms"],
+    "rust": ["programming", "algorithms", "operating-systems", "systems-programming", "compilers", "parallel-computing"],
+    "go": ["programming", "algorithms", "distributed-systems", "networking", "operating-systems", "systems-programming"],
+    "java": ["programming", "algorithms", "databases", "distributed-systems"],
+    "c++": ["programming", "algorithms", "operating-systems", "systems-programming", "compilers", "computer-architecture"],
+    "c": ["programming", "algorithms", "operating-systems", "systems-programming", "compilers", "computer-architecture"],
+}
+
+# Known high-quality courses with descriptions
+KNOWN_COURSES = {
+    # Programming fundamentals
+    "cs61a": {"name": "CS61A: Structure and Interpretation of Computer Programs", "institution": "UC Berkeley", "description": "Introduction to programming and computer science, using Python"},
+    "cs61b": {"name": "CS61B: Data Structures", "institution": "UC Berkeley", "description": "Data structures and algorithms in Java"},
+    "cs106b": {"name": "CS106B: Programming Abstractions", "institution": "Stanford", "description": "Programming methodologies, abstraction, and recursion"},
+    "6.0001": {"name": "6.0001: Introduction to Computer Science", "institution": "MIT", "description": "Introduction to CS and programming in Python"},
+    "6.0002": {"name": "6.0002: Introduction to Computational Thinking", "institution": "MIT", "description": "Computational thinking with data science applications"},
+
+    # Algorithms
+    "cs161": {"name": "CS161: Design and Analysis of Algorithms", "institution": "Stanford", "description": "Algorithm design, complexity analysis, and problem solving"},
+    "6.006": {"name": "6.006: Introduction to Algorithms", "institution": "MIT", "description": "Fundamental algorithms and data structures"},
+    "6.046": {"name": "6.046: Design and Analysis of Algorithms", "institution": "MIT", "description": "Advanced algorithm design and analysis"},
+
+    # Systems
+    "cs61c": {"name": "CS61C: Great Ideas in Computer Architecture", "institution": "UC Berkeley", "description": "Computer architecture, C programming, and systems"},
+    "cs162": {"name": "CS162: Operating Systems and Systems Programming", "institution": "UC Berkeley", "description": "OS concepts, concurrency, and systems programming"},
+    "6.033": {"name": "6.033: Computer System Engineering", "institution": "MIT", "description": "Engineering of complex computer systems"},
+    "cs144": {"name": "CS144: Introduction to Computer Networking", "institution": "Stanford", "description": "Network protocols and architecture"},
+
+    # Distributed Systems
+    "6.824": {"name": "6.824: Distributed Systems", "institution": "MIT", "description": "Distributed systems concepts and implementation"},
+    "cs149": {"name": "CS149: Parallel Computing", "institution": "Stanford", "description": "Parallel programming and architectures"},
+
+    # Databases
+    "cs186": {"name": "CS186: Introduction to Database Systems", "institution": "UC Berkeley", "description": "Database design, SQL, and database internals"},
+    "6.830": {"name": "6.830: Database Systems", "institution": "MIT", "description": "Advanced database systems implementation"},
+
+    # ML/AI
+    "cs229": {"name": "CS229: Machine Learning", "institution": "Stanford", "description": "Machine learning fundamentals and applications"},
+    "6.034": {"name": "6.034: Artificial Intelligence", "institution": "MIT", "description": "AI concepts, search, learning, and reasoning"},
+    "cs231n": {"name": "CS231n: Computer Vision", "institution": "Stanford", "description": "Deep learning for computer vision"},
+    "cs224n": {"name": "CS224n: NLP with Deep Learning", "institution": "Stanford", "description": "Natural language processing with neural networks"},
+
+    # Web Development
+    "fullstackopen": {"name": "Full Stack Open", "institution": "University of Helsinki", "description": "Modern web development with React, Node.js, GraphQL"},
+
+    # Security
+    "cs155": {"name": "CS155: Computer and Network Security", "institution": "Stanford", "description": "Security principles and practical techniques"},
+    "6.858": {"name": "6.858: Computer Systems Security", "institution": "MIT", "description": "Designing secure computer systems"},
+
+    # Compilers
+    "cs143": {"name": "CS143: Compilers", "institution": "Stanford", "description": "Compiler design and implementation"},
+    "6.035": {"name": "6.035: Computer Language Engineering", "institution": "MIT", "description": "Programming language implementation"},
+}
+
+# Language-specific learning paths
+LANGUAGE_LEARNING_PATHS = {
+    "rust": {
+        "title": "Rust Learning Path",
+        "description": "Master Rust from fundamentals to advanced systems programming",
+        "phases": [
+            {
+                "name": "Phase 1: Foundations (2-4 weeks)",
+                "topics": ["Ownership & Borrowing", "Lifetimes", "Pattern Matching", "Error Handling"],
+                "resources": [
+                    "The Rust Book (chapters 1-10)",
+                    "Rustlings exercises",
+                    "LeetCode Easy problems in Rust"
+                ],
+                "goals": ["Understand ownership model", "Write basic Rust programs", "Handle errors idiomatically"]
+            },
+            {
+                "name": "Phase 2: Intermediate (4-6 weeks)",
+                "topics": ["Traits & Generics", "Closures & Iterators", "Smart Pointers", "Concurrency"],
+                "resources": [
+                    "The Rust Book (chapters 11-21)",
+                    "Rust by Example",
+                    "Contributing to beginner-friendly Rust repos"
+                ],
+                "goals": ["Use traits effectively", "Write generic code", "Handle concurrent programming"]
+            },
+            {
+                "name": "Phase 3: Advanced (ongoing)",
+                "topics": ["Async Rust", "Unsafe Rust", "FFI", "Architecture Patterns"],
+                "resources": [
+                    "Async Book",
+                    "Nomicon (for unsafe)",
+                    "Contributing to major Rust projects"
+                ],
+                "goals": ["Build async applications", "Understand unsafe code", "Design Rust libraries"]
+            }
+        ]
+    },
+    "python": {
+        "title": "Python Learning Path",
+        "description": "Advanced Python mastery from scripting to production systems",
+        "phases": [
+            {
+                "name": "Phase 1: Core Mastery (2-4 weeks)",
+                "topics": ["Data Structures", "Decorators", "Context Managers", "Generators"],
+                "resources": [
+                    "Python Cookbook",
+                    "Fluent Python (chapters 1-10)",
+                    "LeetCode problems in Python"
+                ],
+                "goals": ["Write Pythonic code", "Use advanced features", "Optimize performance"]
+            },
+            {
+                "name": "Phase 2: Ecosystem (4-6 weeks)",
+                "topics": ["Testing", "Packaging", "Async Python", "Type Hints"],
+                "resources": [
+                    "Python Packaging Guide",
+                    "pytest documentation",
+                    "typing module documentation"
+                ],
+                "goals": ["Create packages", "Write comprehensive tests", "Use async effectively"]
+            },
+            {
+                "name": "Phase 3: Specialization (ongoing)",
+                "topics": ["Web Development", "Data Science", "DevOps", "ML/AI"],
+                "resources": [
+                    "FastAPI/Flask documentation",
+                    "Pandas/NumPy tutorials",
+                    "Contribute to Python OSS"
+                ],
+                "goals": ["Build production apps", "Choose domain expertise", "Lead Python projects"]
+            }
+        ]
+    },
+    "go": {
+        "title": "Go Learning Path",
+        "description": "Master Go for cloud-native and systems development",
+        "phases": [
+            {
+                "name": "Phase 1: Foundations (2-4 weeks)",
+                "topics": ["Syntax & Types", "Functions & Methods", "Interfaces", "Error Handling"],
+                "resources": [
+                    "A Tour of Go",
+                    "Effective Go",
+                    "Go by Example"
+                ],
+                "goals": ["Write idiomatic Go", "Handle errors properly", "Use interfaces effectively"]
+            },
+            {
+                "name": "Phase 2: Concurrency (4-6 weeks)",
+                "topics": ["Goroutines", "Channels", "Select", "Sync Primitives"],
+                "resources": [
+                    "Go Concurrency Patterns (blog)",
+                    "Concurrency in Go (book)",
+                    "Build concurrent tools"
+                ],
+                "goals": ["Design concurrent systems", "Avoid race conditions", "Profile performance"]
+            },
+            {
+                "name": "Phase 3: Production (ongoing)",
+                "topics": ["Microservices", "gRPC", "Kubernetes", "Distributed Systems"],
+                "resources": [
+                    "Cloud Native Go",
+                    "gRPC documentation",
+                    "Contribute to Go OSS projects"
+                ],
+                "goals": ["Build cloud-native apps", "Design APIs", "Deploy at scale"]
+            }
+        ]
+    },
+}
+
 
 def load_learning_resources(
     user_languages: dict[str, float],
@@ -51,50 +221,58 @@ def load_learning_resources(
     """
     resources = {
         "courses": [],
-        "practice_problems": [],
-        "learning_paths": [],
+        "leetcode_problems": [],
+        "codeforces_problems": [],
+        "learning_path": None,
+        "skill_level": skill_level,
     }
 
-    # Map languages to topics
-    lang_to_topics = {
-        "python": ["python", "programming", "data-science", "machine-learning", "web-development"],
-        "javascript": ["javascript", "web-development", "frontend", "nodejs"],
-        "typescript": ["typescript", "web-development", "frontend"],
-        "rust": ["rust", "systems-programming"],
-        "go": ["go", "golang", "systems-programming", "backend"],
-        "java": ["java", "backend", "enterprise"],
-        "c++": ["cpp", "c++", "systems-programming"],
-        "c": ["c", "systems-programming"],
-    }
-
-    # Determine target topics
+    # Determine target topics based on languages and learning focus
     target_topics = set()
     for lang in user_languages.keys():
         lang_lower = lang.lower()
-        target_topics.add(lang_lower)
-        if lang_lower in lang_to_topics:
-            target_topics.update(lang_to_topics[lang_lower])
+        if lang_lower in LANGUAGE_TOPIC_MAP:
+            target_topics.update(LANGUAGE_TOPIC_MAP[lang_lower])
 
     if learning_focus:
-        target_topics.add(learning_focus.lower())
+        focus_lower = learning_focus.lower()
+        if focus_lower in LANGUAGE_TOPIC_MAP:
+            target_topics.update(LANGUAGE_TOPIC_MAP[focus_lower])
+        else:
+            target_topics.add(focus_lower)
 
-    # Load csdiy courses
+    # Load csdiy courses with enhanced info
     csdiy_data = read_json(CSDIY_CACHE) or []
+    matched_courses = []
+
     for course in csdiy_data:
         course_topics = [t.lower() for t in course.get("topics", [])]
         # Check if course matches user's interests
         if target_topics & set(course_topics):
-            resources["courses"].append({
-                "title": course.get("title", "Unknown"),
+            course_code = course.get("course_code", course.get("title", "")).lower()
+
+            # Enhance with known course info
+            enhanced_info = {}
+            for known_key, known_info in KNOWN_COURSES.items():
+                if known_key in course_code or course_code in known_key:
+                    enhanced_info = known_info
+                    break
+
+            matched_courses.append({
+                "title": enhanced_info.get("name", course.get("title", "Unknown")),
                 "url": course.get("url", ""),
                 "topics": course.get("topics", []),
                 "difficulty": course.get("difficulty", "intermediate"),
-                "institution": course.get("institution", ""),
+                "institution": enhanced_info.get("institution", course.get("institution", "Self-study")),
+                "description": enhanced_info.get("description", ""),
+                "course_code": course.get("course_code", ""),
             })
-        if len(resources["courses"]) >= 5:
-            break
 
-    # Load LeetCode problems
+    # Sort by relevance (more topic matches = higher priority)
+    matched_courses.sort(key=lambda c: len(set([t.lower() for t in c.get("topics", [])]) & target_topics), reverse=True)
+    resources["courses"] = matched_courses[:10]  # Increase to 10 courses
+
+    # Load LeetCode problems with better filtering
     leetcode_data = read_json(LEETCODE_CACHE) or []
     difficulty_filter = {
         "beginner": ["beginner"],
@@ -103,18 +281,24 @@ def load_learning_resources(
     }
     valid_difficulties = difficulty_filter.get(skill_level, ["beginner", "intermediate"])
 
+    leetcode_problems = []
     for problem in leetcode_data:
         if problem.get("difficulty", "").lower() in valid_difficulties:
-            resources["practice_problems"].append({
+            leetcode_problems.append({
                 "title": problem.get("title", "Unknown"),
                 "url": problem.get("url", ""),
                 "difficulty": problem.get("difficulty", "intermediate"),
                 "acceptance_rate": problem.get("acceptance_rate", 0),
+                "problem_id": problem.get("problem_id", ""),
             })
-        if len(resources["practice_problems"]) >= 10:
-            break
 
-    # Load Codeforces problems
+    # Sort by acceptance rate (easier problems first for beginners)
+    if skill_level == "beginner":
+        leetcode_problems.sort(key=lambda p: p.get("acceptance_rate", 0), reverse=True)
+
+    resources["leetcode_problems"] = leetcode_problems[:15]
+
+    # Load Codeforces problems with rating-based filtering
     codeforces_data = read_json(CODEFORCES_CACHE) or []
     rating_range = {
         "beginner": (800, 1200),
@@ -123,29 +307,77 @@ def load_learning_resources(
     }
     min_rating, max_rating = rating_range.get(skill_level, (800, 1600))
 
+    codeforces_problems = []
     for problem in codeforces_data:
-        rating = problem.get("rating") or problem.get("metadata", {}).get("rating")
+        rating = problem.get("rating")
         if rating and min_rating <= rating <= max_rating:
-            resources["practice_problems"].append({
+            problem_id = problem.get("problem_id", "")
+            # Extract contest info from problem_id if possible
+            contest_info = ""
+            if problem_id:
+                # Problem ID format is typically like "2206M" -> contest 2206, problem M
+                import re
+                match = re.match(r"(\d+)([A-Z])", problem_id)
+                if match:
+                    contest_info = f"Contest {match.group(1)}, Problem {match.group(2)}"
+
+            codeforces_problems.append({
                 "title": problem.get("title", "Unknown"),
                 "url": problem.get("url", ""),
-                "difficulty": "advanced" if rating >= 1600 else "intermediate",
+                "difficulty": "advanced" if rating >= 1600 else "intermediate" if rating >= 1200 else "beginner",
                 "rating": rating,
+                "problem_id": problem_id,
+                "contest_info": contest_info,
+                "topics": problem.get("topics", []),
             })
-        if len(resources["practice_problems"]) >= 15:
-            break
 
-    # Generate learning path suggestions
+    # Sort by rating (easier problems first)
+    codeforces_problems.sort(key=lambda p: p.get("rating", 1000))
+    resources["codeforces_problems"] = codeforces_problems[:15]
+
+    # Generate learning path based on learning focus
     if learning_focus:
-        resources["learning_paths"].append({
-            "focus": learning_focus,
-            "description": f"Recommended path for learning {learning_focus}",
-            "steps": [
-                "Start with beginner tutorials and documentation",
-                "Complete practice problems to build fundamentals",
-                "Contribute to open source projects using " + learning_focus,
-            ],
-        })
+        focus_lower = learning_focus.lower()
+        if focus_lower in LANGUAGE_LEARNING_PATHS:
+            resources["learning_path"] = LANGUAGE_LEARNING_PATHS[focus_lower]
+        else:
+            # Generate a generic learning path
+            resources["learning_path"] = {
+                "title": f"{learning_focus} Learning Path",
+                "description": f"Recommended path for learning {learning_focus}",
+                "phases": [
+                    {
+                        "name": "Phase 1: Foundations (2-4 weeks)",
+                        "topics": ["Syntax & Basics", "Core Concepts", "Standard Library"],
+                        "resources": [
+                            f"Official {learning_focus} documentation",
+                            f"{learning_focus} tutorials",
+                            "Practice problems on LeetCode/Codeforces"
+                        ],
+                        "goals": ["Understand syntax", "Write basic programs", "Use standard library"]
+                    },
+                    {
+                        "name": "Phase 2: Intermediate (4-6 weeks)",
+                        "topics": ["Advanced Features", "Best Practices", "Testing"],
+                        "resources": [
+                            f"Advanced {learning_focus} tutorials",
+                            "Open source code reading",
+                            "Contribute to beginner-friendly repos"
+                        ],
+                        "goals": ["Write idiomatic code", "Follow best practices", "Test effectively"]
+                    },
+                    {
+                        "name": "Phase 3: Production (ongoing)",
+                        "topics": ["Architecture", "Performance", "Ecosystem"],
+                        "resources": [
+                            "Design patterns",
+                            "Performance optimization",
+                            "Contribute to major projects"
+                        ],
+                        "goals": ["Build production apps", "Optimize performance", "Lead projects"]
+                    }
+                ]
+            }
 
     return resources
 
@@ -161,42 +393,128 @@ def format_learning_resources_for_prompt(resources: dict) -> list[str]:
     """
     parts = []
 
+    # Learning Path (if available)
+    if resources.get("learning_path"):
+        path = resources["learning_path"]
+        parts.extend([
+            "",
+            "## Recommended Learning Path",
+            "",
+            f"### {path.get('title', 'Learning Path')}",
+            path.get("description", ""),
+            "",
+        ])
+
+        for phase in path.get("phases", []):
+            parts.append(f"#### {phase.get('name', 'Phase')}")
+            parts.append("")
+            parts.append("**Topics:** " + ", ".join(phase.get("topics", [])))
+            parts.append("")
+            parts.append("**Resources:**")
+            for res in phase.get("resources", []):
+                parts.append(f"- {res}")
+            parts.append("")
+            parts.append("**Goals:**")
+            for goal in phase.get("goals", []):
+                parts.append(f"- {goal}")
+            parts.append("")
+
+    # Courses from csdiy.wiki
     if resources.get("courses"):
         parts.extend([
             "",
-            "## Recommended Courses (from csdiy.wiki)",
+            "## Recommended Courses (csdiy.wiki)",
+            "",
+            "High-quality computer science courses matching your interests:",
             "",
         ])
-        for course in resources["courses"][:5]:
-            parts.append(f"- **{course['title']}** - {course.get('institution', 'Self-study')}")
-            parts.append(f"  Topics: {', '.join(course.get('topics', []))}")
-            parts.append(f"  Difficulty: {course.get('difficulty', 'intermediate')}")
+        for i, course in enumerate(resources["courses"][:10], 1):
+            institution = course.get("institution", "Self-study")
+            description = course.get("description", "")
+            parts.append(f"### {i}. {course['title']}")
+            if institution:
+                parts.append(f"**Institution:** {institution}")
+            parts.append(f"**Topics:** {', '.join(course.get('topics', []))}")
+            parts.append(f"**Difficulty:** {course.get('difficulty', 'intermediate')}")
+            if description:
+                parts.append(f"**Description:** {description}")
             if course.get("url"):
-                parts.append(f"  URL: {course['url']}")
+                parts.append(f"**URL:** {course['url']}")
             parts.append("")
 
-    if resources.get("practice_problems"):
+    # LeetCode Problems
+    if resources.get("leetcode_problems"):
         parts.extend([
             "",
-            "## Practice Problems (LeetCode & Codeforces)",
+            "## LeetCode Practice Problems",
+            "",
+            f"Problems filtered for {resources.get('skill_level', 'intermediate')} level:",
             "",
         ])
-        for i, problem in enumerate(resources["practice_problems"][:10], 1):
-            parts.append(f"{i}. {problem['title']} ({problem.get('difficulty', 'intermediate')})")
-            if problem.get("url"):
-                parts.append(f"   URL: {problem['url']}")
 
-    if resources.get("learning_paths"):
+        # Group by difficulty
+        beginner = [p for p in resources["leetcode_problems"] if p.get("difficulty") == "beginner"]
+        intermediate = [p for p in resources["leetcode_problems"] if p.get("difficulty") == "intermediate"]
+        advanced = [p for p in resources["leetcode_problems"] if p.get("difficulty") == "advanced"]
+
+        if beginner:
+            parts.append("### Beginner Level")
+            for p in beginner[:5]:
+                rate = p.get("acceptance_rate", 0)
+                rate_str = f"{rate*100:.0f}%" if rate else "N/A"
+                parts.append(f"- **{p['title']}** (Acceptance: {rate_str})")
+                if p.get("url"):
+                    parts.append(f"  {p['url']}")
+            parts.append("")
+
+        if intermediate:
+            parts.append("### Intermediate Level")
+            for p in intermediate[:5]:
+                rate = p.get("acceptance_rate", 0)
+                rate_str = f"{rate*100:.0f}%" if rate else "N/A"
+                parts.append(f"- **{p['title']}** (Acceptance: {rate_str})")
+                if p.get("url"):
+                    parts.append(f"  {p['url']}")
+            parts.append("")
+
+        if advanced:
+            parts.append("### Advanced Level")
+            for p in advanced[:5]:
+                rate = p.get("acceptance_rate", 0)
+                rate_str = f"{rate*100:.0f}%" if rate else "N/A"
+                parts.append(f"- **{p['title']}** (Acceptance: {rate_str})")
+                if p.get("url"):
+                    parts.append(f"  {p['url']}")
+            parts.append("")
+
+    # Codeforces Problems
+    if resources.get("codeforces_problems"):
         parts.extend([
             "",
-            "## Suggested Learning Paths",
+            "## Codeforces Practice Problems",
+            "",
+            f"Problems filtered by rating for {resources.get('skill_level', 'intermediate')} level:",
             "",
         ])
-        for path in resources["learning_paths"]:
-            parts.append(f"### {path['focus']}")
-            parts.append(path.get("description", ""))
-            for step in path.get("steps", []):
-                parts.append(f"- {step}")
+
+        # Group by rating range
+        by_rating = {}
+        for p in resources["codeforces_problems"]:
+            rating = p.get("rating", 1000)
+            bucket = (rating // 200) * 200
+            if bucket not in by_rating:
+                by_rating[bucket] = []
+            by_rating[bucket].append(p)
+
+        for rating in sorted(by_rating.keys()):
+            problems = by_rating[rating]
+            parts.append(f"### Rating {rating}-{rating+199}")
+            for p in problems[:3]:
+                contest_info = p.get("contest_info", "")
+                info_str = f" ({contest_info})" if contest_info else ""
+                parts.append(f"- **{p['title']}** [Rating: {p.get('rating', 'N/A')}]{info_str}")
+                if p.get("url"):
+                    parts.append(f"  {p['url']}")
             parts.append("")
 
     return parts
