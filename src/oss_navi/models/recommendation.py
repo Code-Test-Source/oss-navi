@@ -1,7 +1,7 @@
 """Recommendation models for intelligent project suggestions."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     pass
 
 
-class RecommendationMode(str, Enum):
+class RecommendationMode(StrEnum):
     """Recommendation algorithm mode with different trade-offs."""
 
     FAST = "fast"  # Content-based only, <30s

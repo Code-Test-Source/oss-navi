@@ -1,8 +1,6 @@
 """Learning service for csdiy.wiki, LeetCode, and Codeforces integration."""
 
 import asyncio
-import json
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -14,7 +12,6 @@ from oss_navi.models.learning import (
     LearningPath,
     LearningResource,
     PracticeProblem,
-    ResourceType,
 )
 from oss_navi.models.preferences import SkillLevel
 from oss_navi.utils.cache import read_json, write_json
@@ -377,7 +374,7 @@ async def verify_leetcode_problem(problem_id: str) -> dict | None:
     await asyncio.sleep(LEETCODE_RATE_LIMIT)
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient():
             # This would call the LeetCode GraphQL API
             # For now, return None to indicate no verification
             return None
@@ -402,7 +399,7 @@ async def verify_codeforces_problem(problem_id: str) -> dict | None:
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"https://codeforces.com/api/problemset.problems",
+                "https://codeforces.com/api/problemset.problems",
                 timeout=10.0,
             )
             if response.status_code == 200:

@@ -275,11 +275,11 @@ class AprioriMiner:
         Returns:
             List of (recommended_items, confidence) tuples
         """
-        skill_set = set(s.lower() for s in skills)
+        skill_set = {s.lower() for s in skills}
         recommendations = []
 
         for pattern in self._patterns:
-            antecedent_set = set(a.lower() for a in pattern.antecedent)
+            antecedent_set = {a.lower() for a in pattern.antecedent}
 
             # Check if user has all antecedent skills
             if antecedent_set.issubset(skill_set):

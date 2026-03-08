@@ -171,7 +171,7 @@ class FastRecommender(BaseRecommender):
                 adjacent_languages.update(adjacent_map[lang_lower])
 
         # Remove user's own languages from adjacent
-        user_langs_lower = {l.lower() for l in user_languages}
+        user_langs_lower = {lang.lower() for lang in user_languages}
         adjacent_languages -= user_langs_lower
 
         if not adjacent_languages:
@@ -251,7 +251,7 @@ class FastRecommender(BaseRecommender):
             )
             rec.learning_prerequisites = user_languages.copy()
             rec.reasoning = (
-                f"No matches for your languages. Popular project recommended."
+                "No matches for your languages. Popular project recommended."
             )
             recommendations.append(rec)
 

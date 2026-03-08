@@ -11,8 +11,8 @@ from oss_navi.models.learning import (
 )
 from oss_navi.models.memory import LongTermMemory, PastRecommendation, SkillSnapshot
 from oss_navi.models.preferences import (
-    BlockType,
     BlockingRule,
+    BlockType,
     DomainInterest,
     LanguageProfile,
     LanguageType,

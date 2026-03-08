@@ -119,8 +119,8 @@ class ThinkingRecommender(BaseRecommender):
         # Build transactions from cached tasks
         transactions = self._build_transactions(cached_tasks)
 
-        # Mine patterns
-        patterns = self._apriori.mine_patterns(transactions)
+        # Mine patterns (stored in apriori for later use)
+        self._apriori.mine_patterns(transactions)
 
         # Get user skills
         user_skills = user_preferences.get_all_languages()
@@ -347,10 +347,10 @@ class ThinkingRecommender(BaseRecommender):
             User feature dictionary
         """
         return {
-            "languages": set(l.lower() for l in user_preferences.get_all_languages()),
-            "domains": set(
-                d.domain.lower() for d in user_preferences.domain_interests
-            ),
+            "languages": {lang.lower() for lang in user_preferences.get_all_languages()},
+            "domains": {
+                domain.domain.lower() for domain in user_preferences.domain_interests
+            },
             "skill_levels": {
                 lp.language.lower(): lp.skill_level.value
                 for lp in user_preferences.languages

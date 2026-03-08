@@ -119,7 +119,6 @@ class BaseRecommender(ABC):
             'primary', 'secondary', 'learning', or 'none'
         """
         project_lang = project.get("language", "").lower()
-        all_languages = user_preferences.get_all_languages()
 
         if not project_lang:
             return False, "none"

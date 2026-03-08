@@ -1,14 +1,14 @@
 """User preferences models for personalization."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 from oss_navi.utils.datetime_utils import utc_now
 
 
-class SkillLevel(str, Enum):
+class SkillLevel(StrEnum):
     """User skill level for a language."""
 
     BEGINNER = "beginner"
@@ -16,7 +16,7 @@ class SkillLevel(str, Enum):
     ADVANCED = "advanced"
 
 
-class LanguageType(str, Enum):
+class LanguageType(StrEnum):
     """Type of language in user profile."""
 
     PRIMARY = "primary"
@@ -24,7 +24,7 @@ class LanguageType(str, Enum):
     LEARNING = "learning"
 
 
-class BlockType(str, Enum):
+class BlockType(StrEnum):
     """Type of blocking rule."""
 
     PROJECT = "project"  # Block specific repository

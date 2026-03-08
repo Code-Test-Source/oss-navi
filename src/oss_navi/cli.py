@@ -97,7 +97,7 @@ def analysis(
       normal   Surprise SVD/KNN collaborative filtering (<90s, <200MB)
       thinking LightFM + Apriori pattern mining (<180s, <500MB)
     """
-    from oss_navi.models.recommendation import check_mode_availability, RecommendationMode
+    from oss_navi.models.recommendation import RecommendationMode, check_mode_availability
     from oss_navi.services.analyzer import (
         ClaudeCodeError,
         find_great_projects,
@@ -167,9 +167,14 @@ def analysis(
     click.echo(f"✓ Mode: {mode} ({'Surprise SVD/KNN' if mode == 'normal' else 'LightFM + Apriori' if mode == 'thinking' else 'Content-based'})")
 
     # Load or create user preferences
-    from oss_navi.models.preferences import UserPreferences, LanguageProfile, LanguageType, SkillLevel
+
+    from oss_navi.models.preferences import (
+        LanguageProfile,
+        LanguageType,
+        SkillLevel,
+        UserPreferences,
+    )
     from oss_navi.utils.paths import STATE_DIR
-    from pathlib import Path
 
     prefs_path = STATE_DIR / "preferences.json"
     user_prefs = None
@@ -324,10 +329,10 @@ def analysis(
 
     except ClaudeCodeError as e:
         click.echo(f"✗ {e}", err=True)
-        raise SystemExit(3)
+        raise SystemExit(3) from None
     except ValueError as e:
         click.echo(f"✗ {e}", err=True)
-        raise SystemExit(5)
+        raise SystemExit(5) from None
 
 
 @main.command()
@@ -483,7 +488,7 @@ def sync(
             else:
                 click.echo("  - Codeforces: Cache valid (use --force to refresh)")
 
-        click.echo(f"\n📊 Summary:")
+        click.echo("\n📊 Summary:")
         if total_courses > 0:
             click.echo(f"  - Courses: {total_courses}")
         click.echo(f"  - Practice problems: {total_problems}")
@@ -579,7 +584,7 @@ def config(
             click.echo("✓ GitHub token saved securely")
         except ValueError as e:
             click.echo(f"✗ {e}", err=True)
-            raise SystemExit(1)
+            raise SystemExit(1) from None
 
     # Update blog repo
     if blog_repo is not None:
@@ -694,10 +699,10 @@ def publish(push: bool, message: str | None, show_list: bool, report: str | None
             click.echo(f"✓ Pushed to blog (commit: {commit_hash[:7]})")
         except BlogRepoNotConfiguredError as e:
             click.echo(f"✗ {e}", err=True)
-            raise SystemExit(1)
+            raise SystemExit(1) from None
         except GitOperationError as e:
             click.echo(f"✗ {e}", err=True)
-            raise SystemExit(1)
+            raise SystemExit(1) from None
 
 
 @main.group()
@@ -726,6 +731,8 @@ def prefs_set_language(language: str, lang_type: str, level: str) -> None:
 
     Example: oss-navi prefs set-language python --type primary --level advanced
     """
+    import json
+
     from oss_navi.models.preferences import (
         LanguageProfile,
         LanguageType,
@@ -733,8 +740,6 @@ def prefs_set_language(language: str, lang_type: str, level: str) -> None:
         UserPreferences,
     )
     from oss_navi.utils.paths import STATE_DIR
-    from pathlib import Path
-    import json
 
     prefs_path = STATE_DIR / "preferences.json"
 
@@ -776,10 +781,10 @@ def prefs_set_language(language: str, lang_type: str, level: str) -> None:
 @click.argument("language")
 def prefs_remove_language(language: str) -> None:
     """Remove a language from your profile."""
+    import json
+
     from oss_navi.models.preferences import UserPreferences
     from oss_navi.utils.paths import STATE_DIR
-    from pathlib import Path
-    import json
 
     prefs_path = STATE_DIR / "preferences.json"
 
@@ -793,7 +798,7 @@ def prefs_remove_language(language: str) -> None:
         user_prefs = UserPreferences(**prefs_data)
     except Exception:
         click.echo("✗ Failed to load preferences", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     # Remove language
     original_count = len(user_prefs.languages)
@@ -822,10 +827,10 @@ def prefs_block(block_type: str, value: str, reason: str | None) -> None:
 
     Example: oss-navi prefs block language typescript --reason "Not interested"
     """
-    from oss_navi.models.preferences import BlockType, BlockingRule, UserPreferences
-    from oss_navi.utils.paths import STATE_DIR
-    from pathlib import Path
     import json
+
+    from oss_navi.models.preferences import BlockingRule, BlockType, UserPreferences
+    from oss_navi.utils.paths import STATE_DIR
 
     prefs_path = STATE_DIR / "preferences.json"
 
@@ -868,10 +873,10 @@ def prefs_block(block_type: str, value: str, reason: str | None) -> None:
 @click.argument("value")
 def prefs_unblock(block_type: str, value: str) -> None:
     """Remove a blocking rule."""
+    import json
+
     from oss_navi.models.preferences import UserPreferences
     from oss_navi.utils.paths import STATE_DIR
-    from pathlib import Path
-    import json
 
     prefs_path = STATE_DIR / "preferences.json"
 
@@ -885,7 +890,7 @@ def prefs_unblock(block_type: str, value: str) -> None:
         user_prefs = UserPreferences(**prefs_data)
     except Exception:
         click.echo("✗ Failed to load preferences", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     # Remove blocking rule
     original_count = len(user_prefs.blocking_rules)
@@ -908,10 +913,10 @@ def prefs_unblock(block_type: str, value: str) -> None:
 @prefs.command("show")
 def prefs_show() -> None:
     """Display current preferences."""
+    import json
+
     from oss_navi.models.preferences import UserPreferences
     from oss_navi.utils.paths import STATE_DIR
-    from pathlib import Path
-    import json
 
     prefs_path = STATE_DIR / "preferences.json"
 
@@ -927,7 +932,7 @@ def prefs_show() -> None:
         user_prefs = UserPreferences(**prefs_data)
     except Exception as e:
         click.echo(f"✗ Failed to load preferences: {e}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     click.echo("Current Preferences:\n")
 
@@ -956,8 +961,9 @@ def prefs_show() -> None:
 @click.argument("file", default="preferences.json")
 def prefs_export(file: str) -> None:
     """Export preferences to a JSON file."""
-    from oss_navi.utils.paths import STATE_DIR
     import shutil
+
+    from oss_navi.utils.paths import STATE_DIR
 
     prefs_path = STATE_DIR / "preferences.json"
 
@@ -973,10 +979,11 @@ def prefs_export(file: str) -> None:
 @click.argument("file")
 def prefs_import(file: str) -> None:
     """Import preferences from a JSON file."""
+    import shutil
+    from pathlib import Path
+
     from oss_navi.models.preferences import UserPreferences
     from oss_navi.utils.paths import STATE_DIR
-    from pathlib import Path
-    import shutil
 
     source_path = Path(file)
     if not source_path.exists():
@@ -991,7 +998,7 @@ def prefs_import(file: str) -> None:
         UserPreferences(**data)
     except Exception as e:
         click.echo(f"✗ Invalid preferences file: {e}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     # Copy to preferences
     STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -1110,7 +1117,7 @@ def session_delete(session_id: str, force: bool) -> None:
     if svc.delete_session(session_id):
         click.echo(f"✓ Session deleted: {session_id}")
     else:
-        click.echo(f"✗ Failed to delete session", err=True)
+        click.echo("✗ Failed to delete session", err=True)
 
 
 if __name__ == "__main__":

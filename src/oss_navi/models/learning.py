@@ -1,9 +1,9 @@
 """Learning resource models for csdiy.wiki, LeetCode, and Codeforces."""
 
-from datetime import datetime
-from enum import Enum
-from typing import TYPE_CHECKING
 import uuid
+from datetime import datetime
+from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     pass
 
 
-class ResourceType(str, Enum):
+class ResourceType(StrEnum):
     """Type of learning resource."""
 
     COURSE = "course"  # csdiy.wiki course
@@ -22,7 +22,7 @@ class ResourceType(str, Enum):
     DOCUMENTATION = "documentation"
 
 
-class Difficulty(str, Enum):
+class Difficulty(StrEnum):
     """Difficulty level for learning resources."""
 
     BEGINNER = "beginner"

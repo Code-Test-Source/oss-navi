@@ -4,7 +4,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from oss_navi.models.recommendation import Recommendation, RecommendationMode
-from oss_navi.services.algorithms.base import BaseRecommender, RecommenderConfig
+from oss_navi.services.algorithms.base import BaseRecommender
 
 if TYPE_CHECKING:
     from oss_navi.models.preferences import UserPreferences

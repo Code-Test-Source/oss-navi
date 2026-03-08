@@ -296,12 +296,12 @@ def invoke_claude_code(prompt: str, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> s
         raise ClaudeCodeError(
             f"Claude Code timed out after {timeout} seconds. "
             "Try again or reduce the scope of analysis."
-        )
+        ) from None
     except FileNotFoundError:
         raise ClaudeCodeError(
             "Claude Code not found in PATH. "
             "Please install Claude Code: https://claude.ai/code"
-        )
+        ) from None
 
 
 def save_report(content: str, report_id: str) -> str:
@@ -1192,7 +1192,6 @@ def _generate_why_great(repo: dict, learning_focus: str | None) -> str:
     """Generate a reason why this project is great to study."""
     reasons = []
     stars = repo.get("stargazers_count", 0)
-    description = repo.get("description", "")
     topics = repo.get("topics", [])
 
     if stars >= 10000:

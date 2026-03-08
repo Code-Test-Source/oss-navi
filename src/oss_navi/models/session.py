@@ -1,9 +1,9 @@
 """Session models for multi-round interactive recommendations."""
 
-from datetime import datetime
-from enum import Enum
-from typing import TYPE_CHECKING
 import uuid
+from datetime import datetime
+from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     pass
 
 
-class FeedbackType(str, Enum):
+class FeedbackType(StrEnum):
     """Type of user feedback on a recommendation."""
 
     ACCEPT = "accept"
@@ -23,7 +23,7 @@ class FeedbackType(str, Enum):
     REQUEST_ALTERNATIVE = "request_alternative"
 
 
-class SectionType(str, Enum):
+class SectionType(StrEnum):
     """Type of report section."""
 
     RECOMMENDATION = "recommendation"
@@ -33,7 +33,7 @@ class SectionType(str, Enum):
     CUSTOM = "custom"
 
 
-class SessionStatus(str, Enum):
+class SessionStatus(StrEnum):
     """Status of a recommendation session."""
 
     ACTIVE = "active"
@@ -198,13 +198,13 @@ class RecommendationSession(BaseModel):
     def to_markdown_report(self) -> str:
         """Generate full markdown report."""
         lines = [
-            f"# OSS-Navi Analysis Report",
-            f"",
+            "# OSS-Navi Analysis Report",
+            "",
             f"**Session**: {self.session_id}",
             f"**Mode**: {self.mode.value}",
             f"**Status**: {self.status.value}",
             f"**Rounds**: {len(self.rounds)}",
-            f"",
+            "",
         ]
 
         # Add report sections

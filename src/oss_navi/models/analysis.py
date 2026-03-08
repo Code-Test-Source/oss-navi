@@ -1,9 +1,8 @@
 """Code analysis models for detailed repository analysis."""
 
-from datetime import datetime
-from enum import Enum
-from typing import TYPE_CHECKING
 import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 

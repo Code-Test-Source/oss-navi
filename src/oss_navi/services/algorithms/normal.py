@@ -1,6 +1,5 @@
 """Normal mode recommender using Surprise collaborative filtering."""
 
-import uuid
 from typing import TYPE_CHECKING
 
 from oss_navi.models.recommendation import Recommendation, RecommendationMode
@@ -166,7 +165,7 @@ class NormalRecommender(BaseRecommender):
             name = f"{task.get('owner', '')}/{task.get('name', '')}"
             feature_set = {
                 "language": task.get("language", "").lower(),
-                "topics": set(t.lower() for t in task.get("topics", [])),
+                "topics": {topic.lower() for topic in task.get("topics", [])},
                 "stars_bucket": self._star_bucket(task.get("stars", 0)),
             }
             features[name] = feature_set
@@ -206,7 +205,7 @@ class NormalRecommender(BaseRecommender):
         score = 5.0
 
         # Language match bonus
-        user_langs = [l.lower() for l in user_preferences.get_all_languages()]
+        user_langs = [lang.lower() for lang in user_preferences.get_all_languages()]
         if features["language"] in user_langs:
             score += 2
 

@@ -146,9 +146,7 @@ class RecommenderService:
         skill_gaps = []
 
         # Get user's languages
-        user_languages = set(
-            lang.lower() for lang in user_preferences.get_all_languages()
-        )
+        user_languages = {lang.lower() for lang in user_preferences.get_all_languages()}
 
         # Language skill gap
         rec_language = recommendation.language.lower()
