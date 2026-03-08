@@ -12,12 +12,13 @@ Enhance OSS-Navi with intelligent recommendation algorithms integrated into the 
 **Language/Version**: Python 3.11+
 **Primary Dependencies**:
 - Click (CLI)
-- httpx (HTTP client)
+- httpx (HTTP client, with httpx[socks] for proxy support)
 - Pydantic v2 (data models)
 - PyYAML (config)
 - **scikit-surprise** (collaborative filtering, SVD, KNN)
 - **LightFM** (hybrid recommendations, implicit feedback)
 - numpy (required by Surprise/LightFM)
+- **fake-useragent** (user agent rotation for scraping)
 **Storage**: JSON files in `~/.oss-navi/` (cache/, state/, sessions/)
 **Testing**: pytest with pytest-cov (80% minimum coverage), pytest-httpx for API mocking
 **Target Platform**: Linux, macOS, Windows (cross-platform CLI)
@@ -178,5 +179,27 @@ tests/
 | scikit-surprise | >=1.1.0 | Collaborative filtering (SVD, KNN) | Normal, Thinking |
 | lightfm | >=1.17 | Hybrid recommendations | Thinking |
 | numpy | >=1.24.0 | Array operations (required by above) | Normal, Thinking |
+| fake-useragent | >=1.4.0 | User agent rotation for scraping | All modes |
 
-**Optional dependencies**: Users who only need fast mode can skip Surprise/LightFM installation.
+**Optional dependencies**:
+- Users who only need fast mode can skip Surprise/LightFM installation
+- `httpx[socks]` already included for proxy support
+
+## Scraping Best Practices
+
+When scraping data, follow these principles:
+
+1. **User Agent Rotation**: Use `fake_useragent` to rotate user agents
+2. **Cache First**: Always check local cache before network request
+3. **Public Metadata Only**: Never use cookies, CSRF tokens, or authentication
+4. **Proxy Support**: Allow proxy configuration for IP rotation
+5. **Rate Limiting**: Respect service rate limits (default 2s between requests)
+
+```bash
+# Proxy configuration via environment variables
+export HTTPS_PROXY=http://localhost:8118
+oss-navi sync --learning
+
+# Or via CLI option
+oss-navi sync --learning --proxy http://localhost:8118
+```

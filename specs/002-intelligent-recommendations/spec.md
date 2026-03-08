@@ -15,6 +15,7 @@
 - Q: What level of control should users have over the report during interactive sessions? → A: Users can ALWAYS determine where to stop, add items to report, delete parts of report, modify parts of report, or do another round of conversation.
 - Q: Should there be a separate recommend command? → A: No. Recommendations are INTEGRATED into the existing `analysis` command. Recommendation logic is separated into `services/recommender.py` for clean architecture. Users run `oss-navi analysis` with recommendation options.
 - Q: How should external APIs be used to avoid rate limits? → A: Use third-party datasets as PRIMARY data source (neenza/leetcode-problems, Kaggle/HuggingFace Codeforces datasets, GitHub Archive). API calls only for VERIFICATION after user selects specific recommendations. Rate limits enforced: GitHub 1/s, LeetCode 1/2s, Codeforces 5/s. Don't use user's account for large-scale scraping.
+- Q: What scraping best practices should be followed? → A: (1) Use fake_useragent for user agent rotation. (2) Use cached data locally first. (3) Only fetch public metadata - no cookies, CSRF tokens, or authentication. (4) Support proxy configuration for IP rotation. (5) Respect rate limits.
 
 ## User Scenarios & Testing *(mandatory)*
 

@@ -302,6 +302,203 @@ def load_github_archive_data(date_range: str):
 
 ---
 
+## Scraping Best Practices
+
+### Principles
+
+**Decision**: Follow ethical scraping practices to avoid detection and respect services.
+
+**Key Principles**:
+1. **Use cached data locally** - Always prefer local cache over network requests
+2. **Public metadata only** - Never use cookies, CSRF tokens, or authentication
+3. **Rotate user agents** - Use `fake_useragent` to avoid detection
+4. **Proxy support** - Allow proxy configuration for IP rotation
+5. **Respect rate limits** - Never exceed reasonable request rates
+
+---
+
+### Implementation
+
+#### User Agent Rotation
+
+**Decision**: Use `fake_useragent` library for rotating user agents.
+
+```python
+from fake_useragent import UserAgent
+
+# Configure httpx client with rotating user agent
+ua = UserAgent()
+
+headers = {
+    "User-Agent": ua.random,  # Random browser user agent
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
+}
+
+# With httpx
+async with httpx.AsyncClient(headers=headers) as client:
+    response = await client.get(url)
+```
+
+**Dependency**: Add `fake-useragent>=1.4.0` to pyproject.toml
+
+---
+
+#### Proxy Support
+
+**Decision**: Support proxy configuration for IP rotation.
+
+```python
+# Proxy configuration in config or CLI
+PROXY_CONFIG = {
+    "http": "http://proxy.example.com:8080",
+    "https": "http://proxy.example.com:8080",
+}
+
+# Or via environment variables (already supported by httpx)
+# HTTP_PROXY, HTTPS_PROXY, NO_PROXY
+
+# With httpx
+async with httpx.AsyncClient(
+    headers=headers,
+    proxy=os.environ.get("HTTPS_PROXY"),  # Optional proxy
+    timeout=30.0,
+) as client:
+    response = await client.get(url)
+```
+
+**CLI Option**:
+```bash
+oss-navi sync --learning --proxy http://localhost:8118
+```
+
+---
+
+#### Public Metadata Only
+
+**Decision**: Only fetch publicly available data without authentication.
+
+**What we DON'T do**:
+- ❌ Use cookies or session tokens
+- ❌ Handle CSRF tokens
+- ❌ Require user login for scraping
+- ❌ Access authenticated endpoints
+- ❌ Scrape user-specific data
+
+**What we DO fetch**:
+- ✅ Public problem lists (LeetCode, Codeforces)
+- ✅ Public course catalogs (csdiy.wiki)
+- ✅ Public repository metadata
+- ✅ Public issue lists
+
+```python
+# Example: Public metadata only
+def fetch_leetcode_problems():
+    # Public GraphQL endpoint - no auth needed
+    query = """
+    query {
+        problemsetQuestionList(limit: 100) {
+            questions {
+                title
+                titleSlug
+                difficulty
+                topicTags { name }
+            }
+        }
+    }
+    """
+    # No cookies, no tokens, just public data
+    return graphql_request(query)
+```
+
+---
+
+#### Local Cache First
+
+**Decision**: Always check local cache before network request.
+
+```python
+def get_cached_or_fetch(cache_key: str, fetch_func: Callable, max_age_days: int = 7):
+    """Get from cache if available and fresh, otherwise fetch."""
+    cache_path = get_cache_path(cache_key)
+
+    # Check cache first
+    if cache_path.exists():
+        cached = load_json(cache_path)
+        age = datetime.now() - datetime.fromisoformat(cached["updated_at"])
+        if age.days < max_age_days:
+            return cached["data"]
+
+    # Cache miss or stale - fetch with rate limiting
+    data = fetch_func()
+    save_json(cache_path, {"updated_at": datetime.now().isoformat(), "data": data})
+    return data
+```
+
+---
+
+### Rate Limiting Implementation
+
+```python
+import asyncio
+from functools import wraps
+
+class RateLimiter:
+    """Enforce minimum delay between requests."""
+
+    def __init__(self, min_delay: float = 2.0):
+        self.min_delay = min_delay
+        self.last_request = 0.0
+
+    async def wait(self):
+        """Wait if needed to respect rate limit."""
+        elapsed = time.time() - self.last_request
+        if elapsed < self.min_delay:
+            await asyncio.sleep(self.min_delay - elapsed)
+        self.last_request = time.time()
+
+# Per-domain rate limiters
+RATE_LIMITERS = {
+    "github": RateLimiter(min_delay=1.0),
+    "leetcode": RateLimiter(min_delay=2.0),
+    "codeforces": RateLimiter(min_delay=0.2),
+    "csdiy": RateLimiter(min_delay=2.0),
+    "default": RateLimiter(min_delay=2.0),
+}
+```
+
+---
+
+### Scraping Safety Checklist
+
+- [ ] Use `fake_useragent` for all HTTP requests
+- [ ] Check local cache before network request
+- [ ] Only fetch public metadata (no auth/cookies)
+- [ ] Respect rate limits (default 2s between requests)
+- [ ] Support proxy configuration
+- [ ] Handle graceful degradation on errors
+- [ ] Cache all fetched data locally
+- [ ] Log scraping activity for debugging
+
+---
+
+### Dependencies for Scraping
+
+```toml
+[project.optional-dependencies]
+scrape = [
+    "fake-useragent>=1.4.0",
+]
+
+# Already have: httpx[socks] for proxy support
+```
+
+**Note**: `httpx[socks]` already supports SOCKS proxies. Users can configure via environment variables.
+
+---
+
 ### Data Sync Strategy
 
 **Decision**: Implement staged sync with dataset priority.

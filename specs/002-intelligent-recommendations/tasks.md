@@ -9,7 +9,7 @@
 
 | Phase | Tasks | Parallel | Description |
 |-------|-------|----------|-------------|
-| Setup | 5 | 2 | Project initialization, dependencies |
+| Setup | 6 | 2 | Project initialization, dependencies, scraping utilities |
 | Foundational | 8 | 4 | Shared models, base classes |
 | US1 (P1) | 12 | 6 | Intelligent recommendations engine |
 | US2 (P2) | 8 | 4 | Multi-round interactive sessions |
@@ -18,7 +18,7 @@
 | US5 (P3) | 5 | 2 | Detailed code analysis |
 | Polish | 4 | 2 | Documentation, final verification |
 
-**Total**: 72 tasks (including data source tasks)
+**Total**: 74 tasks (including data source and scraping tasks)
 
 ---
 
@@ -37,6 +37,13 @@
 
 **Principle**: Use third-party datasets for bulk data, API calls only for verifying specific recommendations.
 
+**Scraping Best Practices**:
+- Use `fake_useragent` for user agent rotation
+- Cache data locally before network requests
+- Only fetch public metadata (no cookies/CSRF tokens)
+- Support proxy configuration for IP rotation
+- Enforce rate limits (default 2s between requests)
+
 ---
 
 ## Phase 1: Setup
@@ -45,7 +52,8 @@
 
 ### Tasks
 
-- [ ] T001 Add new dependencies to pyproject.toml (scikit-surprise>=1.1.0, lightfm>=1.17, numpy>=1.24.0)
+- [ ] T001 Add new dependencies to pyproject.toml (scikit-surprise>=1.1.0, lightfm>=1.17, numpy>=1.24.0, fake-useragent>=1.4.0)
+- [ ] T001a Add optional `[scrape]` extras to pyproject.toml with fake-useragent
 - [ ] T002 [P] Create services/algorithms/ directory structure at src/oss_navi/services/algorithms/
 - [ ] T003 [P] Create tests/unit/test_models/ directory for model tests
 - [ ] T004 [P] Create tests/unit/test_services/ directory for service tests
@@ -187,6 +195,7 @@
 - [ ] T055 [US4] Implement LeetCode dataset loader (neenza/leetcode-problems) in src/oss_navi/services/learning.py
 - [ ] T056 [US4] Implement Codeforces dataset loader (Kaggle/HuggingFace) in src/oss_navi/services/learning.py
 - [ ] T056a [US4] Implement rate-limited API verification module in src/oss_navi/services/learning.py
+- [ ] T056b [US4] Implement scraping utilities with fake_useragent and proxy support in src/oss_navi/utils/scraping.py
 - [ ] T057 [US4] Implement automatic learning resource matching in src/oss_navi/services/learning.py
 
 #### CLI Integration
