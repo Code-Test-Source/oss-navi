@@ -24,10 +24,10 @@ classifiers = [
     "Topic :: Software Development",
 ]
 dependencies = [
-    "click>=8.1.7",
+    "click>=8.3.0",
     "httpx[socks]>=0.27.0",
-    "pydantic>=2.6.0",
-    "pydantic-settings>=2.1.0",
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.13.0",
     "pyyaml>=6.0.0",
 ]
 
@@ -38,6 +38,15 @@ dev = [
     "pytest-httpx>=0.30.0",
     "ruff>=0.2.0",
     "pip-audit>=2.7.0",
+]
+# ML dependencies for advanced recommendation modes
+# lightfm-next provides hybrid collaborative + content-based filtering
+recommend = [
+    "lightfm-next>=1.19.0",
+    "numpy>=1.24.0",
+]
+scrape = [
+    "fake-useragent>=2.0.0",
 ]
 
 [project.scripts]
@@ -68,6 +77,8 @@ branch = true
 omit = [
     "tests/*",
     "*/__init__.py",
+    # CLI module - tested via integration tests
+    "src/oss_navi/cli.py",
 ]
 
 [tool.coverage.report]
@@ -81,6 +92,8 @@ exclude_lines = [
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -94,5 +107,5 @@ ignore = [
     "E501",  # line too long (handled by formatter)
 ]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["oss_navi"]

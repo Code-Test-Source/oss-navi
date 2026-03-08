@@ -360,7 +360,7 @@ class GitHubClient:
             if match:
                 parsed.append((match.group(1), match.group(2), int(match.group(3)), url))
 
-        for owner, repo, issue_number, url in parsed:
+        for owner, repo, issue_number, _url in parsed:
             status = self.check_issue_status(owner, repo, issue_number)
             statuses.append(status)
 
