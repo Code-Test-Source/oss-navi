@@ -99,7 +99,12 @@ class BaseRecommender(ABC):
             return projects
 
         def get_project_id(project: dict) -> str:
-            return f"{project.get('owner', '')}/{project.get('name', '')}".lower()
+            # Handle nested repository structure
+            repo = project.get("repository", project)
+            name = repo.get("name", "")
+            if name:
+                return name.lower()
+            return f"{repo.get('owner', '')}/{repo.get('name', '')}".lower()
 
         return [p for p in projects if get_project_id(p) not in rejected_ids]
 
@@ -111,14 +116,18 @@ class BaseRecommender(ABC):
         """Check if project language matches user preferences.
 
         Args:
-            project: Project dictionary with 'language' key
+            project: Project dictionary (may have nested 'repository' key)
             user_preferences: User preferences with language settings
 
         Returns:
             Tuple of (is_match, match_type) where match_type is
             'primary', 'secondary', 'learning', or 'none'
         """
-        project_lang = project.get("language", "").lower()
+        # Handle nested repository structure
+        repo = project.get("repository", project)
+        project_lang = repo.get("language") or ""
+        if project_lang:
+            project_lang = project_lang.lower()
 
         if not project_lang:
             return False, "none"
@@ -146,13 +155,15 @@ class BaseRecommender(ABC):
         """Compute relevance score for a project.
 
         Args:
-            project: Project dictionary
+            project: Project dictionary (may have nested 'repository' key)
             user_preferences: User preferences
             base_score: Starting score before adjustments
 
         Returns:
             Relevance score from 1-10
         """
+        # Handle nested repository structure
+        repo = project.get("repository", project)
         score = base_score
 
         # Language match bonus
@@ -166,7 +177,7 @@ class BaseRecommender(ABC):
                 score += 1
 
         # Stars bonus (popularity)
-        stars = project.get("stars", 0)
+        stars = repo.get("stars", 0)
         if stars >= 10000:
             score += 2
         elif stars >= 1000:

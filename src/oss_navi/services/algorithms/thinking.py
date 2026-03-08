@@ -162,17 +162,19 @@ class ThinkingRecommender(BaseRecommender):
 
         for task in cached_tasks:
             items = set()
+            repo = task.get("repository", task)
 
             # Add language
-            if task.get("language"):
-                items.add(task["language"].lower())
+            lang = repo.get("language")
+            if lang:
+                items.add(lang.lower())
 
             # Add topics
-            for topic in task.get("topics", []):
+            for topic in repo.get("topics") or []:
                 items.add(topic.lower())
 
             # Add project name as item
-            project_name = f"{task.get('owner', '')}/{task.get('name', '')}"
+            project_name = repo.get("name", f"{repo.get('owner', '')}/{repo.get('name', '')}")
             items.add(f"project:{project_name}")
 
             transactions.append(items)
@@ -201,13 +203,16 @@ class ThinkingRecommender(BaseRecommender):
         tech_lower = tech.lower()
 
         for task in cached_tasks:
+            repo = task.get("repository", task)
+
             # Check language
-            if task.get("language", "").lower() == tech_lower:
+            lang = repo.get("language") or ""
+            if lang.lower() == tech_lower:
                 matches.append(task)
                 continue
 
             # Check topics
-            topics = [t.lower() for t in task.get("topics", [])]
+            topics = [t.lower() for t in repo.get("topics") or []]
             if tech_lower in topics:
                 matches.append(task)
 
@@ -221,12 +226,12 @@ class ThinkingRecommender(BaseRecommender):
         if rejected_ids:
             matches = [
                 m for m in matches
-                if f"{m.get('owner', '')}/{m.get('name', '')}".lower()
+                if (m.get("repository", m).get("name", "")).lower()
                 not in rejected_ids
             ]
 
         # Sort by stars
-        matches.sort(key=lambda t: t.get("stars", 0), reverse=True)
+        matches.sort(key=lambda t: t.get("repository", t).get("stars") or 0, reverse=True)
 
         return matches[:5]  # Limit results
 
@@ -240,7 +245,7 @@ class ThinkingRecommender(BaseRecommender):
         """Create a recommendation from pattern mining.
 
         Args:
-            project: Project dictionary
+            project: Project dictionary (may have nested 'repository' key)
             suggested_tech: Technology suggested by pattern
             confidence: Pattern confidence
             user_skills: User's current skills
@@ -250,21 +255,22 @@ class ThinkingRecommender(BaseRecommender):
         """
         import uuid
 
-        project_name = f"{project.get('owner', '')}/{project.get('name', '')}"
+        repo = project.get("repository", project)
+        project_name = repo.get("name", f"{repo.get('owner', '')}/{repo.get('name', '')}")
 
         return Recommendation(
             recommendation_id=f"rec-{uuid.uuid4().hex[:8]}",
             project_name=project_name,
-            project_url=f"https://github.com/{project_name}",
-            language=project.get("language", "Unknown"),
+            project_url=repo.get("url", f"https://github.com/{project_name}"),
+            language=repo.get("language") or "Unknown",
             relevance_score=min(10, int(confidence * 15)),  # Scale confidence to score
             reasoning=f"Recommended based on pattern: users with {', '.join(user_skills)} "
             f"often contribute to {suggested_tech} projects",
             skill_gap_analysis=[suggested_tech],
             learning_prerequisites=[],
-            issue_url=project.get("issue_url"),
-            issue_title=project.get("issue_title"),
-            stars=project.get("stars", 0),
+            issue_url=project.get("url"),
+            issue_title=project.get("title"),
+            stars=repo.get("stars") or 0,
             is_great_project=project.get("is_great", False),
             algorithm_source="apriori_pattern",
             mode=self.mode,
@@ -334,15 +340,24 @@ class ThinkingRecommender(BaseRecommender):
         all_topics = set()
 
         for task in cached_tasks:
-            if task.get("language"):
-                all_languages.add(task["language"].lower())
-            for topic in task.get("topics", []):
+            repo = task.get("repository", task)
+            lang = repo.get("language")
+            if lang:
+                all_languages.add(lang.lower())
+            for topic in repo.get("topics") or []:
                 all_topics.add(topic.lower())
+
+        # Build item names
+        item_names = []
+        for task in cached_tasks:
+            repo = task.get("repository", task)
+            name = repo.get("name", f"{repo.get('owner', '')}/{repo.get('name', '')}")
+            item_names.append(name)
 
         # Fit dataset
         dataset.fit(
             users=[0],  # Single user
-            items=[f"{t.get('owner', '')}/{t.get('name', '')}" for t in cached_tasks],
+            items=item_names,
             user_features=list(user_features.keys()),
             item_features=list(all_languages | all_topics),
         )
@@ -354,11 +369,13 @@ class ThinkingRecommender(BaseRecommender):
 
         item_features_list = []
         for task in cached_tasks:
-            name = f"{task.get('owner', '')}/{task.get('name', '')}"
+            repo = task.get("repository", task)
+            name = repo.get("name", f"{repo.get('owner', '')}/{repo.get('name', '')}")
             features = set()
-            if task.get("language"):
-                features.add(task["language"].lower())
-            for topic in task.get("topics", []):
+            lang = repo.get("language")
+            if lang:
+                features.add(lang.lower())
+            for topic in repo.get("topics") or []:
                 features.add(topic.lower())
             item_features_list.append((name, features))
 
@@ -383,10 +400,7 @@ class ThinkingRecommender(BaseRecommender):
             )
 
         # Predict scores for recommendations
-        name_to_idx = {
-            f"{t.get('owner', '')}/{t.get('name', '')}": i
-            for i, t in enumerate(cached_tasks)
-        }
+        name_to_idx = {name: i for i, name in enumerate(item_names)}
 
         for rec in recommendations:
             if rec.project_name in name_to_idx:

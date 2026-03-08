@@ -195,7 +195,12 @@ class TestFastRecommender:
     def test_filter_by_rejected(self, cached_tasks: list[dict]) -> None:
         """Test filter_by_rejected method."""
         recommender = FastRecommender()
-        rejected = {"python/cpython"}
+        # Use the actual project names from the cached_tasks fixture
+        project_names = [
+            cached_tasks[0].get("repository", cached_tasks[0]).get("name", "python/cpython"),
+            cached_tasks[1].get("repository", cached_tasks[1]).get("name", "rust-lang/rust"),
+        ]
+        rejected = {project_names[0].lower()}
         filtered = recommender.filter_by_rejected(cached_tasks, rejected)
         assert len(filtered) == 2
 

@@ -61,24 +61,31 @@ class BlockingRule(BaseModel):
         """Check if a project matches this blocking rule.
 
         Args:
-            project: Project dictionary with 'owner', 'name', 'language', 'topics' keys
+            project: Project dictionary (may have nested 'repository' key)
 
         Returns:
             True if the project matches this blocking rule
         """
+        # Handle nested repository structure
+        repo = project.get("repository", project)
+
+        # Get repository name (may be "owner/repo" or just "repo")
+        repo_name = repo.get("name") or ""
+
         match self.block_type:
             case BlockType.PROJECT:
-                full_name = f"{project.get('owner', '')}/{project.get('name', '')}"
-                return self.value.lower() == full_name.lower()
-            case BlockType.MAINTAINER:
-                return self.value.lower() == project.get("owner", "").lower()
-            case BlockType.ORGANIZATION:
-                return self.value.lower() == project.get("owner", "").lower()
+                return self.value.lower() == repo_name.lower()
+            case BlockType.MAINTAINER | BlockType.ORGANIZATION:
+                # Extract owner from "owner/repo" format
+                if "/" in repo_name:
+                    owner = repo_name.split("/")[0]
+                    return self.value.lower() == owner.lower()
+                return False
             case BlockType.TOPIC:
-                topics = [t.lower() for t in project.get("topics", [])]
+                topics = [t.lower() for t in repo.get("topics") or []]
                 return self.value.lower() in topics
             case BlockType.LANGUAGE:
-                project_lang = project.get("language", "").lower()
+                project_lang = (repo.get("language") or "").lower()
                 return self.value.lower() == project_lang
             case _:
                 return False

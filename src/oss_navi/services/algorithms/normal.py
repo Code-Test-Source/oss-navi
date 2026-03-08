@@ -135,11 +135,15 @@ class NormalRecommender(BaseRecommender):
         """
         features = {}
         for task in cached_tasks:
-            name = f"{task.get('owner', '')}/{task.get('name', '')}"
+            # Handle nested repository structure
+            repo = task.get("repository", task)
+            name = repo.get("name", f"{repo.get('owner', '')}/{repo.get('name', '')}")
+
+            lang = repo.get("language") or ""
             feature_set = {
-                "language": task.get("language", "").lower(),
-                "topics": {topic.lower() for topic in task.get("topics", [])},
-                "stars_bucket": self._star_bucket(task.get("stars", 0)),
+                "language": lang.lower() if lang else "",
+                "topics": {topic.lower() for topic in repo.get("topics") or []},
+                "stars_bucket": self._star_bucket(repo.get("stars") or 0),
                 "has_issues": task.get("good_first_issue_count", 0) > 0,
             }
             features[name] = feature_set

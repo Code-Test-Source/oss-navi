@@ -99,11 +99,13 @@ class TestBlockingRule:
 
     def test_matches_project(self) -> None:
         """Test matches method for different block types."""
+        # Use nested repository structure (actual data format)
         project = {
-            "owner": "octocat",
-            "name": "Hello-World",
-            "language": "Python",
-            "topics": ["web", "api"],
+            "repository": {
+                "name": "octocat/Hello-World",
+                "language": "Python",
+                "topics": ["web", "api"],
+            }
         }
 
         # PROJECT type
@@ -133,10 +135,11 @@ class TestBlockingRule:
     def test_matches_no_match(self) -> None:
         """Test matches returns False when no match."""
         project = {
-            "owner": "octocat",
-            "name": "Hello-World",
-            "language": "Python",
-            "topics": ["web"],
+            "repository": {
+                "name": "octocat/Hello-World",
+                "language": "Python",
+                "topics": ["web"],
+            }
         }
         rule = BlockingRule(block_type=BlockType.LANGUAGE, value="java")
         assert rule.matches(project) is False

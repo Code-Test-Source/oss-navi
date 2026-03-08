@@ -76,12 +76,15 @@ class ContentBasedRecommender(BaseRecommender):
         """Score a project based on content features.
 
         Args:
-            project: Project dictionary
+            project: Project dictionary (may have nested 'repository' key)
             user_preferences: User preferences
 
         Returns:
             Dictionary with score and reasoning components
         """
+        # Handle both flat and nested project structures
+        repo = project.get("repository", project)
+
         score = 5  # Base score
         reasons = []
         skill_gaps = []
@@ -98,14 +101,14 @@ class ContentBasedRecommender(BaseRecommender):
             elif match_type == "learning":
                 score += 1
                 reasons.append("good for learning")
-                skill_gaps.append(project.get("language", ""))
+                skill_gaps.append(repo.get("language", ""))
         else:
             # Language doesn't match - lower score
             score -= 2
             reasons.append("different language from your profile")
 
         # Popularity (stars)
-        stars = project.get("stars", 0)
+        stars = repo.get("stars", 0)
         if stars >= 10000:
             score += 2
             reasons.append("highly popular project")
@@ -120,7 +123,7 @@ class ContentBasedRecommender(BaseRecommender):
             reasons.append(f"{gfi_count} good first issues available")
 
         # Skill level matching
-        project_lang = project.get("language", "").lower()
+        project_lang = (repo.get("language") or "").lower()
         skill_level = user_preferences.get_language_skill(project_lang)
         if skill_level:
             # Check if project difficulty matches skill level
@@ -132,7 +135,7 @@ class ContentBasedRecommender(BaseRecommender):
                 reasons.append("challenging project")
 
         # Domain interest matching
-        project_topics = [t.lower() for t in project.get("topics", [])]
+        project_topics = [t.lower() for t in repo.get("topics", [])]
         for domain_interest in user_preferences.domain_interests:
             if domain_interest.domain.lower() in project_topics:
                 score += 1
@@ -156,13 +159,22 @@ class ContentBasedRecommender(BaseRecommender):
         """Create a Recommendation object from project and score data.
 
         Args:
-            project: Project dictionary
+            project: Project dictionary (may have nested 'repository' key)
             score_data: Score data from _score_project
 
         Returns:
             Recommendation object
         """
-        project_name = f"{project.get('owner', '')}/{project.get('name', '')}"
+        # Handle both flat and nested project structures
+        repo = project.get("repository", project)
+
+        # Get project name - handle both formats
+        project_name = repo.get("name", "")
+        if not project_name:
+            project_name = f"{repo.get('owner', '')}/{repo.get('name', '')}"
+        elif "/" not in project_name:
+            # If name is just the repo name without owner
+            pass  # Use as-is if it's just the repo name
 
         # Build reasoning string
         if score_data["reasons"]:
@@ -176,15 +188,15 @@ class ContentBasedRecommender(BaseRecommender):
         return Recommendation(
             recommendation_id=f"rec-{rec_id}",
             project_name=project_name,
-            project_url=f"https://github.com/{project_name}",
-            language=project.get("language", "Unknown"),
+            project_url=repo.get("url", f"https://github.com/{project_name}"),
+            language=repo.get("language", "Unknown"),
             relevance_score=score_data["score"],
             reasoning=reasoning,
             skill_gap_analysis=score_data["skill_gaps"],
             learning_prerequisites=[],
-            issue_url=project.get("issue_url"),
-            issue_title=project.get("issue_title"),
-            stars=project.get("stars", 0),
+            issue_url=project.get("url"),  # The issue URL is at the top level
+            issue_title=project.get("title"),
+            stars=repo.get("stars", 0),
             is_great_project=project.get("is_great", False),
             algorithm_source=self.name,
             mode=self.mode,
