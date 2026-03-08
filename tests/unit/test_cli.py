@@ -280,7 +280,7 @@ class TestAnalysisCommand:
 
         with patch("oss_navi.utils.cache.read_json", side_effect=mock_read_json_side_effect):
             with patch("oss_navi.services.analyzer.run_analysis", return_value=mock_report) as mock_run:
-                runner.invoke(main, ["analysis", "--learn", "python"])
+                result = runner.invoke(main, ["analysis", "--learn", "python"])
                 # Verify learning_focus was passed
                 call_kwargs = mock_run.call_args[1]
                 assert call_kwargs.get("learning_focus") == "python"

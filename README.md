@@ -2,25 +2,27 @@
 
 > A CLI tool that helps programmers discover and contribute to open source projects
 
-OSS-Navi analyzes your GitHub profile, scrapes beginner-friendly issues from multiple sources, and generates personalized project recommendations with intelligent algorithms.
+OSS-Navi analyzes your GitHub profile, scrapes beginner-friendly issues from multiple sources, and generates personalized project recommendations using Claude Code.
 
 ## Features
 
 - **Profile Analysis**: Fetch and analyze your GitHub profile (commits, languages, activity)
 - **Task Discovery**: Scrape open source tasks from Up For Grabs and Good First Issues
-- **Intelligent Recommendations**: Three recommendation modes (fast, normal, thinking) with algorithmic scoring
 - **Smart Filtering**: Filter tasks by stars, recency, and compute a "hotness" score
-- **Learning Paths**: Automatic suggestions from csdiy.wiki, LeetCode, Codeforces
-- **Personalization**: Set language preferences, skill levels, and blocking rules
-- **Multi-Round Sessions**: Interactive recommendations with feedback tracking
-- **Great Projects Discovery**: Find high-quality projects for learning
+- **Enhanced Recommendations**: Get 5-10 scored recommendations with detailed ratings
+- **Issue Status Checking**: Verify recommended issues are still available (not assigned/closed)
+- **Great Projects Discovery**: Find high-quality projects for learning (not just beginner-friendly)
+- **Interactive Prompts**: Get suggestions for adjacent fields to explore
+- **Learning Focus**: Specify what you're currently learning with `--learn` flag
+- **AI Recommendations**: Generate personalized recommendations with Claude Code
+- **Report Archiving**: Archive and optionally publish reports to your blog
 - **Proxy Support**: Configure HTTP/HTTPS/SOCKS proxy for corporate firewalls
 
 ## Requirements
 
 - Python 3.11+ or [uv](https://docs.astral.sh/uv/) package manager
 - GitHub Personal Access Token (optional, for profile sync)
-- Claude Code (optional, for enhanced AI-powered analysis reports)
+- Claude Code installed locally (for analysis command)
 
 ## Installation
 
@@ -29,12 +31,6 @@ OSS-Navi analyzes your GitHub profile, scrapes beginner-friendly issues from mul
 ```bash
 # Clone and install as global CLI tool
 git clone https://github.com/Code-Test-Source/oss-navi.git && cd oss-navi && uv tool install -e .
-
-# For recommendation algorithms (normal/thinking modes)
-uv tool install -e ".[recommend]"
-
-# For scraping with user agent rotation
-uv tool install -e ".[scrape]"
 ```
 
 After installation, `oss-navi` is available globally:
@@ -51,102 +47,20 @@ oss-navi --help
 oss-navi config --github-username your-username
 oss-navi config --github-token ghp_your_token_here
 
-# Set your language preferences
-oss-navi prefs set-language python --type primary --level advanced
-oss-navi prefs set-language rust --type learning --level beginner
-
-# Sync your profile, tasks, and learning resources
+# Sync your profile and available tasks
 oss-navi sync
-oss-navi sync --learning
 
-# Generate personalized recommendations
-oss-navi analysis --mode normal
+# Generate personalized recommendations (interactive)
+oss-navi analysis
 
-# Fast mode for quick results (<30s)
-oss-navi analysis --mode fast
+# Or specify options directly
+oss-navi analysis --learn python --explore -n 5
+
+# Non-interactive mode for automation
+oss-navi analysis --no-interactive --learn rust
 ```
 
 ## Commands
-
-### `oss-navi analysis`
-
-Generate personalized project recommendations combining intelligent algorithms with Claude Code:
-
-```bash
-oss-navi analysis                         # Interactive recommendations (normal mode)
-oss-navi analysis --mode fast             # Quick exploration (<30s)
-oss-navi analysis --mode normal           # Balanced quality (<90s)
-oss-navi analysis --mode thinking         # Best quality (<180s)
-oss-navi analysis --language go           # Focus on specific language
-oss-navi analysis --learn rust            # Learning focus
-oss-navi analysis --session abc123        # Resume session
-oss-navi analysis --no-interactive        # One-shot mode
-oss-navi analysis --explore               # Show field exploration suggestions
-oss-navi analysis --output report.md      # Save report to file
-```
-
-**Two-Layer Recommendation System:**
-
-1. **Intelligent Recommendations** (algorithmic): Content-based filtering, collaborative filtering (Surprise), and pattern mining (Apriori/LightFM)
-2. **Claude Code Analysis** (AI-powered): Deep project insights, contribution guidance, and personalized learning paths
-
-**Recommendation Modes:**
-
-| Mode | Algorithms | Time | Memory | Use Case |
-|------|------------|------|--------|----------|
-| `fast` | Content-based filtering | <30s | <50MB | Quick exploration, CI/CD |
-| `normal` | Surprise SVD/KNN | <90s | <200MB | Daily use (default) |
-| `thinking` | LightFM + Apriori | <180s | <500MB | Deep analysis |
-
-### `oss-navi prefs`
-
-Manage user preferences:
-
-```bash
-oss-navi prefs set-language python --type primary --level advanced
-oss-navi prefs set-language rust --type learning --level beginner
-oss-navi prefs remove-language ruby
-oss-navi prefs block language typescript --reason "Not interested"
-oss-navi prefs block organization some-org
-oss-navi prefs unblock language typescript
-oss-navi prefs show
-oss-navi prefs export my-prefs.json
-oss-navi prefs import my-prefs.json
-```
-
-### `oss-navi session`
-
-Manage recommendation sessions:
-
-```bash
-oss-navi session list              # List active sessions
-oss-navi session list --status all # List all sessions
-oss-navi session show abc123       # Show session details
-oss-navi session export abc123     # Export as markdown
-oss-navi session export abc123 --format json
-oss-navi session delete abc123     # Delete session
-```
-
-### `oss-navi sync`
-
-Fetch GitHub profile, tasks, and learning resources:
-
-```bash
-oss-navi sync                    # Sync profile and tasks
-oss-navi sync --learning         # Sync learning resources
-oss-navi sync --csdiy            # Sync csdiy.wiki courses
-oss-navi sync --leetcode         # Sync LeetCode problems
-oss-navi sync --codeforces       # Sync Codeforces problems
-oss-navi sync --force            # Force refresh
-```
-
-**Data Sources (no API rate limits):**
-
-| Source | Dataset | Items |
-|--------|---------|-------|
-| LeetCode | neenza/leetcode-problems | 2,500+ problems |
-| Codeforces | Kaggle/HuggingFace | 7,000+ problems |
-| csdiy.wiki | Direct scrape | 150+ courses |
 
 ### `oss-navi config`
 
@@ -158,8 +72,105 @@ oss-navi config --github-token ghp_your_token
 oss-navi config --blog-repo /path/to/blog
 oss-navi config --min-stars 100 --max-age 30
 oss-navi config --http-proxy http://proxy.example.com:8080
+oss-navi config --https-proxy http://proxy.example.com:8080
 oss-navi config --list
 oss-navi config --reset
+```
+
+### `oss-navi sync`
+
+Fetch GitHub profile and task data:
+
+```bash
+oss-navi sync              # Sync everything
+oss-navi sync --github     # Sync only GitHub profile
+oss-navi sync --tasks      # Sync only task sources
+oss-navi sync --force      # Force refresh (ignore cache)
+oss-navi sync --dry-run    # Preview without fetching
+```
+
+**Expected Output:**
+```
+✓ GitHub profile cached (245 repos, 12 languages)
+✓ Up For Grabs: 156 tasks
+✓ Good First Issues: 203 tasks
+✓ Cache expires: 2026-03-08 10:00:00
+```
+
+### `oss-navi analysis`
+
+Generate personalized project recommendations with enhanced features:
+
+```bash
+oss-navi analysis                         # Generate recommendations (interactive)
+oss-navi analysis --learn python          # Focus on a technology
+oss-navi analysis -n 5                    # Get 5 recommendations (default: 7)
+oss-navi analysis --explore               # Show field exploration suggestions
+oss-navi analysis --no-interactive        # Skip interactive prompts
+oss-navi analysis --skip-status           # Skip issue status checks (faster)
+oss-navi analysis --output report.md      # Save to custom location
+oss-navi analysis --no-cache              # Require fresh data
+oss-navi analysis --open                  # Open report after generation
+```
+
+**Enhanced Analysis Output:**
+```
+✓ Analyzing profile... (12 languages, 245 repos)
+✓ Filtering tasks... (1625 matches)
+
+📚 Suggested fields to explore:
+  1. web development
+  2. data science
+  3. automation
+
+⭐ Great projects for learning:
+  - python/cpython (60,000 stars)
+    Highly popular with strong community.
+  - pallets/flask (65,000 stars)
+    Active community project.
+
+✓ Generating 7 recommendations...
+
+🎯 Top Recommendations:
+  1. Fix authentication bug in web framework...
+     Rating: 8.5/10 - matches your Python expertise and is beginner-friendly.
+  2. Add CLI feature for data processing...
+     Rating: 7.8/10 - aligns with your learning goal of Python.
+
+✓ Report saved: ~/.oss-navi/temp/current_report.md
+```
+
+**Recommendation Scoring (6 factors):**
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Language Match | 30% | How well it matches your known languages |
+| Hotness Score | 20% | Popularity vs. issue age |
+| Issue Availability | 15% | Is the issue unassigned and open? |
+| Learning Alignment | 15% | Does it match your learning focus? |
+| Skill Level Fit | 10% | Is it appropriate for your level? |
+| Topic Relevance | 10% | Do topics align with your interests? |
+
+**Issue Status Checking:**
+
+OSS-Navi validates issue availability to avoid recommending taken issues:
+
+- ✅ **Available**: Unassigned, open, no linked PR
+- ⚠️ **Partial**: Has "in progress" labels
+- ❌ **Unavailable**: Assigned, closed, or has PR
+
+**Linked PR Detection**: OSS-Navi checks if an issue has a separate open PR linked via cross-references. If someone is already working on the issue, it won't be recommended.
+
+**Rate Limit Protection:**
+
+To avoid GitHub API rate limits, OSS-Navi:
+1. Scores all tasks without API calls
+2. Checks status only for top candidates (~14 API calls max)
+3. Skips unavailable issues from final recommendations
+
+Use `--skip-status` to disable checking entirely (0 API calls, faster):
+```bash
+oss-navi analysis --skip-status  # No status checks, instant results
 ```
 
 ### `oss-navi publish`
@@ -286,19 +297,14 @@ All data is stored under `~/.oss-navi/`:
 │   ├── github_profile.json
 │   ├── upforgrabs_tasks.json
 │   ├── goodfirstissues_tasks.json
-│   ├── leetcode.json       # LeetCode problems
-│   ├── codeforces.json     # Codeforces problems
-│   ├── csdiy.json          # csdiy.wiki courses
 │   └── metadata.json
 ├── state/              # Persistent data
 │   ├── config.json
-│   ├── preferences.json    # User preferences (languages, blocking rules)
-│   ├── memory.json         # Long-term learning goals
-│   ├── sessions/           # Recommendation sessions
+│   ├── memory.json     # Long-term learning goals & past recommendations
 │   └── reports/
 └── temp/
     ├── current_report.md
-    └── great_projects_cache.json
+    └── great_projects_cache.json  # Cached great projects (24h TTL)
 ```
 
 ## Task Sources
