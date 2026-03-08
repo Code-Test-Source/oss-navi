@@ -212,7 +212,7 @@ class LearningService:
             )
             courses.append(course)
 
-        return courses[:200]  # Limit to 200 courses
+        return courses
 
     def _get_fallback_csdiy_courses(self) -> list[Course]:
         """Return fallback courses if scraping fails."""
@@ -312,7 +312,7 @@ class LearningService:
             # Parse the API response
             stat_status_pairs = data.get("stat_status_pairs", [])
 
-            for i, item in enumerate(stat_status_pairs[:500]):  # Limit to 500 problems
+            for i, item in enumerate(stat_status_pairs):
                 problem = self._parse_leetcode_api_item(item, i)
                 if problem:
                     problems.append(problem)
@@ -517,7 +517,7 @@ class LearningService:
             result = data.get("result", {})
             problem_list = result.get("problems", [])
 
-            for i, prob in enumerate(problem_list[:500]):  # Limit to 500 problems
+            for i, prob in enumerate(problem_list):
                 problem = self._parse_codeforces_item(prob, i)
                 if problem:
                     problems.append(problem)
