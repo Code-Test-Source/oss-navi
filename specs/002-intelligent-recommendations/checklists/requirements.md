@@ -29,19 +29,29 @@
 - [x] Feature meets measurable outcomes defined in Success Criteria
 - [x] No implementation details leak into specification
 
+## Clarifications Session 2026-03-08
+
+3 clarifications integrated into spec:
+
+1. **Language Prerequisite Scanning (Two-Round)**: First scan JSON for exact language matches. If found, recommend those. If not, mark as learning prerequisite and conduct second round for adjacent technologies. Great projects follow same rule.
+
+2. **Automatic LeetCode/Codeforces**: Problems appear automatically based on skill level and csdiy courses, even without explicit request. User requests are honored when provided.
+
+3. **Full Report Control**: Users can stop, add, delete, modify report sections, or request another round at any time.
+
 ## Validation Results
 
 **Status**: ✅ PASSED
 
-All checklist items passed validation:
+All checklist items passed validation after clarification integration:
 
-1. **Content Quality**: Spec focuses on user value (better recommendations, learning paths, personalization) without mentioning implementation technologies. Written in plain language accessible to non-technical stakeholders.
+1. **Content Quality**: Spec focuses on user value with clarified two-round language matching and automatic learning resource inclusion. Written in plain language accessible to non-technical stakeholders.
 
-2. **Requirement Completeness**: All 37 functional requirements are testable and unambiguous. Success criteria are measurable (e.g., "within 90 seconds", "at least 3 recommendations", "80% of skill gaps"). Edge cases cover 6 scenarios. Assumptions and out-of-scope items are clearly documented.
+2. **Requirement Completeness**: All 44 functional requirements are testable and unambiguous. Success criteria are measurable. Edge cases cover 6 scenarios. Clarifications section documents all decisions.
 
-3. **Feature Readiness**: Each user story has clear acceptance scenarios with Given/When/Then format. 5 prioritized user stories cover all major feature areas. No implementation details in success criteria.
+3. **Feature Readiness**: Each user story has clear acceptance scenarios with Given/When/Then format. 5 prioritized user stories cover all major feature areas. Interactive report control fully specified.
 
 ## Notes
 
-- Spec is ready for `/speckit.plan` or `/speckit.clarify`
-- No clarifications required - all aspects have reasonable defaults based on constitution principles
+- Spec is ready for `/speckit.plan`
+- All clarifications from user integrated and documented

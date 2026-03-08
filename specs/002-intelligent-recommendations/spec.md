@@ -2,8 +2,17 @@
 
 **Feature Branch**: `002-intelligent-recommendations`
 **Created**: 2026-03-08
+**Updated**: 2026-03-08
 **Status**: Draft
 **Input**: User description: "Optimize recommendation algorithm with fallback strategy, integrate learning paths from csdiy.wiki and LeetCode/Codeforces, enable multi-round interactive recommendations with user personalization and blocking rules"
+
+## Clarifications
+
+### Session 2026-03-08
+
+- Q: How should language matching work when no exact matches exist? → A: First scan the cached JSON for exact language matches. If found, recommend those projects. If not found, mark the language as a learning prerequisite. Then conduct a SECOND ROUND analysis recommending projects where language is NOT a prerequisite (adjacent technologies). Great project recommendations follow this same rule.
+- Q: When should LeetCode/Codeforces recommendations appear? → A: LeetCode and Codeforces problems appear AUTOMATICALLY based on user's skill level and csdiy courses, even without explicit user request. If the user explicitly requests practice problems, refer to their specific requests.
+- Q: What level of control should users have over the report during interactive sessions? → A: Users can ALWAYS determine where to stop, add items to report, delete parts of report, modify parts of report, or do another round of conversation.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -17,16 +26,17 @@ A developer wants to find open source projects that match their skills. When no 
 
 **Acceptance Scenarios**:
 
-1. **Given** a user's profile shows Python expertise, **When** they run analysis, **Then** recommendations are ranked by relevance score (1-10) with clear reasoning for each
-2. **Given** a user requests projects in Rust but no Rust tasks exist, **When** analysis completes, **Then** the system marks Rust as a learning prerequisite and recommends C/C++ or Go projects as adjacent technologies
-3. **Given** recommendations are generated, **When** user views the report, **Then** each recommendation includes skill gap analysis showing what they will learn
-4. **Given** a user with limited GitHub activity, **When** analysis runs, **Then** the system uses explicitly stated interests and recommends popular beginner-friendly projects
+1. **Given** a user requests projects in Go, **When** the system scans cached task data, **Then** it first searches for Go projects and recommends them if found
+2. **Given** a user requests projects in Rust but no Rust tasks exist in cache, **When** analysis completes, **Then** the system marks Rust as a learning prerequisite and conducts a second round recommending adjacent technologies (C/C++, Go)
+3. **Given** a user requests great project recommendations, **When** the system searches, **Then** it follows the same language-first rule before suggesting projects in other languages
+4. **Given** recommendations are generated, **When** user views the report, **Then** each recommendation includes skill gap analysis showing what they will learn
+5. **Given** a user with limited GitHub activity, **When** analysis runs, **Then** the system uses explicitly stated interests and recommends popular beginner-friendly projects
 
 ---
 
 ### User Story 2 - Multi-Round Interactive Recommendations (Priority: P2)
 
-A developer wants an interactive recommendation experience where they can provide feedback, select repositories for detailed analysis, and refine results over multiple rounds instead of receiving a one-shot report.
+A developer wants an interactive recommendation experience where they can provide feedback, select repositories for detailed analysis, refine results over multiple rounds, and have full control over the final report content.
 
 **Why this priority**: Interactive experiences produce better outcomes by respecting user agency and allowing iterative refinement.
 
@@ -37,7 +47,9 @@ A developer wants an interactive recommendation experience where they can provid
 1. **Given** initial recommendations are displayed, **When** the user provides feedback (accept/reject/request alternatives), **Then** subsequent recommendations incorporate that feedback
 2. **Given** a user sees an interesting project, **When** they select it for detailed analysis, **Then** the system performs code analysis and adds it to their report
 3. **Given** a user rejects a recommendation, **When** they provide a reason, **Then** the system learns from this and adjusts future recommendations
-4. **Given** a multi-round session ends, **When** the user returns later, **Then** previous session context is available for continuity
+4. **Given** a user wants to modify their report, **When** they delete or edit a section, **Then** the report is updated accordingly
+5. **Given** a user wants to continue exploring, **When** they request another round, **Then** the system generates new recommendations based on accumulated context
+6. **Given** a user is satisfied with results, **When** they choose to stop, **Then** the session ends and the final report is saved
 
 ---
 
@@ -60,18 +72,19 @@ A developer wants to personalize their recommendation experience by specifying m
 
 ### User Story 4 - Discover Learning Paths (Priority: P3)
 
-A developer wants recommendations connected to structured learning resources. When a project requires unfamiliar skills, the system suggests courses, tutorials, and practice problems to build those skills.
+A developer wants recommendations connected to structured learning resources. The system automatically suggests LeetCode/Codeforces problems based on skill level, and when projects require unfamiliar skills, the system suggests courses and practice problems.
 
 **Why this priority**: Learning path integration transforms OSS contributions into structured skill development.
 
-**Independent Test**: Can be fully tested by requesting learning paths and verifying courses and practice problems are suggested for skill gaps.
+**Independent Test**: Can be fully tested by running analysis and verifying LeetCode/Codeforces problems appear automatically based on skill level, with additional suggestions for skill gaps.
 
 **Acceptance Scenarios**:
 
-1. **Given** a recommendation requires unfamiliar skills, **When** the user views the report, **Then** prerequisite courses from csdiy.wiki are suggested
-2. **Given** a user wants to improve algorithms, **When** they request practice problems, **Then** LeetCode or Codeforces problems matching their skill level are recommended
-3. **Given** a learning path is suggested, **When** the user follows it, **Then** they see progressive difficulty from beginner to advanced
-4. **Given** a user completes a course or problem, **When** they update their profile, **Then** future recommendations reflect improved skills
+1. **Given** a user runs analysis, **When** the report is generated, **Then** LeetCode/Codeforces problems appear automatically based on the user's skill level and csdiy courses
+2. **Given** a user explicitly requests practice problems, **When** they specify topics or difficulty, **Then** the system refers to their specific requests
+3. **Given** a recommendation requires unfamiliar skills, **When** the user views the report, **Then** prerequisite courses from csdiy.wiki are suggested
+4. **Given** a learning path is suggested, **When** the user follows it, **Then** they see progressive difficulty from beginner to advanced
+5. **Given** a user completes a course or problem, **When** they update their profile, **Then** future recommendations reflect improved skills
 
 ---
 
@@ -110,57 +123,66 @@ A developer wants to select specific repositories from recommendations for detai
 - **FR-002**: The system MUST compute relevance scores (1-10 scale) for each recommendation with clear reasoning
 - **FR-003**: The system MUST perform skill gap analysis showing what the user will learn from each project
 - **FR-004**: The system MUST handle cold-start scenarios (limited profile data) by using explicit interests and popular beginner projects
-- **FR-005**: The system MUST implement fallback strategy: when no tasks match a language, mark it as a prerequisite and recommend adjacent technologies
+- **FR-005**: The system MUST implement two-round language matching:
+  - **Round 1**: Scan cached JSON for exact language matches; if found, recommend those projects
+  - **Round 2**: If no matches, mark language as learning prerequisite and recommend adjacent technology projects
+- **FR-006**: The system MUST apply the same language-first rule to great project recommendations
 
 **Multi-Round Interactive Experience**
-- **FR-006**: The system MUST support multi-round recommendation workflows where user feedback refines results
-- **FR-007**: The system MUST allow users to accept, reject, or request alternatives for each recommendation
-- **FR-008**: The system MUST track user feedback and use it to improve subsequent recommendations within a session
-- **FR-009**: The system MUST persist session state so users can resume across multiple invocations
+- **FR-007**: The system MUST support multi-round recommendation workflows where user feedback refines results
+- **FR-008**: The system MUST allow users to accept, reject, or request alternatives for each recommendation
+- **FR-009**: The system MUST track user feedback and use it to improve subsequent recommendations within a session
+- **FR-010**: The system MUST persist session state so users can resume across multiple invocations
+- **FR-011**: The system MUST allow users to delete parts of their report during interactive sessions
+- **FR-012**: The system MUST allow users to modify parts of their report during interactive sessions
+- **FR-013**: The system MUST allow users to request another round of recommendations at any point
+- **FR-014**: The system MUST allow users to stop and finalize the report at any point
 
 **User Personalization**
-- **FR-010**: The system MUST support multiple languages per user with primary, secondary, and learning designations
-- **FR-011**: The system MUST allow per-language skill levels (beginner, intermediate, advanced)
-- **FR-012**: The system MUST allow users to block specific projects, maintainers, organizations, or topics
-- **FR-013**: The system MUST persist user preferences locally with export, modify, and delete capabilities
-- **FR-014**: The system MUST respect blocking rules in all recommendation outputs
+- **FR-015**: The system MUST support multiple languages per user with primary, secondary, and learning designations
+- **FR-016**: The system MUST allow per-language skill levels (beginner, intermediate, advanced)
+- **FR-017**: The system MUST allow users to block specific projects, maintainers, organizations, or topics
+- **FR-018**: The system MUST persist user preferences locally with export, modify, and delete capabilities
+- **FR-019**: The system MUST respect blocking rules in all recommendation outputs
 
 **Learning Path Integration**
-- **FR-015**: The system MUST integrate with csdiy.wiki for course recommendations organized by topic and difficulty
-- **FR-016**: The system MUST integrate with LeetCode API for algorithm practice problem recommendations
-- **FR-017**: The system MUST integrate with Codeforces API for competitive programming problem recommendations
-- **FR-018**: The system MUST suggest prerequisites when recommending projects requiring unfamiliar skills
-- **FR-019**: The system MUST provide progressive difficulty paths from beginner to advanced
+- **FR-020**: The system MUST integrate with csdiy.wiki for course recommendations organized by topic and difficulty
+- **FR-021**: The system MUST integrate with LeetCode API for algorithm practice problem recommendations
+- **FR-022**: The system MUST integrate with Codeforces API for competitive programming problem recommendations
+- **FR-023**: The system MUST automatically include LeetCode/Codeforces problems in reports based on user's skill level and csdiy courses, even without explicit user request
+- **FR-024**: The system MUST use explicit user requests for practice problems when provided, falling back to automatic skill-based recommendations otherwise
+- **FR-025**: The system MUST suggest prerequisites when recommending projects requiring unfamiliar skills
+- **FR-026**: The system MUST provide progressive difficulty paths from beginner to advanced
 
 **Detailed Code Analysis**
-- **FR-020**: The system MUST allow users to select repositories for detailed code analysis
-- **FR-021**: The system MUST generate architecture analysis for selected repositories
-- **FR-022**: The system MUST identify key files and contribution areas for selected repositories
-- **FR-023**: The system MUST add detailed analyses to the final report upon user request
+- **FR-027**: The system MUST allow users to select repositories for detailed code analysis
+- **FR-028**: The system MUST generate architecture analysis for selected repositories
+- **FR-029**: The system MUST identify key files and contribution areas for selected repositories
+- **FR-030**: The system MUST add detailed analyses to the final report upon user request
 
 **Algorithm Enhancements**
-- **FR-024**: The system MUST implement association rule mining (Apriori) to discover skill-project patterns from historical data
-- **FR-025**: The system MUST implement FP-Growth for efficient pattern discovery in large datasets
-- **FR-026**: The system MUST use collaborative filtering to find similar users and recommend projects they contributed to
-- **FR-027**: The system MUST combine multiple algorithm outputs into hybrid recommendations with configurable weights
+- **FR-031**: The system MUST implement association rule mining (Apriori) to discover skill-project patterns from historical data
+- **FR-032**: The system MUST implement FP-Growth for efficient pattern discovery in large datasets
+- **FR-033**: The system MUST use collaborative filtering to find similar users and recommend projects they contributed to
+- **FR-034**: The system MUST combine multiple algorithm outputs into hybrid recommendations with configurable weights
 
 **Data Persistence**
-- **FR-028**: The system MUST store user preferences (languages, skills, blocks) in `~/.oss-navi/state/preferences.json`
-- **FR-029**: The system MUST store session state for multi-round interactions in `~/.oss-navi/state/sessions/`
-- **FR-030**: The system MUST store learned patterns from recommendation algorithms in `~/.oss-navi/state/patterns.json`
+- **FR-035**: The system MUST store user preferences (languages, skills, blocks) in `~/.oss-navi/state/preferences.json`
+- **FR-036**: The system MUST store session state for multi-round interactions in `~/.oss-navi/state/sessions/`
+- **FR-037**: The system MUST store learned patterns from recommendation algorithms in `~/.oss-navi/state/patterns.json`
 
 ### Testing Requirements
 
-- **FR-031**: The system MUST have unit tests for all recommendation algorithms with known input/output pairs
-- **FR-032**: The system MUST have integration tests for external API integrations (csdiy.wiki, LeetCode, Codeforces) with mocked responses
-- **FR-033**: The system MUST have unit tests for personalization rule evaluation
-- **FR-034**: The system MUST achieve minimum 80% test coverage
+- **FR-038**: The system MUST have unit tests for all recommendation algorithms with known input/output pairs
+- **FR-039**: The system MUST have integration tests for external API integrations (csdiy.wiki, LeetCode, Codeforces) with mocked responses
+- **FR-040**: The system MUST have unit tests for personalization rule evaluation
+- **FR-041**: The system MUST achieve minimum 80% test coverage
 
 ### Security Requirements
 
-- **FR-035**: The system MUST validate all external API responses before processing
-- **FR-036**: The system MUST handle external API failures gracefully with informative fallback messages
-- **FR-037**: The system MUST NOT expose user preference data without explicit user action
+- **FR-042**: The system MUST validate all external API responses before processing
+- **FR-043**: The system MUST handle external API failures gracefully with informative fallback messages
+- **FR-044**: The system MUST NOT expose user preference data without explicit user action
 
 ### Key Entities
 
@@ -168,7 +190,7 @@ A developer wants to select specific repositories from recommendations for detai
 
 - **Recommendation**: Represents a single project recommendation with relevance score, reasoning, skill gap analysis, and learning prerequisites. Generated by recommendation engine.
 
-- **RecommendationSession**: Represents a multi-round interaction state including initial recommendations, user feedback, refined recommendations, and selected projects for analysis.
+- **RecommendationSession**: Represents a multi-round interaction state including initial recommendations, user feedback, refined recommendations, selected projects for analysis, and report modifications.
 
 - **LearningResource**: Represents an external learning resource (course, tutorial, practice problem) from csdiy.wiki, LeetCode, or Codeforces with topic, difficulty, and URL.
 
@@ -177,6 +199,8 @@ A developer wants to select specific repositories from recommendations for detai
 - **BlockingRule**: Represents a user-defined rule to exclude specific projects, maintainers, organizations, or topics from recommendations.
 
 - **RecommendationPattern**: Represents a discovered association between skills, languages, and successful project contributions. Used by Apriori and FP-Growth algorithms.
+
+- **ReportSection**: Represents a section of the interactive report that can be added, deleted, or modified by the user during the session.
 
 ## Success Criteria *(mandatory)*
 
@@ -189,6 +213,7 @@ A developer wants to select specific repositories from recommendations for detai
 - **SC-005**: Learning resource integration successfully suggests relevant courses/problems for 80% of skill gaps identified
 - **SC-006**: Users who complete onboarding receive more relevant recommendations than users who skip it
 - **SC-007**: Recommendation algorithm accuracy improves over time as user feedback accumulates
+- **SC-008**: LeetCode/Codeforces problems appear in 100% of reports, automatically matched to user skill level
 
 ## Assumptions
 
@@ -198,6 +223,7 @@ A developer wants to select specific repositories from recommendations for detai
 - Historical contribution data (from synced profiles) provides sufficient signal for collaborative filtering
 - Users understand the difference between "primary", "secondary", and "learning" language designations
 - Blocking rules are user-maintained and the user understands the implications of broad blocks
+- Users understand the two-round recommendation process (exact match first, then adjacent)
 
 ## Out of Scope
 
