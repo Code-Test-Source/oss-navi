@@ -323,6 +323,7 @@ class ThinkingRecommender(BaseRecommender):
         """
         try:
             import numpy as np
+            import scipy.sparse as sp
             from lightfm import LightFM
             from lightfm.data import Dataset
         except ImportError:
@@ -390,9 +391,14 @@ class ThinkingRecommender(BaseRecommender):
                 learning_rate=0.05,
                 loss="warp",  # Weighted Approximate-Rank Pairwise
             )
-            # Fit on item features (unsupervised for cold start)
+            # Build a minimal implicit-feedback interactions matrix (1 user × N items)
+            # so LightFM can initialise its latent factors from item features alone.
+            num_items = len(item_names)
+            interactions_matrix = sp.csr_matrix(
+                np.zeros((1, num_items), dtype=np.float32)
+            )
             self._lightfm_model.fit_partial(
-                interactions=None,
+                interactions=interactions_matrix,
                 user_features=user_features_matrix,
                 item_features=item_features_matrix,
                 epochs=10,
