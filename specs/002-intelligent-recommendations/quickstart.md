@@ -28,11 +28,31 @@ oss-navi sync --learning
 
 ## Basic Usage
 
+### Recommendation Modes
+
+OSS-Navi offers three recommendation modes with different trade-offs:
+
+| Mode | Command | Time | Memory | Best For |
+|------|---------|------|--------|----------|
+| **Fast** | `--mode fast` | <30s | <50MB | Quick exploration, CI/CD |
+| **Normal** | `--mode normal` (default) | <90s | <200MB | Daily use |
+| **Thinking** | `--mode thinking` | <180s | <500MB | Deep analysis |
+
+**Installation Requirements**:
+- **Fast mode**: Works with minimal installation
+- **Normal/Thinking modes**: Requires `pip install oss-navi[recommend]`
+
 ### Interactive Recommendations (Recommended)
 
 ```bash
-# Start interactive recommendation session
+# Start interactive recommendation session (normal mode)
 oss-navi recommend
+
+# Fast mode for quick results
+oss-navi recommend --mode fast
+
+# Thinking mode for best quality
+oss-navi recommend --mode thinking
 
 # The system will:
 # 1. Analyze your GitHub profile + preferences
@@ -47,6 +67,9 @@ oss-navi recommend
 ```bash
 # Generate recommendations without interaction
 oss-navi recommend --non-interactive --output report.md
+
+# Fast one-shot for CI/CD
+oss-navi recommend --mode fast --non-interactive
 ```
 
 ### Learning Focus
@@ -150,10 +173,24 @@ oss-navi analyze django/django --add-to-session
 
 ## Performance Tips
 
-1. **Sync learning resources separately**: Run `oss-navi sync --learning` during off-peak times
-2. **Use cached data**: Non-interactive mode is faster for repeated queries
-3. **Limit rounds**: Use `--rounds 2` for quicker sessions
-4. **Resume sessions**: Don't re-analyze; resume existing sessions
+1. **Choose the right mode**: Use `--mode fast` for quick exploration, `--mode thinking` for important decisions
+2. **Sync learning resources separately**: Run `oss-navi sync --learning` during off-peak times
+3. **Use cached data**: Non-interactive mode is faster for repeated queries
+4. **Limit rounds**: Use `--rounds 2` for quicker sessions
+5. **Resume sessions**: Don't re-analyze; resume existing sessions
+
+## Installation Options
+
+```bash
+# Minimal installation (fast mode only)
+pip install oss-navi
+
+# With recommendation algorithms (normal/thinking modes)
+pip install oss-navi[recommend]
+
+# Full development installation
+pip install -e ".[dev,recommend]"
+```
 
 ## Troubleshooting
 
@@ -163,6 +200,8 @@ oss-navi analyze django/django --add-to-session
 | "API rate limit reached" | Wait 1 hour or use cached data (automatic fallback) |
 | "Session not found" | Sessions expire after 7 days; start new session |
 | "Learning resources unavailable" | Run `oss-navi sync --learning --force` |
+| "LightFM not installed" | Run `pip install oss-navi[recommend]` or use `--mode fast` |
+| "Mode unavailable" | System will fall back to a compatible mode automatically |
 
 ## Directory Structure
 

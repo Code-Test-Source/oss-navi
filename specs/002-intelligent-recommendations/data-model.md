@@ -9,6 +9,62 @@ This document defines the data entities for the intelligent recommendations feat
 
 ## Entities
 
+### RecommendationMode
+
+Represents the algorithm complexity mode for recommendations.
+
+```python
+class RecommendationMode(str, Enum):
+    FAST = "fast"         # Content-based only, <30s
+    NORMAL = "normal"     # Surprise SVD/KNN, <90s
+    THINKING = "thinking" # LightFM + Apriori, <180s
+
+class ModeConfig(BaseModel):
+    """Configuration for each recommendation mode."""
+    mode: RecommendationMode
+    max_time_seconds: int
+    max_memory_mb: int
+    algorithms: list[str]
+    requires_numpy: bool
+    requires_surprise: bool
+    requires_lightfm: bool
+
+# Predefined configurations
+MODE_CONFIGS: dict[RecommendationMode, ModeConfig] = {
+    RecommendationMode.FAST: ModeConfig(
+        mode=RecommendationMode.FAST,
+        max_time_seconds=30,
+        max_memory_mb=50,
+        algorithms=["content_based"],
+        requires_numpy=False,
+        requires_surprise=False,
+        requires_lightfm=False,
+    ),
+    RecommendationMode.NORMAL: ModeConfig(
+        mode=RecommendationMode.NORMAL,
+        max_time_seconds=90,
+        max_memory_mb=200,
+        algorithms=["surprise_svd", "surprise_knn"],
+        requires_numpy=True,
+        requires_surprise=True,
+        requires_lightfm=False,
+    ),
+    RecommendationMode.THINKING: ModeConfig(
+        mode=RecommendationMode.THINKING,
+        max_time_seconds=180,
+        max_memory_mb=500,
+        algorithms=["lightfm", "apriori"],
+        requires_numpy=True,
+        requires_surprise=True,
+        requires_lightfm=True,
+    ),
+}
+```
+
+**File**: `src/oss_navi/models/recommendation.py`
+
+---
+
 ### UserPreferences
 
 Represents user's language settings, skill levels, domain interests, and blocking rules.
@@ -101,6 +157,7 @@ class RecommendationRound(BaseModel):
 
 class RecommendationSession(BaseModel):
     session_id: str  # UUID
+    mode: RecommendationMode = RecommendationMode.NORMAL  # Recommendation mode
     user_preferences: UserPreferences
     rounds: list[RecommendationRound] = []
     report_sections: list["ReportSection"] = []
@@ -112,6 +169,7 @@ class RecommendationSession(BaseModel):
     def add_feedback(self, feedback: UserFeedback) -> None: ...
     def get_all_rejected_ids(self) -> set[str]: ...
     def get_all_accepted_ids(self) -> set[str]: ...
+    def get_mode_config(self) -> ModeConfig: ...
 ```
 
 **File**: `src/oss_navi/models/session.py`
@@ -167,6 +225,8 @@ class Recommendation(BaseModel):
     stars: int
     is_great_project: bool = False  # True for "great projects" section
     algorithm_source: str  # Which algorithm generated this
+    mode: RecommendationMode  # Which mode generated this
+    confidence_score: float | None = None  # Algorithm confidence (0.0-1.0)
     generated_at: datetime
 
     def to_markdown(self) -> str: ...

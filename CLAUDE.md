@@ -24,9 +24,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+: Follow standard conventions
 
 ## Recent Changes
+- 002-intelligent-recommendations: Added Python 3.11+
 - 002-intelligent-recommendations: Added Python 3.11+ + Click (CLI), httpx (HTTP client), Pydantic v2 (data models), PyYAML (config)
 - 001-oss-discovery: Added Python 3.11+ + Click (CLI), httpx (HTTP client), Pydantic v2 (data models), PyYAML
-- 001-oss-discovery: Added Python 3.11+ + Click (CLI), httpx (HTTP client), httpx[socks] (SOCKS proxy), Pydantic v2 (data models), PyYAML; switched task sources to JSON APIs (Up For Grabs YAML, Good First Issues JSON)
 
 <!-- MANUAL ADDITIONS START -->
 remember to do git commit every time you make changes

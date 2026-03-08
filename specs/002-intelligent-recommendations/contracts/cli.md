@@ -23,6 +23,7 @@ oss-navi recommend [OPTIONS]
 |--------|------|---------|-------------|
 | `--language`, `-l` | TEXT | (from profile) | Primary language for recommendations |
 | `--learn` | TEXT | None | Learning focus (language or skill) |
+| `--mode`, `-m` | TEXT | normal | Recommendation mode: fast, normal, thinking |
 | `--interactive`, `-i` | FLAG | True | Enable interactive mode |
 | `--non-interactive` | FLAG | False | Disable interactive mode (one-shot) |
 | `--rounds` | INT | 3 | Maximum recommendation rounds |
@@ -30,11 +31,25 @@ oss-navi recommend [OPTIONS]
 | `--session` | TEXT | None | Resume existing session by ID |
 | `--list-sessions` | FLAG | - | List active sessions |
 
+### Recommendation Modes
+
+| Mode | Algorithms | Time | Memory | Use Case |
+|------|------------|------|--------|----------|
+| `fast` | Content-based only | <30s | <50MB | Quick exploration, low-resource |
+| `normal` | Surprise SVD/KNN | <90s | <200MB | Balanced quality and speed |
+| `thinking` | LightFM + Apriori | <180s | <500MB | Maximum recommendation quality |
+
 ### Examples
 
 ```bash
-# Start interactive recommendation session
+# Start interactive recommendation session (normal mode)
 oss-navi recommend
+
+# Fast mode for quick exploration
+oss-navi recommend --mode fast
+
+# Thinking mode for best recommendations
+oss-navi recommend --mode thinking
 
 # Specify language focus
 oss-navi recommend --language go
@@ -45,8 +60,8 @@ oss-navi recommend --session abc123
 # Non-interactive (one-shot) mode
 oss-navi recommend --non-interactive --output report.md
 
-# Learning-focused recommendations
-oss-navi recommend --learn rust
+# Learning-focused recommendations with thinking mode
+oss-navi recommend --learn rust --mode thinking
 ```
 
 ### Exit Codes
@@ -391,6 +406,8 @@ What would you like to do?
 | Session not found | "Session {id} not found. Use `oss-navi session list` to see active sessions." | List sessions |
 | API failure | "Unable to fetch {source} data. Using cached data from {date}." | Continue with cache |
 | Blocked results | "All recommendations were blocked by your rules. Consider relaxing blocking rules." | Show blocking rules |
+| Missing dependency | "Mode '{mode}' requires {library}. Install with: pip install oss-navi[recommend]" | Fall back to fast mode or suggest installation |
+| Mode unavailable | "LightFM not installed. Falling back to normal mode." | Use fallback mode |
 
 ---
 
