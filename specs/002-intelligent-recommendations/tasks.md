@@ -243,8 +243,8 @@
 
 - [x] T068 [P] Update README.md with new commands and features
 - [x] T069 [P] Update CLAUDE.md with new technology context
-- [ ] T070 Verify 80% test coverage with pytest --cov
-- [ ] T071 Run ruff check and fix any linting issues
+- [ ] T070 Verify 80% test coverage with pytest --cov (currently 52%)
+- [x] T071 Run ruff check and fix any linting issues
 
 ---
 
