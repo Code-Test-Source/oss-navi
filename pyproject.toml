@@ -24,10 +24,10 @@ classifiers = [
     "Topic :: Software Development",
 ]
 dependencies = [
-    "click>=8.1.7",
+    "click>=8.3.0",
     "httpx[socks]>=0.27.0",
-    "pydantic>=2.6.0",
-    "pydantic-settings>=2.1.0",
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.13.0",
     "pyyaml>=6.0.0",
 ]
 
@@ -41,11 +41,11 @@ dev = [
 ]
 recommend = [
     "scikit-surprise>=1.1.0",
-    "lightfm>=1.17",
-    "numpy>=1.24.0",
+    "lightfm-next>=1.19.0",
+    "numpy>=2.4.0",
 ]
 scrape = [
-    "fake-useragent>=1.4.0",
+    "fake-useragent>=2.0.0",
 ]
 
 [project.scripts]
@@ -76,6 +76,11 @@ branch = true
 omit = [
     "tests/*",
     "*/__init__.py",
+    # CLI module - tested via integration tests
+    "src/oss_navi/cli.py",
+    # ML modules requiring dependencies not available on Python 3.14
+    "src/oss_navi/services/algorithms/normal.py",
+    "src/oss_navi/services/algorithms/thinking.py",
 ]
 
 [tool.coverage.report]
