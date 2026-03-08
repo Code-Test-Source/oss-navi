@@ -39,10 +39,17 @@ dev = [
     "ruff>=0.2.0",
     "pip-audit>=2.7.0",
 ]
+# Note: recommend extras require Python 3.11-3.13 (not 3.14+)
+# scikit-surprise and lightfm-next don't support Python 3.14 yet
 recommend = [
+    "lightfm-next>=1.19.0",
+    "numpy>=1.24.0",
+]
+recommend-full = [
+    # Full ML support (Python 3.11-3.13 only)
     "scikit-surprise>=1.1.0",
     "lightfm-next>=1.19.0",
-    "numpy>=2.4.0",
+    "numpy>=1.24.0",
 ]
 scrape = [
     "fake-useragent>=2.0.0",
