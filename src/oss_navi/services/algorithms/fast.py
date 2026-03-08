@@ -114,7 +114,8 @@ class FastRecommender(BaseRecommender):
         # Filter projects by language
         language_tasks = []
         for task in cached_tasks:
-            task_lang = task.get("language", "").lower()
+            repo = task.get("repository", task)
+            task_lang = (repo.get("language") or "").lower()
             if any(lang.lower() == task_lang for lang in languages):
                 language_tasks.append(task)
 
@@ -181,7 +182,7 @@ class FastRecommender(BaseRecommender):
         # Filter projects by adjacent languages
         adjacent_tasks = []
         for task in cached_tasks:
-            task_lang = task.get("language", "").lower()
+            task_lang = (task.get("repository", task).get("language") or "").lower()
             if task_lang in adjacent_languages:
                 adjacent_tasks.append(task)
 
@@ -227,7 +228,7 @@ class FastRecommender(BaseRecommender):
         candidates = self._content_based.filter_by_rejected(candidates, rejected_ids)
 
         # Sort by stars (popularity)
-        candidates.sort(key=lambda t: t.get("stars", 0), reverse=True)
+        candidates.sort(key=lambda t: t.get("repository", t).get("stars", 0), reverse=True)
 
         # Take top projects with good first issues
         popular = [

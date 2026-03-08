@@ -1,10 +1,11 @@
 """Apriori pattern mining for recommendation associations."""
 
+import math
 import uuid
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from oss_navi.models.recommendation import RecommendationPattern
 from oss_navi.utils.datetime_utils import utc_now
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 class TransactionDatabase(BaseModel):
     """Database of transactions for pattern mining."""
 
-    transactions: list[set[str]] = []
+    transactions: list[set[str]] = Field(default_factory=list)
 
     def add_transaction(self, items: set[str]) -> None:
         """Add a transaction (set of items)."""
@@ -46,7 +47,7 @@ def find_frequent_itemsets(
         return {}
 
     num_transactions = len(transactions)
-    min_count = int(min_support * num_transactions)
+    min_count = max(1, math.ceil(min_support * num_transactions))
 
     # Count single items
     item_counts: dict[str, int] = defaultdict(int)
